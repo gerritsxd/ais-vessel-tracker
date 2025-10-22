@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vessel Database Viewer</title>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+        }
+        
+        #header {
+            background: #16213e;
+            padding: 15px 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        #header h1 {
+            font-size: 24px;
+            color: #00d4ff;
+        }
+        
+        .nav-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .btn {
+            background: #0f3460;
+            color: #00d4ff;
+            border: 1px solid #00d4ff;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        
+        .btn:hover {
+            background: #00d4ff;
+            color: #0f3460;
+        }
+        
+        #filters {
+            background: #16213e;
+            padding: 20px;
+            margin: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+        
+        .filter-row {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-bottom: 15px;
+        }
+        
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        .filter-group label {
+            font-size: 12px;
+            color: #aaa;
+        }
+        
+        .filter-group input,
+        .filter-group select {
+            background: #0f3460;
+            color: #eee;
+            border: 1px solid #00d4ff;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        #stats {
+            display: flex;
+            gap: 30px;
+            margin: 20px;
+        }
+        
+        .stat {
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #00d4ff;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #aaa;
+            text-transform: uppercase;
+        }
+        
+        #table-container {
+            margin: 20px;
+            background: #16213e;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        thead {
+            background: #0f3460;
+            position: sticky;
+            top: 0;
+        }
+        
+        th {
+            padding: 12px;
+            text-align: left;
+            color: #00d4ff;
+            font-weight: bold;
+            border-bottom: 2px solid #00d4ff;
+        }
+        
+        td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #0f3460;
+        }
+        
+        tbody tr:hover {
+            background: #0f3460;
+        }
+        
+        .type-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+        
+        .type-passenger { background: #ff00ff; color: white; }
+        .type-cargo { background: #00ff00; color: black; }
+        .type-tanker { background: #ff0000; color: white; }
+        .type-other { background: #00d4ff; color: black; }
+        
+        #loading {
+            text-align: center;
+            padding: 40px;
+            font-size: 18px;
+            color: #00d4ff;
+        }
+        
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: #aaa;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div id="header">
+        <h1>🗄️ Vessel Database Viewer</h1>
+        <div class="nav-buttons">
+            <a href="/" class="btn">🗺️ Back to Map</a>
+        </div>
+    </div>
+    
+    <div id="filters">
+        <div class="filter-row">
+            <div class="filter-group">
+                <label>Search (Name/MMSI)</label>
+                <input type="text" id="search" placeholder="Search...">
+            </div>
+            
+            <div class="filter-group">
+                <label>Min Length (m)</label>
+                <input type="number" id="min-length" placeholder="e.g. 100">
+            </div>
+            
+            <div class="filter-group">
+                <label>Max Length (m)</label>
+                <input type="number" id="max-length" placeholder="e.g. 400">
+            </div>
+            
+            <div class="filter-group">
+                <label>Ship Type</label>
+                <select id="ship-type">
+                    <option value="">All Types</option>
+                    <option value="60">Passenger</option>
+                    <option value="70">Cargo</option>
+                    <option value="80">Tanker</option>
+                </select>
+            </div>
+            
+            <div class="filter-group">
+                <label>Flag State</label>
+                <input type="text" id="flag-state" placeholder="e.g. Netherlands">
+            </div>
+            
+            <div class="filter-group" style="justify-content: flex-end;">
+                <label>&nbsp;</label>
+                <button class="btn" onclick="applyFilters()">Apply Filters</button>
+            </div>
+            
+            <div class="filter-group" style="justify-content: flex-end;">
+                <label>&nbsp;</label>
+                <button class="btn" onclick="clearFilters()">Clear</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="stats">
+        <div class="stat">
+            <div class="stat-value" id="total-count">0</div>
+            <div class="stat-label">Total Vessels</div>
+        </div>
+        <div class="stat">
+            <div class="stat-value" id="filtered-count">0</div>
+            <div class="stat-label">Filtered Results</div>
+        </div>
+    </div>
+    
+    <div id="table-container">
+        <div id="loading">Loading vessels...</div>
+        <table id="vessels-table" style="display: none;">
+            <thead>
+                <tr>
+                    <th>MMSI</th>
+                    <th>Name</th>
+                    <th>Type</th>
+                    <th>Length (m)</th>
+                    <th>Beam (m)</th>
+                    <th>IMO</th>
+                    <th>Call Sign</th>
+                    <th>Flag</th>
+                    <th>Last Updated</th>
+                </tr>
+            </thead>
+            <tbody id="vessels-body">
+            </tbody>
+        </table>
+    </div>
+    
+    <script>
+        let allVessels = [];
+        
+        // Ship type info
+        const shipTypeInfo = {
+            60: { name: 'Passenger', badge: 'type-passenger' },
+            70: { name: 'Cargo', badge: 'type-cargo' },
+            80: { name: 'Tanker', badge: 'type-tanker' },
+            default: { name: 'Other', badge: 'type-other' }
+        };
+        
+        function getShipTypeInfo(shipType) {
+            if (shipType >= 60 && shipType < 70) return shipTypeInfo[60];
+            if (shipType >= 70 && shipType < 80) return shipTypeInfo[70];
+            if (shipType >= 80 && shipType < 90) return shipTypeInfo[80];
+            return shipTypeInfo.default;
+        }
+        
+        function formatDate(dateStr) {
+            if (!dateStr) return 'N/A';
+            const date = new Date(dateStr);
+            return date.toLocaleString();
+        }
+        
+        function renderTable(vessels) {
+            const tbody = document.getElementById('vessels-body');
+            tbody.innerHTML = '';
+            
+            if (vessels.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="9" class="no-data">No vessels found</td></tr>';
+                document.getElementById('filtered-count').textContent = 0;
+                return;
+            }
+            
+            vessels.forEach(vessel => {
+                const typeInfo = getShipTypeInfo(vessel.ship_type);
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${vessel.mmsi || 'N/A'}</td>
+                    <td><strong>${vessel.name || 'Unknown'}</strong></td>
+                    <td><span class="type-badge ${typeInfo.badge}">${typeInfo.name}</span></td>
+                    <td>${vessel.length || 'N/A'}</td>
+                    <td>${vessel.beam || 'N/A'}</td>
+                    <td>${vessel.imo || 'N/A'}</td>
+                    <td>${vessel.call_sign || 'N/A'}</td>
+                    <td>${vessel.flag_state || 'Unknown'}</td>
+                    <td>${formatDate(vessel.last_updated)}</td>
+                `;
+                tbody.appendChild(row);
+            });
+            
+            document.getElementById('filtered-count').textContent = vessels.length;
+        }
+        
+        function applyFilters() {
+            const search = document.getElementById('search').value;
+            const minLength = document.getElementById('min-length').value;
+            const maxLength = document.getElementById('max-length').value;
+            const shipType = document.getElementById('ship-type').value;
+            const flagState = document.getElementById('flag-state').value;
+            
+            const params = new URLSearchParams();
+            if (search) params.append('search', search);
+            if (minLength) params.append('min_length', minLength);
+            if (maxLength) params.append('max_length', maxLength);
+            if (shipType) params.append('ship_type', shipType);
+            if (flagState) params.append('flag_state', flagState);
+            
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('vessels-table').style.display = 'none';
+            
+            fetch(`/ships/api/database/vessels?${params.toString()}`)
+                .then(response => response.json())
+                .then(vessels => {
+                    allVessels = vessels;
+                    renderTable(vessels);
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('vessels-table').style.display = 'table';
+                })
+                .catch(error => {
+                    console.error('Error fetching vessels:', error);
+                    document.getElementById('loading').textContent = 'Error loading vessels';
+                });
+        }
+        
+        function clearFilters() {
+            document.getElementById('search').value = '';
+            document.getElementById('min-length').value = '';
+            document.getElementById('max-length').value = '';
+            document.getElementById('ship-type').value = '';
+            document.getElementById('flag-state').value = '';
+            applyFilters();
+        }
+        
+        // Load total count
+        fetch('/ships/api/stats')
+            .then(response => response.json())
+            .then(stats => {
+                document.getElementById('total-count').textContent = stats.total_vessels;
+            });
+        
+        // Load initial data
+        applyFilters();
+        
+        // Enter key to apply filters
+        document.querySelectorAll('input').forEach(input => {
+            input.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') applyFilters();
+            });
+        });
+    </script>
+</body>
+</html>

@@ -3,7 +3,7 @@ Real-time Web-Based Vessel Tracker with Map Visualization
 Displays tracked vessels on an interactive map with live updates.
 """
 
-from flask import Flask, render_template, jsonify
+from flask import Flask, render_template, jsonify, request
 from flask_socketio import SocketIO, emit
 import websocket
 import json
@@ -237,6 +237,79 @@ def get_stats():
         'vessels_with_position': len(vessel_positions),
         'tracking_active': tracking_active
     })
+
+
+@app.route('/database')
+def database_viewer():
+    """Serve the database viewer page."""
+    return render_template('database.html')
+
+
+@app.route('/api/database/vessels')
+def get_all_vessels():
+    """Get all vessels from database with filtering."""
+    script_dir = Path(__file__).parent
+    db_path = script_dir / DB_NAME
+    
+    conn = sqlite3.connect(db_path, timeout=30)
+    cursor = conn.cursor()
+    
+    # Get filter parameters
+    min_length = request.args.get('min_length', type=int)
+    max_length = request.args.get('max_length', type=int)
+    ship_type = request.args.get('ship_type', type=int)
+    flag_state = request.args.get('flag_state', type=str)
+    search = request.args.get('search', type=str)
+    
+    # Build query
+    query = 'SELECT mmsi, name, ship_type, length, beam, imo, call_sign, flag_state, last_updated FROM vessels_static WHERE 1=1'
+    params = []
+    
+    if min_length:
+        query += ' AND length >= ?'
+        params.append(min_length)
+    
+    if max_length:
+        query += ' AND length <= ?'
+        params.append(max_length)
+    
+    if ship_type:
+        query += ' AND ship_type >= ? AND ship_type < ?'
+        params.append(ship_type)
+        params.append(ship_type + 10)
+    
+    if flag_state:
+        query += ' AND flag_state = ?'
+        params.append(flag_state)
+    
+    if search:
+        query += ' AND (name LIKE ? OR CAST(mmsi AS TEXT) LIKE ?)'
+        search_param = f'%{search}%'
+        params.append(search_param)
+        params.append(search_param)
+    
+    query += ' ORDER BY last_updated DESC LIMIT 1000'
+    
+    cursor.execute(query, params)
+    vessels = cursor.fetchall()
+    conn.close()
+    
+    # Format results
+    results = []
+    for v in vessels:
+        results.append({
+            'mmsi': v[0],
+            'name': v[1],
+            'ship_type': v[2],
+            'length': v[3],
+            'beam': v[4],
+            'imo': v[5],
+            'call_sign': v[6],
+            'flag_state': v[7],
+            'last_updated': v[8]
+        })
+    
+    return jsonify(results)
 
 
 @socketio.on('connect')
