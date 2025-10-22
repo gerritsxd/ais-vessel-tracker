@@ -1,53 +1,54 @@
 # Quick Start Guide
 
-## 🚀 Get Started in 3 Steps
+## Prerequisites
+- Python 3.7+
+- Virtual environment activated (`.\hub\Scripts\activate`)
+- AISStream API key in `api.txt`
 
-### 1. Activate Environment
-```powershell
-.\hub\Scripts\activate
-```
+## Step 1: Collect Vessel Data
 
-### 2. Run the Collector
-```powershell
-python ais_collector.py
-```
+1. **Start the collector:**
+   ```bash
+   python ais_collector.py
+   ```
+   Or double-click: `run_collector.bat`
 
-### 3. Query Your Data
-```powershell
-python query_vessels.py
-```
+2. **You should see:**
+   - "WebSocket connection opened"
+   - "Subscription message sent"
+   - Incoming vessel data being printed and saved with flag states
+   - Example: `Saved to DB: MMSI 235010926 - AS GOOD AS IT GETS (United Kingdom)`
 
----
+3. **Let it run:**
+   - Recommended: Several hours or overnight
+   - Auto-reconnects on connection loss
+   - Builds comprehensive vessel database
 
-## 📊 What You'll See
+4. **Stop the collector:**
+   - Press `Ctrl+C`
+   - Database will close gracefully
 
-When running `ais_collector.py`, you'll see:
+## Step 2: Track Specific Vessels (Optional)
 
-```
-Loading API key from api.txt...
-API key loaded successfully.
+After collecting data, track filtered vessels in real-time:
 
-Initializing database...
-Database initialized: C:\Users\gerrit\Desktop\apihub\vessel_static_data.db
-Database ready.
+1. **Start the tracker:**
+   ```bash
+   python track_filtered_vessels.py
+   ```
 
-Connecting to AISStream...
-Press Ctrl+C to stop.
+2. **You should see:**
+   - List of vessels matching filter criteria
+   - Number of tracking connections created
+   - Real-time position updates as vessels move
 
-WebSocket connection opened. Sending subscription message...
-Subscription message sent.
+3. **Filter criteria:**
+   - Length >= 100 meters
+   - Excludes container ships (type 71, 72)
+   - Automatically batches MMSIs (max 50 per connection)
 
---- Static Data Report Received ---
-  MMSI: 123456789
-  Name: EXAMPLE VESSEL
-  Type: 70
-  Length: 150m
-  Beam: 25m
-  IMO: 9876543
-  Call Sign: ABCD
-----------------------------------------
-✓ Saved to DB: MMSI 123456789 - EXAMPLE VESSEL
-```
+4. **Stop the tracker:**
+   - Press `Ctrl+C`
 
 ---
 
@@ -95,14 +96,19 @@ python query_vessels.py
 apihub/
 ├── hub/                          # Virtual environment
 ├── ais_collector.py              # Main data collector
+├── track_filtered_vessels.py     # Real-time vessel tracker
+├── mmsi_mid_lookup.py            # Flag state decoder
 ├── query_vessels.py              # Interactive query tool
 ├── export_to_csv.py              # CSV export utility
+├── check_data.py                 # Data quality checker
+├── check_big_ships.py            # List ships >100m
 ├── api.txt                       # Your API key
 ├── vessel_static_data.db         # SQLite database (auto-created)
 ├── requirements.txt              # Python dependencies
 ├── ship_type_reference.txt       # Ship type codes
 ├── README.md                     # Full documentation
-└── QUICK_START.md               # This file
+├── QUICK_START.md                # This file
+└── LONG_RUN_GUIDE.md             # Long-term operation guide
 ```
 
 ---

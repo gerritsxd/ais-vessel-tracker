@@ -4,6 +4,7 @@ import sqlite3
 import os
 from datetime import datetime
 from pathlib import Path
+from mmsi_mid_lookup import get_flag_state
 
 # Database configuration
 DB_NAME = "vessel_static_data.db"
@@ -67,9 +68,17 @@ def init_database():
             beam INTEGER,
             imo INTEGER,
             call_sign TEXT,
+            flag_state TEXT,
             last_updated TEXT NOT NULL
         )
     ''')
+    
+    # Add flag_state column if it doesn't exist (for existing databases)
+    try:
+        cursor.execute('ALTER TABLE vessels_static ADD COLUMN flag_state TEXT')
+        conn.commit()
+    except sqlite3.OperationalError:
+        pass  # Column already exists
     
     conn.commit()
     print(f"Database initialized: {db_path}")
@@ -86,6 +95,9 @@ def save_vessel_data(mmsi, name, ship_type, length, beam, imo, call_sign):
         print("Error: Database connection not available")
         return
     
+    # Get flag state from MMSI
+    flag_state = get_flag_state(mmsi)
+    
     max_retries = 3
     for attempt in range(max_retries):
         try:
@@ -97,8 +109,8 @@ def save_vessel_data(mmsi, name, ship_type, length, beam, imo, call_sign):
             
             # UPSERT: Insert or replace if MMSI already exists
             cursor.execute('''
-                INSERT INTO vessels_static (mmsi, name, ship_type, length, beam, imo, call_sign, last_updated)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO vessels_static (mmsi, name, ship_type, length, beam, imo, call_sign, flag_state, last_updated)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(mmsi) DO UPDATE SET
                     name = excluded.name,
                     ship_type = excluded.ship_type,
@@ -106,11 +118,12 @@ def save_vessel_data(mmsi, name, ship_type, length, beam, imo, call_sign):
                     beam = excluded.beam,
                     imo = excluded.imo,
                     call_sign = excluded.call_sign,
+                    flag_state = excluded.flag_state,
                     last_updated = excluded.last_updated
-            ''', (mmsi, name, ship_type, length, beam, imo, call_sign, timestamp))
+            ''', (mmsi, name, ship_type, length, beam, imo, call_sign, flag_state, timestamp))
             
             db_conn.commit()
-            print(f"✓ Saved to DB: MMSI {mmsi} - {name or 'Unknown'}")
+            print(f"✓ Saved to DB: MMSI {mmsi} - {name or 'Unknown'} ({flag_state or 'Unknown flag'})")
             return  # Success, exit function
             
         except sqlite3.OperationalError as e:
