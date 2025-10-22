@@ -314,6 +314,7 @@
             type: 'all',
             size: 'all'
         };
+        let currentRoute = null; // Store current route polyline
         
         // Ship type colors and names
         const shipTypeInfo = {
@@ -423,6 +424,12 @@
                 }).addTo(map);
                 
                 marker.bindPopup(createPopupContent(mmsi, vessel));
+                
+                // Add click handler to show route
+                marker.on('click', () => {
+                    showVesselRoute(mmsi, vessel.name);
+                });
+                
                 markers[mmsi] = marker;
             }
             
@@ -447,6 +454,40 @@
         // Update statistics
         function updateStats() {
             document.getElementById('active-vessels').textContent = Object.keys(markers).length;
+        }
+        
+        // Show vessel route
+        function showVesselRoute(mmsi, vesselName) {
+            // Remove existing route
+            if (currentRoute) {
+                map.removeLayer(currentRoute);
+                currentRoute = null;
+            }
+            
+            // Fetch route data
+            fetch(`/ships/api/vessel/${mmsi}/route?hours=24`)
+                .then(response => response.json())
+                .then(route => {
+                    if (route.length === 0) {
+                        console.log('No route data available for this vessel');
+                        return;
+                    }
+                    
+                    // Create polyline from route points
+                    const latLngs = route.map(p => [p.lat, p.lon]);
+                    currentRoute = L.polyline(latLngs, {
+                        color: '#00d4ff',
+                        weight: 3,
+                        opacity: 0.7
+                    }).addTo(map);
+                    
+                    // Add popup to route
+                    currentRoute.bindPopup(`<b>${vesselName}</b><br>Route (last 24 hours)<br>${route.length} positions`);
+                    
+                    // Fit map to route
+                    map.fitBounds(currentRoute.getBounds().pad(0.1));
+                })
+                .catch(error => console.error('Error fetching route:', error));
         }
         
         // Load initial data

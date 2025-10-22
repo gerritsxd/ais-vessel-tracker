@@ -78,6 +78,27 @@ def init_database():
         )
     ''')
     
+    # Create position history table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS vessel_positions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            mmsi INTEGER NOT NULL,
+            latitude REAL NOT NULL,
+            longitude REAL NOT NULL,
+            sog REAL,
+            cog REAL,
+            heading INTEGER,
+            timestamp TEXT NOT NULL,
+            FOREIGN KEY (mmsi) REFERENCES vessels_static(mmsi)
+        )
+    ''')
+    
+    # Create index for faster queries
+    cursor.execute('''
+        CREATE INDEX IF NOT EXISTS idx_positions_mmsi_time 
+        ON vessel_positions(mmsi, timestamp DESC)
+    ''')
+    
     # Add new columns if they don't exist (for existing databases)
     new_columns = [
         ('flag_state', 'TEXT'),

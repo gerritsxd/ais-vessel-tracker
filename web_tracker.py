@@ -137,6 +137,21 @@ class VesselTrackerWebSocket:
                         'flag_state': vessel_static_data.get(mmsi, {}).get('flag_state', 'Unknown')
                     }
                     
+                    # Save position to history database
+                    try:
+                        script_dir = Path(__file__).parent
+                        db_path = script_dir / DB_NAME
+                        conn = sqlite3.connect(db_path, timeout=5)
+                        cursor = conn.cursor()
+                        cursor.execute('''
+                            INSERT INTO vessel_positions (mmsi, latitude, longitude, sog, cog, timestamp)
+                            VALUES (?, ?, ?, ?, ?, ?)
+                        ''', (mmsi, lat, lon, sog, cog, timestamp))
+                        conn.commit()
+                        conn.close()
+                    except Exception as e:
+                        print(f"[Position DB] Error saving: {e}")
+                    
                     # Emit to all connected web clients
                     socketio.emit('vessel_update', {
                         'mmsi': mmsi,
@@ -243,6 +258,41 @@ def get_stats():
 def database_viewer():
     """Serve the database viewer page."""
     return render_template('database.html')
+
+
+@app.route('/api/vessel/<int:mmsi>/route')
+def get_vessel_route(mmsi):
+    """Get position history for a specific vessel."""
+    hours = request.args.get('hours', default=24, type=int)
+    
+    script_dir = Path(__file__).parent
+    db_path = script_dir / DB_NAME
+    
+    conn = sqlite3.connect(db_path, timeout=30)
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        SELECT latitude, longitude, sog, cog, timestamp
+        FROM vessel_positions
+        WHERE mmsi = ?
+          AND timestamp >= datetime('now', '-' || ? || ' hours')
+        ORDER BY timestamp ASC
+    ''', (mmsi, hours))
+    
+    positions = cursor.fetchall()
+    conn.close()
+    
+    route = []
+    for p in positions:
+        route.append({
+            'lat': p[0],
+            'lon': p[1],
+            'sog': p[2],
+            'cog': p[3],
+            'timestamp': p[4]
+        })
+    
+    return jsonify(route)
 
 
 @app.route('/api/database/vessels')
