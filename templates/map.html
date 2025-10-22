@@ -503,10 +503,20 @@
                     }
                 });
                 
-                // Fit map to show all vessels
-                if (Object.keys(markers).length > 0) {
-                    const group = L.featureGroup(Object.values(markers));
-                    map.fitBounds(group.getBounds().pad(0.1));
+                // Check if MMSI is in URL to show specific route
+                const urlParams = new URLSearchParams(window.location.search);
+                const mmsi = urlParams.get('mmsi');
+                if (mmsi) {
+                    const vessel = vessels.find(v => v.mmsi == mmsi);
+                    if (vessel) {
+                        showVesselRoute(parseInt(mmsi), vessel.name);
+                    }
+                } else {
+                    // Fit map to show all vessels
+                    if (Object.keys(markers).length > 0) {
+                        const group = L.featureGroup(Object.values(markers));
+                        map.fitBounds(group.getBounds().pad(0.1));
+                    }
                 }
             });
         

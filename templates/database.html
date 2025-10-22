@@ -248,10 +248,11 @@
                     <th>Name</th>
                     <th>Type</th>
                     <th>Length (m)</th>
-                    <th>Beam (m)</th>
-                    <th>IMO</th>
-                    <th>Call Sign</th>
+                    <th>Destination</th>
+                    <th>ETA</th>
+                    <th>Draught (m)</th>
                     <th>Flag</th>
+                    <th>Route</th>
                     <th>Last Updated</th>
                 </tr>
             </thead>
@@ -289,7 +290,7 @@
             tbody.innerHTML = '';
             
             if (vessels.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="9" class="no-data">No vessels found</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="10" class="no-data">No vessels found</td></tr>';
                 document.getElementById('filtered-count').textContent = 0;
                 return;
             }
@@ -302,10 +303,11 @@
                     <td><strong>${vessel.name || 'Unknown'}</strong></td>
                     <td><span class="type-badge ${typeInfo.badge}">${typeInfo.name}</span></td>
                     <td>${vessel.length || 'N/A'}</td>
-                    <td>${vessel.beam || 'N/A'}</td>
-                    <td>${vessel.imo || 'N/A'}</td>
-                    <td>${vessel.call_sign || 'N/A'}</td>
+                    <td>${vessel.destination || 'N/A'}</td>
+                    <td>${vessel.eta ? formatDate(vessel.eta) : 'N/A'}</td>
+                    <td>${vessel.draught || 'N/A'}</td>
                     <td>${vessel.flag_state || 'Unknown'}</td>
+                    <td><a href="/ships/?mmsi=${vessel.mmsi}" class="btn" style="padding: 4px 8px; font-size: 11px;">View Route</a></td>
                     <td>${formatDate(vessel.last_updated)}</td>
                 `;
                 tbody.appendChild(row);

@@ -312,7 +312,7 @@ def get_all_vessels():
     search = request.args.get('search', type=str)
     
     # Build query
-    query = 'SELECT mmsi, name, ship_type, length, beam, imo, call_sign, flag_state, last_updated FROM vessels_static WHERE 1=1'
+    query = 'SELECT mmsi, name, ship_type, length, beam, imo, call_sign, flag_state, destination, eta, draught, last_updated FROM vessels_static WHERE 1=1'
     params = []
     
     if min_length:
@@ -356,7 +356,10 @@ def get_all_vessels():
             'imo': v[5],
             'call_sign': v[6],
             'flag_state': v[7],
-            'last_updated': v[8]
+            'destination': v[8],
+            'eta': v[9],
+            'draught': v[10],
+            'last_updated': v[11]
         })
     
     return jsonify(results)
