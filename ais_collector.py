@@ -353,11 +353,11 @@ def on_open(ws):
         "APIKey": API_KEY,
         "BoundingBoxes": [
             [
-                [50.0, -5.0],   # Southwest corner (English Channel)
-                [54.0, 7.0]     # Northeast corner (Netherlands + North Sea)
+                [35.0, -10.0],   # Southwest corner (Gibraltar, Portugal)
+                [72.0, 30.0]     # Northeast corner (Norway, Baltic Sea)
             ]
         ]
-        # Not filtering message types - will receive all AIS messages in this area
+        # Covers: Atlantic Coast, North Sea, Baltic Sea, Mediterranean
     }
     
     print(f"Sending subscription: {json.dumps(subscribe_message, indent=2)}")
