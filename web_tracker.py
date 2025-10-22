@@ -66,7 +66,9 @@ def get_filtered_vessels():
           AND mmsi IS NOT NULL
           AND length IS NOT NULL
           AND (ship_type IS NULL OR ship_type NOT IN (71, 72))
-        ORDER BY length DESC
+          AND last_updated >= datetime('now', '-7 days')
+        ORDER BY last_updated DESC
+        LIMIT 150
     '''
     
     cursor.execute(query)
