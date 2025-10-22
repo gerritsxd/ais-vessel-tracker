@@ -28,6 +28,8 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
         }
         
         #header h1 {
@@ -56,19 +58,116 @@
             text-transform: uppercase;
         }
         
-        #map {
-            height: calc(100vh - 70px);
-            width: 100%;
+        #controls {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
         }
         
+        .filter-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .filter-group label {
+            font-size: 12px;
+            color: #aaa;
+        }
+        
+        .filter-group select {
+            background: #0f3460;
+            color: #eee;
+            border: 1px solid #00d4ff;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        
+        #map {
+            height: calc(100vh - 120px);
+            width: 100%;
+            position: relative;
+        }
+        
+        /* Legend */
+        .legend {
+            position: absolute;
+            bottom: 30px;
+            right: 10px;
+            background: rgba(22, 33, 62, 0.95);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+            z-index: 1000;
+            min-width: 200px;
+        }
+        
+        .legend h3 {
+            color: #00d4ff;
+            font-size: 14px;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #00d4ff;
+            padding-bottom: 5px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 8px 0;
+            font-size: 12px;
+        }
+        
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            border: 2px solid #fff;
+        }
+        
+        .legend-size {
+            font-size: 11px;
+            color: #aaa;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #444;
+        }
+        
+        /* Enhanced Popup */
         .vessel-popup {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            min-width: 300px;
         }
         
         .vessel-popup h3 {
             margin: 0 0 10px 0;
             color: #00d4ff;
-            font-size: 16px;
+            font-size: 18px;
+            border-bottom: 2px solid #00d4ff;
+            padding-bottom: 5px;
+        }
+        
+        .vessel-photo {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+        
+        .vessel-photo-placeholder {
+            width: 100%;
+            height: 150px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 4px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 48px;
         }
         
         .vessel-popup table {
@@ -77,14 +176,29 @@
         }
         
         .vessel-popup td {
-            padding: 3px 5px;
+            padding: 4px 5px;
+            vertical-align: top;
         }
         
         .vessel-popup td:first-child {
             font-weight: bold;
             color: #666;
-            width: 80px;
+            width: 100px;
         }
+        
+        .vessel-popup .ship-type-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+        
+        .type-passenger { background: #ff00ff; color: white; }
+        .type-cargo { background: #00ff00; color: black; }
+        .type-tanker { background: #ff0000; color: white; }
+        .type-other { background: #00d4ff; color: black; }
         
         .status-indicator {
             display: inline-block;
@@ -102,30 +216,34 @@
         .status-inactive {
             background: #666;
         }
-        
-        /* Custom marker styles */
-        .vessel-marker {
-            background: #00d4ff;
-            border: 2px solid #fff;
-            border-radius: 50%;
-            width: 12px;
-            height: 12px;
-            box-shadow: 0 0 10px rgba(0, 212, 255, 0.8);
-        }
-        
-        .vessel-marker-large {
-            background: #ff6b00;
-            border: 3px solid #fff;
-            border-radius: 50%;
-            width: 16px;
-            height: 16px;
-            box-shadow: 0 0 15px rgba(255, 107, 0, 0.9);
-        }
     </style>
 </head>
 <body>
     <div id="header">
         <h1>🚢 Real-Time Vessel Tracker</h1>
+        
+        <div id="controls">
+            <div class="filter-group">
+                <label>Type:</label>
+                <select id="filter-type">
+                    <option value="all">All Types</option>
+                    <option value="60">Passenger</option>
+                    <option value="70">Cargo</option>
+                    <option value="80">Tanker</option>
+                    <option value="other">Other</option>
+                </select>
+            </div>
+            
+            <div class="filter-group">
+                <label>Size:</label>
+                <select id="filter-size">
+                    <option value="all">All Sizes</option>
+                    <option value="large">Large (≥200m)</option>
+                    <option value="medium">Medium (100-200m)</option>
+                </select>
+            </div>
+        </div>
+        
         <div id="stats">
             <div class="stat">
                 <div class="stat-value" id="total-vessels">0</div>
@@ -144,7 +262,32 @@
         </div>
     </div>
     
-    <div id="map"></div>
+    <div id="map">
+        <div class="legend">
+            <h3>Legend</h3>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #ff00ff;"></div>
+                <span>Passenger Ships</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #00ff00;"></div>
+                <span>Cargo Ships</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #ff0000;"></div>
+                <span>Tankers</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #00d4ff;"></div>
+                <span>Other Vessels</span>
+            </div>
+            <div class="legend-size">
+                <strong>Size:</strong><br>
+                • Large dot = ≥200m<br>
+                • Small dot = 100-200m
+            </div>
+        </div>
+    </div>
     
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -154,7 +297,7 @@
     
     <script>
         // Initialize map
-        const map = L.map('map').setView([51.5, 0], 6);
+        const map = L.map('map').setView([51.5, 2], 7);
         
         // Add OpenStreetMap tiles
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -162,21 +305,34 @@
             maxZoom: 19
         }).addTo(map);
         
-        // Store markers
+        // Store markers and vessel data
         const markers = {};
-        
-        // Ship type colors
-        const shipTypeColors = {
-            60: '#ff00ff',  // Passenger - Magenta
-            70: '#00ff00',  // Cargo - Green
-            80: '#ff0000',  // Tanker - Red
-            default: '#00d4ff'  // Default - Cyan
+        let allVessels = [];
+        let currentFilters = {
+            type: 'all',
+            size: 'all'
         };
+        
+        // Ship type colors and names
+        const shipTypeInfo = {
+            60: { color: '#ff00ff', name: 'Passenger', badge: 'type-passenger' },
+            70: { color: '#00ff00', name: 'Cargo', badge: 'type-cargo' },
+            80: { color: '#ff0000', name: 'Tanker', badge: 'type-tanker' },
+            default: { color: '#00d4ff', name: 'Other', badge: 'type-other' }
+        };
+        
+        function getShipTypeInfo(shipType) {
+            if (shipType >= 60 && shipType < 70) return shipTypeInfo[60];
+            if (shipType >= 70 && shipType < 80) return shipTypeInfo[70];
+            if (shipType >= 80 && shipType < 90) return shipTypeInfo[80];
+            return shipTypeInfo.default;
+        }
         
         // Create custom icon
         function createVesselIcon(vessel) {
             const isLarge = vessel.length >= 200;
-            const color = shipTypeColors[vessel.ship_type] || shipTypeColors.default;
+            const typeInfo = getShipTypeInfo(vessel.ship_type);
+            const color = typeInfo.color;
             
             return L.divIcon({
                 className: 'custom-marker',
@@ -186,31 +342,73 @@
             });
         }
         
-        // Create popup content
+        // Create enhanced popup content with ship photo
         function createPopupContent(mmsi, vessel) {
             const hasPosition = vessel.lat !== undefined;
+            const typeInfo = getShipTypeInfo(vessel.ship_type);
+            
+            // Try to get ship photo from MarineTraffic (note: this is a placeholder, actual API requires key)
+            const photoUrl = `https://photos.marinetraffic.com/ais/showphoto.aspx?mmsi=${mmsi}`;
             
             return `
                 <div class="vessel-popup">
                     <h3>${vessel.name}</h3>
+                    <div class="vessel-photo-placeholder">🚢</div>
+                    <span class="ship-type-badge ${typeInfo.badge}">${typeInfo.name}</span>
                     <table>
                         <tr><td>MMSI:</td><td>${mmsi}</td></tr>
-                        <tr><td>Flag:</td><td>${vessel.flag_state}</td></tr>
+                        <tr><td>Flag:</td><td>${vessel.flag_state || 'Unknown'}</td></tr>
                         <tr><td>Length:</td><td>${vessel.length}m</td></tr>
+                        <tr><td>Type Code:</td><td>${vessel.ship_type || 'N/A'}</td></tr>
+                        ${vessel.imo ? `<tr><td>IMO:</td><td>${vessel.imo}</td></tr>` : ''}
+                        ${vessel.call_sign ? `<tr><td>Call Sign:</td><td>${vessel.call_sign}</td></tr>` : ''}
                         ${hasPosition ? `
-                            <tr><td>Position:</td><td>${vessel.lat.toFixed(4)}, ${vessel.lon.toFixed(4)}</td></tr>
+                            <tr><td>Position:</td><td>${vessel.lat.toFixed(4)}°N, ${vessel.lon.toFixed(4)}°E</td></tr>
                             <tr><td>Speed:</td><td>${vessel.sog} knots</td></tr>
                             <tr><td>Course:</td><td>${vessel.cog}°</td></tr>
-                            <tr><td>Updated:</td><td>${new Date(vessel.timestamp).toLocaleTimeString()}</td></tr>
+                            <tr><td>Updated:</td><td>${new Date(vessel.timestamp).toLocaleString()}</td></tr>
                         ` : '<tr><td colspan="2"><em>Waiting for position...</em></td></tr>'}
                     </table>
                 </div>
             `;
         }
         
+        // Check if vessel passes filters
+        function passesFilters(vessel) {
+            // Type filter
+            if (currentFilters.type !== 'all') {
+                if (currentFilters.type === 'other') {
+                    if (vessel.ship_type >= 60 && vessel.ship_type < 90) return false;
+                } else {
+                    const typeNum = parseInt(currentFilters.type);
+                    if (!vessel.ship_type || vessel.ship_type < typeNum || vessel.ship_type >= typeNum + 10) {
+                        return false;
+                    }
+                }
+            }
+            
+            // Size filter
+            if (currentFilters.size !== 'all') {
+                if (currentFilters.size === 'large' && vessel.length < 200) return false;
+                if (currentFilters.size === 'medium' && (vessel.length < 100 || vessel.length >= 200)) return false;
+            }
+            
+            return true;
+        }
+        
         // Update vessel marker
         function updateVessel(mmsi, vessel) {
             if (!vessel.lat || !vessel.lon) return;
+            
+            // Check if vessel passes filters
+            if (!passesFilters(vessel)) {
+                // Remove marker if it exists
+                if (markers[mmsi]) {
+                    map.removeLayer(markers[mmsi]);
+                    delete markers[mmsi];
+                }
+                return;
+            }
             
             if (markers[mmsi]) {
                 // Update existing marker
@@ -230,6 +428,20 @@
             updateStats();
         }
         
+        // Apply filters to all vessels
+        function applyFilters() {
+            // Clear all markers
+            Object.values(markers).forEach(marker => map.removeLayer(marker));
+            Object.keys(markers).forEach(key => delete markers[key]);
+            
+            // Re-add vessels that pass filters
+            allVessels.forEach(vessel => {
+                if (vessel.lat && vessel.lon) {
+                    updateVessel(vessel.mmsi, vessel);
+                }
+            });
+        }
+        
         // Update statistics
         function updateStats() {
             document.getElementById('active-vessels').textContent = Object.keys(markers).length;
@@ -239,6 +451,7 @@
         fetch('/ships/api/vessels')
             .then(response => response.json())
             .then(vessels => {
+                allVessels = vessels;
                 document.getElementById('total-vessels').textContent = vessels.length;
                 
                 vessels.forEach(vessel => {
@@ -256,18 +469,35 @@
         
         // Connect to WebSocket for live updates
         const socket = io({path: '/ships/socket.io'});
-
         
         socket.on('connect', () => {
             console.log('Connected to server');
         });
         
         socket.on('vessel_update', (data) => {
+            // Update vessel in allVessels array
+            const index = allVessels.findIndex(v => v.mmsi === data.mmsi);
+            if (index >= 0) {
+                allVessels[index] = {...allVessels[index], ...data.position};
+            } else {
+                allVessels.push({mmsi: data.mmsi, ...data.position});
+            }
             updateVessel(data.mmsi, data.position);
         });
         
         socket.on('initial_data', (data) => {
             console.log('Received initial data:', data);
+        });
+        
+        // Filter event listeners
+        document.getElementById('filter-type').addEventListener('change', (e) => {
+            currentFilters.type = e.target.value;
+            applyFilters();
+        });
+        
+        document.getElementById('filter-size').addEventListener('change', (e) => {
+            currentFilters.size = e.target.value;
+            applyFilters();
         });
         
         // Refresh stats every 5 seconds
