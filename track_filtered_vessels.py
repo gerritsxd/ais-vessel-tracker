@@ -192,10 +192,14 @@ class VesselTracker:
         """Handle WebSocket open and send subscription."""
         print(f"[Batch {self.batch_id}] Connected - Tracking {len(self.mmsi_batch)} vessels")
         
+        # Convert MMSI list to the format AISStream expects
+        # Each MMSI should be a string in the array
+        mmsi_strings = [str(mmsi) for mmsi in self.mmsi_batch]
+        
         subscribe_message = {
             "APIKey": self.api_key,
-            "FiltersShipMMSI": self.mmsi_batch,
-            "FilterMessageTypes": ["PositionReport", "VoyageReport"]
+            "FiltersShipMMSI": mmsi_strings,
+            "BoundingBoxes": [[[90, -180], [-90, 180]]]  # Global coverage
         }
         
         ws.send(json.dumps(subscribe_message))
