@@ -20,7 +20,10 @@ WEBSOCKET_URL = "wss://stream.aisstream.io/v0/stream"
 MAX_MMSI_PER_CONNECTION = 50
 
 # Flask app
+from werkzeug.middleware.proxy_fix import ProxyFix
+
 app = Flask(__name__)
+app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 app.config['SECRET_KEY'] = 'ais-tracker-secret'
 socketio = SocketIO(app, cors_allowed_origins="*")
 
@@ -292,4 +295,4 @@ if __name__ == '__main__':
     print("="*70 + "\n")
     
     # Start Flask server
-    socketio.run(app, host='0.0.0.0', port=5000, debug=False)
+    socketio.run(app, host='0.0.0.0', port=5000, debug=False, allow_unsafe_werkzeug=True)

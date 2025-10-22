@@ -236,7 +236,7 @@
         }
         
         // Load initial data
-        fetch('/api/vessels')
+        fetch('/ships/api/vessels')
             .then(response => response.json())
             .then(vessels => {
                 document.getElementById('total-vessels').textContent = vessels.length;
@@ -255,7 +255,8 @@
             });
         
         // Connect to WebSocket for live updates
-        const socket = io();
+        const socket = io({path: '/ships/socket.io'});
+
         
         socket.on('connect', () => {
             console.log('Connected to server');
@@ -271,7 +272,7 @@
         
         // Refresh stats every 5 seconds
         setInterval(() => {
-            fetch('/api/stats')
+            fetch('/ships/api/stats')
                 .then(response => response.json())
                 .then(stats => {
                     document.getElementById('total-vessels').textContent = stats.total_vessels;
