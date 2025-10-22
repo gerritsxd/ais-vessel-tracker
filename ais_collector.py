@@ -337,8 +337,8 @@ def on_open(ws):
         "APIKey": API_KEY,
         "BoundingBoxes": [
             [
-                [50.0, -5.0],  # Southwest corner [lat, lon]
-                [52.0, 2.0]    # Northeast corner [lat, lon]
+                [50.0, -5.0],   # Southwest corner (English Channel)
+                [54.0, 7.0]     # Northeast corner (Netherlands + North Sea)
             ]
         ]
         # Not filtering message types - will receive all AIS messages in this area
