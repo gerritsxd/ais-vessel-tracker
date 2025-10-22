@@ -25,9 +25,14 @@ last_stats_time = None
 
 def load_api_key():
     """
-    Load the API key from api.txt file.
+    Load the API key from environment variable or api.txt file.
     Reads the last non-empty line from the file.
     """
+    # Check if API key is provided via environment variable
+    env_key = os.environ.get('AIS_API_KEY')
+    if env_key:
+        print(f"Using API key from environment variable")
+        return env_key
     try:
         script_dir = Path(__file__).parent
         api_file_path = script_dir / API_KEY_FILE
