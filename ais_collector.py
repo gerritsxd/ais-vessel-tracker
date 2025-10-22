@@ -222,9 +222,17 @@ def on_message(ws, message):
             print(f"  Call Sign: {call_sign}")
             print("-" * 40)
             
-            # Save to database
+            # Save to database - ONLY if vessel meets criteria
             if mmsi is not None:
-                save_vessel_data(mmsi, vessel_name, vessel_type, length, beam, imo, call_sign)
+                # Filter: Only save vessels >= 100m and NOT container ships (type 71, 72)
+                if length and length >= 100:
+                    if vessel_type is None or vessel_type not in [71, 72]:
+                        save_vessel_data(mmsi, vessel_name, vessel_type, length, beam, imo, call_sign)
+                        print("✓ Saved (meets criteria)")
+                    else:
+                        print("✗ Skipped (container ship)")
+                else:
+                    print(f"✗ Skipped (length {length}m < 100m)")
             else:
                 print("Warning: Received ShipStaticData without MMSI, skipping database save")
         
@@ -276,9 +284,17 @@ def on_message(ws, message):
             print(f"  Call Sign: {call_sign}")
             print("-" * 40)
             
-            # Save to database
+            # Save to database - ONLY if vessel meets criteria
             if mmsi is not None:
-                save_vessel_data(mmsi, vessel_name, vessel_type, length, beam, imo, call_sign)
+                # Filter: Only save vessels >= 100m and NOT container ships (type 71, 72)
+                if length and length >= 100:
+                    if vessel_type is None or vessel_type not in [71, 72]:
+                        save_vessel_data(mmsi, vessel_name, vessel_type, length, beam, imo, call_sign)
+                        print("✓ Saved (meets criteria)")
+                    else:
+                        print("✗ Skipped (container ship)")
+                else:
+                    print(f"✗ Skipped (length {length}m < 100m)")
             else:
                 print("Warning: Received StaticDataReport without MMSI, skipping database save")
 
