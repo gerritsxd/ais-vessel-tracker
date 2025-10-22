@@ -5,14 +5,12 @@ __pycache__/
 *.so
 .Python
 hub/
-*.egg-info/
-dist/
-build/
-
-# Virtual Environment
 venv/
 env/
 ENV/
+*.egg-info/
+dist/
+build/
 
 # IDE
 .vscode/
@@ -28,10 +26,18 @@ Thumbs.db
 *.tmp
 *.log
 
-# CSV exports (optional - can be removed if you want to track exports)
+# CSV exports
 *.csv
 
-# Database backups (keep main DB for now)
+# Database (don't commit the actual database)
+vessel_static_data.db
 *.db-journal
 *.db-wal
 *.db-shm
+
+# API Key (IMPORTANT - never commit this!)
+api.txt
+
+# VPS specific
+*.pid
+*.sock
