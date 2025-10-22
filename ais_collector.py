@@ -78,19 +78,28 @@ def init_database():
         )
     ''')
     
-    # Add flag_state column if it doesn't exist (for existing databases)
-    try:
-        cursor.execute('ALTER TABLE vessels_static ADD COLUMN flag_state TEXT')
-        conn.commit()
-    except sqlite3.OperationalError:
-        pass  # Column already exists
+    # Add new columns if they don't exist (for existing databases)
+    new_columns = [
+        ('flag_state', 'TEXT'),
+        ('destination', 'TEXT'),
+        ('eta', 'TEXT'),
+        ('draught', 'REAL'),
+        ('nav_status', 'INTEGER')
+    ]
+    
+    for column_name, column_type in new_columns:
+        try:
+            cursor.execute(f'ALTER TABLE vessels_static ADD COLUMN {column_name} {column_type}')
+            conn.commit()
+        except sqlite3.OperationalError:
+            pass  # Column already exists
     
     conn.commit()
     print(f"Database initialized: {db_path}")
     return conn
 
 
-def save_vessel_data(mmsi, name, ship_type, length, beam, imo, call_sign):
+def save_vessel_data(mmsi, name, ship_type, length, beam, imo, call_sign, destination=None, eta=None, draught=None, nav_status=None):
     """
     Save or update vessel static data in the database using UPSERT.
     """
@@ -114,8 +123,8 @@ def save_vessel_data(mmsi, name, ship_type, length, beam, imo, call_sign):
             
             # UPSERT: Insert or replace if MMSI already exists
             cursor.execute('''
-                INSERT INTO vessels_static (mmsi, name, ship_type, length, beam, imo, call_sign, flag_state, last_updated)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO vessels_static (mmsi, name, ship_type, length, beam, imo, call_sign, flag_state, destination, eta, draught, nav_status, last_updated)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(mmsi) DO UPDATE SET
                     name = excluded.name,
                     ship_type = excluded.ship_type,
@@ -124,8 +133,12 @@ def save_vessel_data(mmsi, name, ship_type, length, beam, imo, call_sign):
                     imo = excluded.imo,
                     call_sign = excluded.call_sign,
                     flag_state = excluded.flag_state,
+                    destination = excluded.destination,
+                    eta = excluded.eta,
+                    draught = excluded.draught,
+                    nav_status = excluded.nav_status,
                     last_updated = excluded.last_updated
-            ''', (mmsi, name, ship_type, length, beam, imo, call_sign, flag_state, timestamp))
+            ''', (mmsi, name, ship_type, length, beam, imo, call_sign, flag_state, destination, eta, draught, nav_status, timestamp))
             
             db_conn.commit()
             print(f"✓ Saved to DB: MMSI {mmsi} - {name or 'Unknown'} ({flag_state or 'Unknown flag'})")
@@ -216,6 +229,12 @@ def on_message(ws, message):
             call_sign = ship_data.get("CallSign", "").strip() or None
             imo = ship_data.get("ImoNumber") or None
             
+            # Get voyage data
+            destination = ship_data.get("Destination", "").strip() or None
+            eta = ship_data.get("Eta") or None
+            draught = ship_data.get("MaximumStaticDraught") or None
+            nav_status = metadata.get("NavigationalStatus") or None
+            
             # Print the received data
             print(f"\n--- Ship Static Data Received (Type 5) ---")
             print(f"  MMSI: {mmsi}")
@@ -225,6 +244,9 @@ def on_message(ws, message):
             print(f"  Beam: {beam}m")
             print(f"  IMO: {imo}")
             print(f"  Call Sign: {call_sign}")
+            print(f"  Destination: {destination}")
+            print(f"  ETA: {eta}")
+            print(f"  Draught: {draught}m")
             print("-" * 40)
             
             # Save to database - ONLY if vessel meets criteria
@@ -232,7 +254,7 @@ def on_message(ws, message):
                 # Filter: Only save vessels >= 100m and NOT container ships (type 71, 72)
                 if length and length >= 100:
                     if vessel_type is None or vessel_type not in [71, 72]:
-                        save_vessel_data(mmsi, vessel_name, vessel_type, length, beam, imo, call_sign)
+                        save_vessel_data(mmsi, vessel_name, vessel_type, length, beam, imo, call_sign, destination, eta, draught, nav_status)
                         print("✓ Saved (meets criteria)")
                     else:
                         print("✗ Skipped (container ship)")
