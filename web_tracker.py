@@ -68,7 +68,7 @@ def get_filtered_vessels():
           AND (ship_type IS NULL OR ship_type NOT IN (71, 72))
           AND last_updated >= datetime('now', '-7 days')
         ORDER BY last_updated DESC
-        LIMIT 150
+        LIMIT 300
     '''
     
     cursor.execute(query)
