@@ -56,24 +56,29 @@ def get_filtered_vessels():
     script_dir = Path(__file__).parent
     db_path = script_dir / DB_NAME
     
-    conn = sqlite3.connect(db_path, timeout=30)
-    cursor = conn.cursor()
-    
-    query = '''
-        SELECT mmsi, name, ship_type, length, beam, imo, call_sign, flag_state
-        FROM vessels_static
-        WHERE length >= 100
-          AND mmsi IS NOT NULL
-          AND length IS NOT NULL
-          AND (ship_type IS NULL OR ship_type NOT IN (71, 72))
-          AND last_updated >= datetime('now', '-7 days')
-        ORDER BY last_updated DESC
-        LIMIT 450
-    '''
-    
-    cursor.execute(query)
-    vessels = cursor.fetchall()
-    conn.close()
+    conn = None
+    try:
+        conn = sqlite3.connect(db_path, timeout=30)
+        conn.execute('PRAGMA journal_mode=WAL')
+        cursor = conn.cursor()
+        
+        query = '''
+            SELECT mmsi, name, ship_type, length, beam, imo, call_sign, flag_state
+            FROM vessels_static
+            WHERE length >= 100
+              AND mmsi IS NOT NULL
+              AND length IS NOT NULL
+              AND (ship_type IS NULL OR ship_type NOT IN (71, 72))
+              AND last_updated >= datetime('now', '-7 days')
+            ORDER BY last_updated DESC
+            LIMIT 450
+        '''
+        
+        cursor.execute(query)
+        vessels = cursor.fetchall()
+    finally:
+        if conn:
+            conn.close()
     
     # Store static data
     for vessel in vessels:
@@ -138,19 +143,23 @@ class VesselTrackerWebSocket:
                     }
                     
                     # Save position to history database
+                    conn = None
                     try:
                         script_dir = Path(__file__).parent
                         db_path = script_dir / DB_NAME
                         conn = sqlite3.connect(db_path, timeout=5)
+                        conn.execute('PRAGMA journal_mode=WAL')
                         cursor = conn.cursor()
                         cursor.execute('''
                             INSERT INTO vessel_positions (mmsi, latitude, longitude, sog, cog, timestamp)
                             VALUES (?, ?, ?, ?, ?, ?)
                         ''', (mmsi, lat, lon, sog, cog, timestamp))
                         conn.commit()
-                        conn.close()
                     except Exception as e:
                         print(f"[Position DB] Error saving: {e}")
+                    finally:
+                        if conn:
+                            conn.close()
                     
                     # Emit to all connected web clients
                     socketio.emit('vessel_update', {
@@ -268,31 +277,36 @@ def get_vessel_route(mmsi):
     script_dir = Path(__file__).parent
     db_path = script_dir / DB_NAME
     
-    conn = sqlite3.connect(db_path, timeout=30)
-    cursor = conn.cursor()
-    
-    cursor.execute('''
-        SELECT latitude, longitude, sog, cog, timestamp
-        FROM vessel_positions
-        WHERE mmsi = ?
-          AND timestamp >= datetime('now', '-' || ? || ' hours')
-        ORDER BY timestamp ASC
-    ''', (mmsi, hours))
-    
-    positions = cursor.fetchall()
-    conn.close()
-    
-    route = []
-    for p in positions:
-        route.append({
-            'lat': p[0],
-            'lon': p[1],
-            'sog': p[2],
-            'cog': p[3],
-            'timestamp': p[4]
-        })
-    
-    return jsonify(route)
+    conn = None
+    try:
+        conn = sqlite3.connect(db_path, timeout=30)
+        conn.execute('PRAGMA journal_mode=WAL')
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT latitude, longitude, sog, cog, timestamp
+            FROM vessel_positions
+            WHERE mmsi = ?
+              AND timestamp >= datetime('now', '-' || ? || ' hours')
+            ORDER BY timestamp ASC
+        ''', (mmsi, hours))
+        
+        positions = cursor.fetchall()
+        
+        route = []
+        for p in positions:
+            route.append({
+                'lat': p[0],
+                'lon': p[1],
+                'sog': p[2],
+                'cog': p[3],
+                'timestamp': p[4]
+            })
+        
+        return jsonify(route)
+    finally:
+        if conn:
+            conn.close()
 
 
 @app.route('/api/database/vessels')
@@ -301,68 +315,76 @@ def get_all_vessels():
     script_dir = Path(__file__).parent
     db_path = script_dir / DB_NAME
     
-    conn = sqlite3.connect(db_path, timeout=30)
-    cursor = conn.cursor()
-    
-    # Get filter parameters
-    min_length = request.args.get('min_length', type=int)
-    max_length = request.args.get('max_length', type=int)
-    ship_type = request.args.get('ship_type', type=int)
-    flag_state = request.args.get('flag_state', type=str)
-    search = request.args.get('search', type=str)
-    
-    # Build query
-    query = 'SELECT mmsi, name, ship_type, length, beam, imo, call_sign, flag_state, destination, eta, draught, last_updated FROM vessels_static WHERE 1=1'
-    params = []
-    
-    if min_length:
-        query += ' AND length >= ?'
-        params.append(min_length)
-    
-    if max_length:
-        query += ' AND length <= ?'
-        params.append(max_length)
-    
-    if ship_type:
-        query += ' AND ship_type >= ? AND ship_type < ?'
-        params.append(ship_type)
-        params.append(ship_type + 10)
-    
-    if flag_state:
-        query += ' AND flag_state = ?'
-        params.append(flag_state)
-    
-    if search:
-        query += ' AND (name LIKE ? OR CAST(mmsi AS TEXT) LIKE ?)'
-        search_param = f'%{search}%'
-        params.append(search_param)
-        params.append(search_param)
-    
-    query += ' ORDER BY last_updated DESC LIMIT 1000'
-    
-    cursor.execute(query, params)
-    vessels = cursor.fetchall()
-    conn.close()
-    
-    # Format results
-    results = []
-    for v in vessels:
-        results.append({
-            'mmsi': v[0],
-            'name': v[1],
-            'ship_type': v[2],
-            'length': v[3],
-            'beam': v[4],
-            'imo': v[5],
-            'call_sign': v[6],
-            'flag_state': v[7],
-            'destination': v[8],
-            'eta': v[9],
-            'draught': v[10],
-            'last_updated': v[11]
-        })
-    
-    return jsonify(results)
+    conn = None
+    try:
+        conn = sqlite3.connect(db_path, timeout=30)
+        conn.execute('PRAGMA journal_mode=WAL')
+        cursor = conn.cursor()
+        
+        # Get filter parameters
+        min_length = request.args.get('min_length', type=int)
+        max_length = request.args.get('max_length', type=int)
+        ship_type = request.args.get('ship_type', type=int)
+        flag_state = request.args.get('flag_state', type=str)
+        search = request.args.get('search', type=str)
+        
+        # Build query
+        query = 'SELECT mmsi, name, ship_type, length, beam, imo, call_sign, flag_state, destination, eta, draught, last_updated FROM vessels_static WHERE 1=1'
+        params = []
+        
+        if min_length:
+            query += ' AND length >= ?'
+            params.append(min_length)
+        
+        if max_length:
+            query += ' AND length <= ?'
+            params.append(max_length)
+        
+        if ship_type:
+            query += ' AND ship_type >= ? AND ship_type < ?'
+            params.append(ship_type)
+            params.append(ship_type + 10)
+        
+        if flag_state:
+            query += ' AND flag_state = ?'
+            params.append(flag_state)
+        
+        if search:
+            query += ' AND (name LIKE ? OR CAST(mmsi AS TEXT) LIKE ?)'
+            search_param = f'%{search}%'
+            params.append(search_param)
+            params.append(search_param)
+        
+        query += ' ORDER BY last_updated DESC LIMIT 1000'
+        
+        cursor.execute(query, params)
+        vessels = cursor.fetchall()
+        
+        # Format results
+        results = []
+        for v in vessels:
+            results.append({
+                'mmsi': v[0],
+                'name': v[1],
+                'ship_type': v[2],
+                'length': v[3],
+                'beam': v[4],
+                'imo': v[5],
+                'call_sign': v[6],
+                'flag_state': v[7],
+                'destination': v[8],
+                'eta': v[9],
+                'draught': v[10],
+                'last_updated': v[11]
+            })
+        
+        return jsonify(results)
+    except Exception as e:
+        print(f"Error in get_all_vessels: {e}")
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if conn:
+            conn.close()
 
 
 @socketio.on('connect')
