@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-Time Vessel Tracker</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+        }
+        
+        #header {
+            background: #16213e;
+            padding: 15px 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        #header h1 {
+            font-size: 24px;
+            color: #00d4ff;
+        }
+        
+        #stats {
+            display: flex;
+            gap: 30px;
+        }
+        
+        .stat {
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 28px;
+            font-weight: bold;
+            color: #00d4ff;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #aaa;
+            text-transform: uppercase;
+        }
+        
+        #map {
+            height: calc(100vh - 70px);
+            width: 100%;
+        }
+        
+        .vessel-popup {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .vessel-popup h3 {
+            margin: 0 0 10px 0;
+            color: #00d4ff;
+            font-size: 16px;
+        }
+        
+        .vessel-popup table {
+            width: 100%;
+            font-size: 13px;
+        }
+        
+        .vessel-popup td {
+            padding: 3px 5px;
+        }
+        
+        .vessel-popup td:first-child {
+            font-weight: bold;
+            color: #666;
+            width: 80px;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+        
+        .status-active {
+            background: #00ff00;
+            box-shadow: 0 0 10px #00ff00;
+        }
+        
+        .status-inactive {
+            background: #666;
+        }
+        
+        /* Custom marker styles */
+        .vessel-marker {
+            background: #00d4ff;
+            border: 2px solid #fff;
+            border-radius: 50%;
+            width: 12px;
+            height: 12px;
+            box-shadow: 0 0 10px rgba(0, 212, 255, 0.8);
+        }
+        
+        .vessel-marker-large {
+            background: #ff6b00;
+            border: 3px solid #fff;
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            box-shadow: 0 0 15px rgba(255, 107, 0, 0.9);
+        }
+    </style>
+</head>
+<body>
+    <div id="header">
+        <h1>🚢 Real-Time Vessel Tracker</h1>
+        <div id="stats">
+            <div class="stat">
+                <div class="stat-value" id="total-vessels">0</div>
+                <div class="stat-label">Total Vessels</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value" id="active-vessels">0</div>
+                <div class="stat-label">Active Tracking</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">
+                    <span class="status-indicator status-active"></span>
+                    Live Updates
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="map"></div>
+    
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <!-- Socket.IO -->
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    
+    <script>
+        // Initialize map
+        const map = L.map('map').setView([51.5, 0], 6);
+        
+        // Add OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors',
+            maxZoom: 19
+        }).addTo(map);
+        
+        // Store markers
+        const markers = {};
+        
+        // Ship type colors
+        const shipTypeColors = {
+            60: '#ff00ff',  // Passenger - Magenta
+            70: '#00ff00',  // Cargo - Green
+            80: '#ff0000',  // Tanker - Red
+            default: '#00d4ff'  // Default - Cyan
+        };
+        
+        // Create custom icon
+        function createVesselIcon(vessel) {
+            const isLarge = vessel.length >= 200;
+            const color = shipTypeColors[vessel.ship_type] || shipTypeColors.default;
+            
+            return L.divIcon({
+                className: 'custom-marker',
+                html: `<div style="background: ${color}; border: 2px solid #fff; border-radius: 50%; width: ${isLarge ? 16 : 12}px; height: ${isLarge ? 16 : 12}px; box-shadow: 0 0 ${isLarge ? 15 : 10}px ${color};"></div>`,
+                iconSize: [isLarge ? 16 : 12, isLarge ? 16 : 12],
+                iconAnchor: [isLarge ? 8 : 6, isLarge ? 8 : 6]
+            });
+        }
+        
+        // Create popup content
+        function createPopupContent(mmsi, vessel) {
+            const hasPosition = vessel.lat !== undefined;
+            
+            return `
+                <div class="vessel-popup">
+                    <h3>${vessel.name}</h3>
+                    <table>
+                        <tr><td>MMSI:</td><td>${mmsi}</td></tr>
+                        <tr><td>Flag:</td><td>${vessel.flag_state}</td></tr>
+                        <tr><td>Length:</td><td>${vessel.length}m</td></tr>
+                        ${hasPosition ? `
+                            <tr><td>Position:</td><td>${vessel.lat.toFixed(4)}, ${vessel.lon.toFixed(4)}</td></tr>
+                            <tr><td>Speed:</td><td>${vessel.sog} knots</td></tr>
+                            <tr><td>Course:</td><td>${vessel.cog}°</td></tr>
+                            <tr><td>Updated:</td><td>${new Date(vessel.timestamp).toLocaleTimeString()}</td></tr>
+                        ` : '<tr><td colspan="2"><em>Waiting for position...</em></td></tr>'}
+                    </table>
+                </div>
+            `;
+        }
+        
+        // Update vessel marker
+        function updateVessel(mmsi, vessel) {
+            if (!vessel.lat || !vessel.lon) return;
+            
+            if (markers[mmsi]) {
+                // Update existing marker
+                markers[mmsi].setLatLng([vessel.lat, vessel.lon]);
+                markers[mmsi].setPopupContent(createPopupContent(mmsi, vessel));
+            } else {
+                // Create new marker
+                const marker = L.marker([vessel.lat, vessel.lon], {
+                    icon: createVesselIcon(vessel)
+                }).addTo(map);
+                
+                marker.bindPopup(createPopupContent(mmsi, vessel));
+                markers[mmsi] = marker;
+            }
+            
+            // Update stats
+            updateStats();
+        }
+        
+        // Update statistics
+        function updateStats() {
+            document.getElementById('active-vessels').textContent = Object.keys(markers).length;
+        }
+        
+        // Load initial data
+        fetch('/ships/api/vessels')
+            .then(response => response.json())
+            .then(vessels => {
+                document.getElementById('total-vessels').textContent = vessels.length;
+                
+                vessels.forEach(vessel => {
+                    if (vessel.lat && vessel.lon) {
+                        updateVessel(vessel.mmsi, vessel);
+                    }
+                });
+                
+                // Fit map to show all vessels
+                if (Object.keys(markers).length > 0) {
+                    const group = L.featureGroup(Object.values(markers));
+                    map.fitBounds(group.getBounds().pad(0.1));
+                }
+            });
+        
+        // Connect to WebSocket for live updates
+        const socket = io({path: '/ships/socket.io'});
+
+        
+        socket.on('connect', () => {
+            console.log('Connected to server');
+        });
+        
+        socket.on('vessel_update', (data) => {
+            updateVessel(data.mmsi, data.position);
+        });
+        
+        socket.on('initial_data', (data) => {
+            console.log('Received initial data:', data);
+        });
+        
+        // Refresh stats every 5 seconds
+        setInterval(() => {
+            fetch('/ships/api/stats')
+                .then(response => response.json())
+                .then(stats => {
+                    document.getElementById('total-vessels').textContent = stats.total_vessels;
+                });
+        }, 5000);
+    </script>
+</body>
+</html>

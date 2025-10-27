@@ -241,6 +241,11 @@
                 <input type="text" id="flag-state" placeholder="e.g. Netherlands">
             </div>
             
+            <div class="filter-group">
+                <label>Company</label>
+                <input type="text" id="company" placeholder="e.g. Maersk">
+            </div>
+            
             <div class="filter-group" style="justify-content: flex-end;">
                 <label>&nbsp;</label>
                 <button class="btn" onclick="applyFilters()">Apply Filters</button>
@@ -273,6 +278,7 @@
                     <th>Name</th>
                     <th class="sortable" data-column="ship_type" onclick="sortTable('ship_type')">Type</th>
                     <th class="sortable" data-column="length" onclick="sortTable('length')">Length (m)</th>
+                    <th class="sortable" data-column="signatory_company" onclick="sortTable('signatory_company')">Company</th>
                     <th>Destination</th>
                     <th>ETA</th>
                     <th>Draught (m)</th>
@@ -363,7 +369,7 @@
             tbody.innerHTML = '';
             
             if (vessels.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="10" class="no-data">No vessels found</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="11" class="no-data">No vessels found</td></tr>';
                 document.getElementById('filtered-count').textContent = 0;
                 return;
             }
@@ -376,6 +382,7 @@
                     <td><strong>${vessel.name || 'Unknown'}</strong></td>
                     <td><span class="type-badge ${typeInfo.badge}">${typeInfo.name}</span></td>
                     <td>${vessel.length || 'N/A'}</td>
+                    <td><strong style="color: #00d4ff;">${vessel.signatory_company || 'Unknown'}</strong></td>
                     <td>${vessel.destination || 'N/A'}</td>
                     <td>${vessel.eta ? formatDate(vessel.eta) : 'N/A'}</td>
                     <td>${vessel.draught || 'N/A'}</td>
@@ -395,18 +402,20 @@
             const maxLength = document.getElementById('max-length').value;
             const shipType = document.getElementById('ship-type').value;
             const flagState = document.getElementById('flag-state').value;
+            const company = document.getElementById('company').value;
             
-            const params = new URLSearchParams();
-            if (search) params.append('search', search);
-            if (minLength) params.append('min_length', minLength);
-            if (maxLength) params.append('max_length', maxLength);
-            if (shipType) params.append('ship_type', shipType);
-            if (flagState) params.append('flag_state', flagState);
+            let url = '/ships/api/database/vessels?';
+            if (search) url += `search=${encodeURIComponent(search)}&`;
+            if (minLength) url += `min_length=${minLength}&`;
+            if (maxLength) url += `max_length=${maxLength}&`;
+            if (shipType) url += `ship_type=${shipType}&`;
+            if (flagState) url += `flag_state=${encodeURIComponent(flagState)}&`;
+            if (company) url += `search=${encodeURIComponent(company)}&`;
             
             document.getElementById('loading').style.display = 'block';
             document.getElementById('vessels-table').style.display = 'none';
             
-            fetch(`/ships/api/database/vessels?${params.toString()}`)
+            fetch(url)
                 .then(response => response.json())
                 .then(vessels => {
                     allVessels = vessels;

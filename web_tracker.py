@@ -63,7 +63,7 @@ def get_filtered_vessels():
         cursor = conn.cursor()
         
         query = '''
-            SELECT mmsi, name, ship_type, length, beam, imo, call_sign, flag_state
+            SELECT mmsi, name, ship_type, length, beam, imo, call_sign, flag_state, signatory_company
             FROM vessels_static
             WHERE length >= 100
               AND mmsi IS NOT NULL
@@ -82,7 +82,7 @@ def get_filtered_vessels():
     
     # Store static data
     for vessel in vessels:
-        mmsi, name, ship_type, length, beam, imo, call_sign, flag_state = vessel
+        mmsi, name, ship_type, length, beam, imo, call_sign, flag_state, signatory_company = vessel
         vessel_static_data[mmsi] = {
             'name': name or 'Unknown',
             'ship_type': ship_type,
@@ -90,7 +90,8 @@ def get_filtered_vessels():
             'beam': beam,
             'imo': imo,
             'call_sign': call_sign,
-            'flag_state': flag_state or 'Unknown'
+            'flag_state': flag_state or 'Unknown',
+            'signatory_company': signatory_company
         }
     
     return [vessel[0] for vessel in vessels]
@@ -329,7 +330,7 @@ def get_all_vessels():
         search = request.args.get('search', type=str)
         
         # Build query
-        query = 'SELECT mmsi, name, ship_type, length, beam, imo, call_sign, flag_state, destination, eta, draught, last_updated FROM vessels_static WHERE 1=1'
+        query = 'SELECT mmsi, name, ship_type, length, beam, imo, call_sign, flag_state, destination, eta, draught, last_updated, signatory_company FROM vessels_static WHERE 1=1'
         params = []
         
         if min_length:
@@ -350,8 +351,9 @@ def get_all_vessels():
             params.append(flag_state)
         
         if search:
-            query += ' AND (name LIKE ? OR CAST(mmsi AS TEXT) LIKE ?)'
+            query += ' AND (name LIKE ? OR CAST(mmsi AS TEXT) LIKE ? OR signatory_company LIKE ?)'
             search_param = f'%{search}%'
+            params.append(search_param)
             params.append(search_param)
             params.append(search_param)
         
@@ -375,12 +377,55 @@ def get_all_vessels():
                 'destination': v[8],
                 'eta': v[9],
                 'draught': v[10],
-                'last_updated': v[11]
+                'last_updated': v[11],
+                'signatory_company': v[12]
             })
         
         return jsonify(results)
     except Exception as e:
         print(f"Error in get_all_vessels: {e}")
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if conn:
+            conn.close()
+
+
+@app.route('/api/companies')
+def get_companies():
+    """Get company statistics."""
+    script_dir = Path(__file__).parent
+    db_path = script_dir / DB_NAME
+    
+    conn = None
+    try:
+        conn = sqlite3.connect(db_path, timeout=30)
+        conn.execute('PRAGMA journal_mode=WAL')
+        cursor = conn.cursor()
+        
+        # Get company statistics
+        cursor.execute('''
+            SELECT signatory_company, COUNT(*) as vessel_count, 
+                   AVG(length) as avg_length, MAX(length) as max_length
+            FROM vessels_static
+            WHERE signatory_company IS NOT NULL AND signatory_company != ''
+            GROUP BY signatory_company
+            ORDER BY vessel_count DESC
+            LIMIT 50
+        ''')
+        
+        companies = cursor.fetchall()
+        results = []
+        for c in companies:
+            results.append({
+                'company': c[0],
+                'vessel_count': c[1],
+                'avg_length': round(c[2], 1) if c[2] else 0,
+                'max_length': c[3]
+            })
+        
+        return jsonify(results)
+    except Exception as e:
+        print(f"Error in get_companies: {e}")
         return jsonify({'error': str(e)}), 500
     finally:
         if conn:
