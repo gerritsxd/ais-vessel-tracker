@@ -137,6 +137,31 @@
             color: #00d4ff;
             font-weight: bold;
             border-bottom: 2px solid #00d4ff;
+            cursor: pointer;
+            user-select: none;
+            position: relative;
+        }
+        
+        th:hover {
+            background: #1a2942;
+        }
+        
+        th.sortable::after {
+            content: ' ⇅';
+            opacity: 0.3;
+            font-size: 12px;
+        }
+        
+        th.sort-asc::after {
+            content: ' ▲';
+            opacity: 1;
+            color: #00ff00;
+        }
+        
+        th.sort-desc::after {
+            content: ' ▼';
+            opacity: 1;
+            color: #00ff00;
         }
         
         td {
@@ -246,14 +271,14 @@
                 <tr>
                     <th>MMSI</th>
                     <th>Name</th>
-                    <th>Type</th>
-                    <th>Length (m)</th>
+                    <th class="sortable" data-column="ship_type" onclick="sortTable('ship_type')">Type</th>
+                    <th class="sortable" data-column="length" onclick="sortTable('length')">Length (m)</th>
                     <th>Destination</th>
                     <th>ETA</th>
                     <th>Draught (m)</th>
-                    <th>Flag</th>
+                    <th class="sortable" data-column="flag_state" onclick="sortTable('flag_state')">Flag</th>
                     <th>Route</th>
-                    <th>Last Updated</th>
+                    <th class="sortable" data-column="last_updated" onclick="sortTable('last_updated')">Last Updated</th>
                 </tr>
             </thead>
             <tbody id="vessels-body">
@@ -263,6 +288,7 @@
     
     <script>
         let allVessels = [];
+        let currentSort = { column: null, direction: 'asc' };
         
         // Ship type info
         const shipTypeInfo = {
@@ -283,6 +309,53 @@
             if (!dateStr) return 'N/A';
             const date = new Date(dateStr);
             return date.toLocaleString();
+        }
+        
+        function sortTable(column) {
+            // Toggle sort direction
+            if (currentSort.column === column) {
+                currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                currentSort.column = column;
+                currentSort.direction = 'asc';
+            }
+            
+            // Update header indicators
+            document.querySelectorAll('th').forEach(th => {
+                th.classList.remove('sort-asc', 'sort-desc');
+            });
+            const header = document.querySelector(`th[data-column="${column}"]`);
+            if (header) {
+                header.classList.add(currentSort.direction === 'asc' ? 'sort-asc' : 'sort-desc');
+            }
+            
+            // Sort vessels
+            allVessels.sort((a, b) => {
+                let valA = a[column];
+                let valB = b[column];
+                
+                // Handle null/undefined values
+                if (valA == null) valA = '';
+                if (valB == null) valB = '';
+                
+                // Convert to appropriate types for comparison
+                if (column === 'length' || column === 'ship_type') {
+                    valA = Number(valA) || 0;
+                    valB = Number(valB) || 0;
+                } else if (column === 'last_updated') {
+                    valA = new Date(valA).getTime() || 0;
+                    valB = new Date(valB).getTime() || 0;
+                } else {
+                    valA = String(valA).toLowerCase();
+                    valB = String(valB).toLowerCase();
+                }
+                
+                if (valA < valB) return currentSort.direction === 'asc' ? -1 : 1;
+                if (valA > valB) return currentSort.direction === 'asc' ? 1 : -1;
+                return 0;
+            });
+            
+            renderTable(allVessels);
         }
         
         function renderTable(vessels) {
