@@ -469,6 +469,7 @@
                 .then(response => response.json())
                 .then(route => {
                     if (route.length === 0) {
+                        alert(`No route data available for ${vesselName}.\n\nThis vessel may not have been tracked yet, or has no position history in the last 24 hours.`);
                         console.log('No route data available for this vessel');
                         return;
                     }
@@ -476,18 +477,56 @@
                     // Create polyline from route points
                     const latLngs = route.map(p => [p.lat, p.lon]);
                     currentRoute = L.polyline(latLngs, {
-                        color: '#00d4ff',
-                        weight: 3,
-                        opacity: 0.7
+                        color: '#ffff00',  // Bright yellow for visibility
+                        weight: 4,
+                        opacity: 0.9,
+                        dashArray: '10, 5'
                     }).addTo(map);
                     
+                    // Add start marker (green)
+                    const startMarker = L.circleMarker([route[0].lat, route[0].lon], {
+                        radius: 8,
+                        fillColor: '#00ff00',
+                        color: '#fff',
+                        weight: 2,
+                        opacity: 1,
+                        fillOpacity: 0.9
+                    }).addTo(map);
+                    startMarker.bindPopup(`<b>Start Position</b><br>${new Date(route[0].timestamp).toLocaleString()}`);
+                    
+                    // Add end marker (red)
+                    const endMarker = L.circleMarker([route[route.length-1].lat, route[route.length-1].lon], {
+                        radius: 8,
+                        fillColor: '#ff0000',
+                        color: '#fff',
+                        weight: 2,
+                        opacity: 1,
+                        fillOpacity: 0.9
+                    }).addTo(map);
+                    endMarker.bindPopup(`<b>Current Position</b><br>${new Date(route[route.length-1].timestamp).toLocaleString()}`);
+                    
                     // Add popup to route
-                    currentRoute.bindPopup(`<b>${vesselName}</b><br>Route (last 24 hours)<br>${route.length} positions`);
+                    const duration = new Date(route[route.length-1].timestamp) - new Date(route[0].timestamp);
+                    const hours = Math.floor(duration / (1000 * 60 * 60));
+                    currentRoute.bindPopup(`
+                        <b>${vesselName}</b><br>
+                        <b>Route (last 24 hours)</b><br>
+                        📍 ${route.length} positions<br>
+                        ⏱️ ${hours} hours tracked<br>
+                        <span style="color: #00ff00;">●</span> Green = Start<br>
+                        <span style="color: #ff0000;">●</span> Red = Current
+                    `);
                     
                     // Fit map to route
                     map.fitBounds(currentRoute.getBounds().pad(0.1));
+                    
+                    // Show success message
+                    console.log(`Route loaded: ${route.length} positions over ${hours} hours`);
                 })
-                .catch(error => console.error('Error fetching route:', error));
+                .catch(error => {
+                    console.error('Error fetching route:', error);
+                    alert(`Error loading route for ${vesselName}.\n\nPlease try again later.`);
+                });
         }
         
         // Load initial data
