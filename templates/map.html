@@ -87,8 +87,83 @@
         
         #map {
             height: calc(100vh - 120px);
-            width: 100%;
+            width: calc(100% - 400px);
             position: relative;
+            float: left;
+        }
+        
+        /* Sidebar Panel */
+        #sidebar {
+            width: 400px;
+            height: calc(100vh - 120px);
+            background: #16213e;
+            float: right;
+            overflow-y: auto;
+            box-shadow: -2px 0 10px rgba(0,0,0,0.3);
+            padding: 20px;
+            display: none;
+        }
+        
+        #sidebar.active {
+            display: block;
+        }
+        
+        #sidebar h2 {
+            color: #00d4ff;
+            font-size: 20px;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #00d4ff;
+            padding-bottom: 10px;
+        }
+        
+        #sidebar .close-btn {
+            float: right;
+            background: #ff0000;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        #sidebar .close-btn:hover {
+            background: #cc0000;
+        }
+        
+        #sidebar .info-section {
+            margin-bottom: 20px;
+            background: #0f3460;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        
+        #sidebar .info-section h3 {
+            color: #00d4ff;
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+        
+        #sidebar .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #1a1a2e;
+        }
+        
+        #sidebar .info-row:last-child {
+            border-bottom: none;
+        }
+        
+        #sidebar .info-label {
+            color: #aaa;
+            font-size: 13px;
+        }
+        
+        #sidebar .info-value {
+            color: #fff;
+            font-size: 13px;
+            font-weight: bold;
         }
         
         /* Legend */
@@ -291,6 +366,12 @@
         </div>
     </div>
     
+    <div id="sidebar">
+        <button class="close-btn" onclick="closeSidebar()">✕ Close</button>
+        <h2 id="sidebar-title">Vessel Details</h2>
+        <div id="sidebar-content"></div>
+    </div>
+    
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     
@@ -425,8 +506,9 @@
                 
                 marker.bindPopup(createPopupContent(mmsi, vessel));
                 
-                // Add click handler to show route
+                // Add click handler to show sidebar and route
                 marker.on('click', () => {
+                    showVesselDetails(mmsi, vessel);
                     showVesselRoute(mmsi, vessel.name);
                 });
                 
@@ -454,6 +536,109 @@
         // Update statistics
         function updateStats() {
             document.getElementById('active-vessels').textContent = Object.keys(markers).length;
+        }
+        
+        // Show vessel details in sidebar
+        function showVesselDetails(mmsi, vessel) {
+            const sidebar = document.getElementById('sidebar');
+            const title = document.getElementById('sidebar-title');
+            const content = document.getElementById('sidebar-content');
+            
+            title.textContent = vessel.name || 'Unknown Vessel';
+            
+            const typeInfo = getShipTypeInfo(vessel.ship_type);
+            const hasPosition = vessel.lat !== undefined;
+            
+            content.innerHTML = `
+                <div class="info-section">
+                    <h3>📋 Basic Information</h3>
+                    <div class="info-row">
+                        <span class="info-label">MMSI</span>
+                        <span class="info-value">${mmsi}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Vessel Name</span>
+                        <span class="info-value">${vessel.name || 'Unknown'}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Flag State</span>
+                        <span class="info-value">${vessel.flag_state || 'Unknown'}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Ship Type</span>
+                        <span class="info-value">${typeInfo.name} (${vessel.ship_type || 'N/A'})</span>
+                    </div>
+                    ${vessel.signatory_company ? `
+                    <div class="info-row">
+                        <span class="info-label">Company</span>
+                        <span class="info-value">${vessel.signatory_company}</span>
+                    </div>
+                    ` : ''}
+                </div>
+                
+                <div class="info-section">
+                    <h3>📏 Dimensions</h3>
+                    <div class="info-row">
+                        <span class="info-label">Length</span>
+                        <span class="info-value">${vessel.length || 'N/A'}m</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Beam</span>
+                        <span class="info-value">${vessel.beam || 'N/A'}m</span>
+                    </div>
+                    ${vessel.imo ? `
+                    <div class="info-row">
+                        <span class="info-label">IMO Number</span>
+                        <span class="info-value">${vessel.imo}</span>
+                    </div>
+                    ` : ''}
+                    ${vessel.call_sign ? `
+                    <div class="info-row">
+                        <span class="info-label">Call Sign</span>
+                        <span class="info-value">${vessel.call_sign}</span>
+                    </div>
+                    ` : ''}
+                </div>
+                
+                ${hasPosition ? `
+                <div class="info-section">
+                    <h3>📍 Current Position</h3>
+                    <div class="info-row">
+                        <span class="info-label">Latitude</span>
+                        <span class="info-value">${vessel.lat.toFixed(6)}°</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Longitude</span>
+                        <span class="info-value">${vessel.lon.toFixed(6)}°</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Speed</span>
+                        <span class="info-value">${vessel.sog || 0} knots</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Course</span>
+                        <span class="info-value">${vessel.cog || 0}°</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Last Update</span>
+                        <span class="info-value">${new Date(vessel.timestamp).toLocaleString()}</span>
+                    </div>
+                </div>
+                ` : '<div class="info-section"><em>Waiting for position data...</em></div>'}
+                
+                <div class="info-section">
+                    <h3>🔗 External Links</h3>
+                    <a href="https://www.marinetraffic.com/en/ais/details/ships/mmsi:${mmsi}" target="_blank" style="color: #00d4ff; display: block; margin: 10px 0;">View on MarineTraffic →</a>
+                    <a href="https://www.vesselfinder.com/vessels?name=${encodeURIComponent(vessel.name || '')}" target="_blank" style="color: #00d4ff; display: block; margin: 10px 0;">Search on VesselFinder →</a>
+                </div>
+            `;
+            
+            sidebar.classList.add('active');
+        }
+        
+        // Close sidebar
+        function closeSidebar() {
+            document.getElementById('sidebar').classList.remove('active');
         }
         
         // Show vessel route
