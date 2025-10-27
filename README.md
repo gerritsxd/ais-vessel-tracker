@@ -1,54 +1,104 @@
 # AIS Stream Collector & Vessel Tracker
 
-This project collects AIS (Automatic Identification System) data from aisstream.io and provides tools for vessel tracking and analysis.
+Real-time vessel tracking system with web interface. Collects AIS (Automatic Identification System) data from aisstream.io and provides live tracking of large vessels worldwide.
+
+🌐 **Live Demo:** [View Tracked Vessels](http://149.202.53.2:5000/ships/)
+
+![Vessel Tracker](https://img.shields.io/badge/Vessels-900+-blue) ![API Keys-6-green](https://img.shields.io/badge/API_Keys-6-green) ![Status-Live](https://img.shields.io/badge/Status-Live-success)
 
 ## Features
 
-### Data Collection (`ais_collector.py`)
-- **Persistent Storage**: Automatically saves vessel data to SQLite database (`vessel_static_data.db`)
-- **UPSERT Logic**: Updates existing vessel records or inserts new ones based on MMSI
-- **Secure API Key Management**: Reads API key from `api.txt` file (not hardcoded)
-- **Comprehensive Data Collection**: Captures MMSI, name, ship type, dimensions, IMO, call sign, flag state, and timestamps
-- **Flag State Decoding**: Automatically determines vessel flag state from MMSI MID (Maritime Identification Digits)
-- **Auto-Reconnect**: Handles connection drops with exponential backoff
-- **Real-time Updates**: Continuously receives and processes vessel static data reports
+### 🗺️ Web-Based Real-Time Tracker (`web_tracker.py`)
+- **Interactive Map**: Live vessel positions on OpenStreetMap with Leaflet.js
+- **900 Vessel Tracking**: Monitors up to 900 large vessels simultaneously
+- **API Key Rotation**: Distributes load across 6 API keys (18 WebSocket connections)
+- **Detailed Sidebar**: Click any vessel to see:
+  - Basic info (MMSI, name, flag, type, company)
+  - Dimensions (length, beam, IMO, call sign)
+  - Current position (lat/lon, speed, course)
+  - External links (MarineTraffic, VesselFinder)
+- **24-Hour Route Display**: Yellow dashed line showing vessel's path
+- **Color-Coded Ships**: Passenger (magenta), Cargo (green), Tanker (red), Other (cyan)
+- **Size-Based Markers**: Large dots (≥200m), small dots (100-200m)
+- **Real-Time Updates**: WebSocket connection for live position streaming
+- **Database Viewer**: Browse all vessels in sortable table format
 
-### Vessel Tracking (`track_filtered_vessels.py`)
-- **Filtered Tracking**: Tracks only vessels matching specific criteria (e.g., length >= 100m, excluding container ships)
-- **Real-time Position Updates**: Monitors vessel positions, speed, and course
-- **Multi-Connection Support**: Handles batches of up to 50 MMSIs per WebSocket connection
-- **Concurrent Tracking**: Uses threading to track multiple batches simultaneously
-- **Voyage Information**: Captures destination, ETA, and draught when available
+### 📊 Data Collection (`ais_collector.py`)
+- **Persistent Storage**: SQLite database with UPSERT logic
+- **Smart Filtering**: Only saves vessels ≥100m (excludes container ships)
+- **Company Lookup**: Automatically enriches data with signatory company names
+- **Flag State Decoding**: Determines country from MMSI MID
+- **Auto-Reconnect**: Exponential backoff on connection loss
+- **Systemd Service**: Runs continuously in background on VPS
+- **Comprehensive Data**: MMSI, name, type, dimensions, IMO, call sign, flag, destination, ETA, draught
 
-## Setup
+### 🏢 Company Data (`company_lookup.py` & `retrofill_companies.py`)
+- **ITF Database Integration**: Scrapes signatory company names from ITF Global lookup
+- **Smart Caching**: Saves API calls with JSON cache file
+- **Batch Processing**: Retrofills company data for existing vessels
+- **Preserved on Update**: Company names persist when vessel data updates
 
-1. **Activate the virtual environment:**
+## Quick Start
+
+### Local Development
+
+1. **Clone and setup:**
    ```bash
-   .\hub\Scripts\activate
+   git clone https://github.com/gerritsxd/ais-vessel-tracker.git
+   cd ais-vessel-tracker
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   pip install -r requirements.txt
    ```
 
-2. **Get your API key:**
-   - Visit https://aisstream.io/apikeys
-   - Copy your API key
+2. **Configure API keys:**
+   - Get API keys from https://aisstream.io/apikeys
+   - Add them to `api.txt` (one per line)
+   - Recommended: 6 keys for tracking 900 vessels
 
-3. **Configure the API key:**
-   - Your API key should already be in `api.txt` (last non-empty line)
-   - If not, add it to `api.txt` on a new line
+3. **Run the web tracker:**
+   ```bash
+   python web_tracker.py
+   ```
+   Open http://localhost:5000/ships/ in your browser
 
-4. **Run the data collector:**
+4. **Run the data collector (separate terminal):**
    ```bash
    python ais_collector.py
    ```
-   Or use the batch file: `run_collector.bat`
 
-5. **Track specific vessels (optional):**
-   After collecting data, track filtered vessels in real-time:
+### Production Deployment (VPS)
+
+1. **Setup systemd services:**
    ```bash
-   python track_filtered_vessels.py
+   # Copy service files
+   sudo cp ais-collector.service /etc/systemd/system/
+   sudo cp ais-web-tracker.service /etc/systemd/system/
+   
+   # Enable and start services
+   sudo systemctl enable ais-collector ais-web-tracker
+   sudo systemctl start ais-collector ais-web-tracker
+   
+   # Check status
+   sudo systemctl status ais-collector
+   sudo systemctl status ais-web-tracker
    ```
 
-6. **Stop any script:**
-   - Press `Ctrl+C` to gracefully stop
+2. **Configure Nginx reverse proxy:**
+   ```nginx
+   location /ships/ {
+       proxy_pass http://localhost:5000/ships/;
+       proxy_http_version 1.1;
+       proxy_set_header Upgrade $http_upgrade;
+       proxy_set_header Connection "upgrade";
+   }
+   ```
+
+3. **Enrich with company data:**
+   ```bash
+   # Run in background (takes ~3 hours for 7000+ vessels)
+   nohup python retrofill_companies.py > retrofill.log 2>&1 &
+   ```
 
 ## Usage
 
@@ -103,7 +153,24 @@ Run `track_filtered_vessels.py` to monitor specific vessels in real-time:
 | imo | INTEGER | | IMO number |
 | call_sign | TEXT | | Radio call sign |
 | flag_state | TEXT | | Country of registration (from MMSI MID) |
+| signatory_company | TEXT | | Company name (from ITF database) |
+| destination | TEXT | | Current destination |
+| eta | TEXT | | Estimated time of arrival (JSON) |
+| draught | REAL | | Current draught in meters |
+| nav_status | INTEGER | | Navigation status code |
 | last_updated | TEXT | NOT NULL | UTC timestamp (ISO format) |
+
+**Table: `vessel_positions`**
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | INTEGER | Auto-increment primary key |
+| mmsi | INTEGER | Foreign key to vessels_static |
+| latitude | REAL | Position latitude |
+| longitude | REAL | Position longitude |
+| sog | REAL | Speed over ground (knots) |
+| cog | REAL | Course over ground (degrees) |
+| timestamp | TEXT | UTC timestamp |
 
 ## Querying the Database
 
@@ -197,26 +264,154 @@ python export_to_csv.py
 python export_to_csv.py my_vessels.csv
 ```
 
-## Files
+## Project Structure
 
-- **`ais_collector.py`** - Main collector script
-- **`query_vessels.py`** - Interactive database query tool
-- **`export_to_csv.py`** - CSV export utility
-- **`api.txt`** - Contains your AISStream API key
-- **`vessel_static_data.db`** - SQLite database (created automatically)
-- **`requirements.txt`** - Python dependencies
-- **`hub/`** - Virtual environment directory
+```
+ais-vessel-tracker/
+├── ais_collector.py          # Background data collector (systemd service)
+├── web_tracker.py            # Flask web app with real-time tracking
+├── company_lookup.py         # ITF database scraper for company names
+├── retrofill_companies.py    # Batch company data enrichment
+├── track_filtered_vessels.py # Standalone vessel tracker (legacy)
+├── query_vessels.py          # Interactive database query tool
+├── export_to_csv.py          # CSV export utility
+├── check_data.py             # Data quality statistics
+├── check_big_ships.py        # List vessels >100m
+├── api.txt                   # AISStream API keys (gitignored)
+├── vessel_static_data.db     # SQLite database
+├── company_cache.json        # Cached company lookups
+├── templates/
+│   ├── map.html              # Main tracking interface
+│   └── database.html         # Database viewer
+├── ais-collector.service     # Systemd service file
+├── ais-web-tracker.service   # Systemd service file
+└── requirements.txt          # Python dependencies
+```
+
+## API Endpoints
+
+- `GET /ships/` - Main tracking interface
+- `GET /ships/database` - Database viewer with filters
+- `GET /ships/api/vessels` - JSON list of all tracked vessels
+- `GET /ships/api/stats` - Tracking statistics
+- `GET /ships/api/vessel/<mmsi>/route?hours=24` - Vessel route history
+- `GET /ships/api/companies` - Company statistics
+- WebSocket `/ships/socket.io` - Real-time position updates
 
 ## Dependencies
 
-- websocket-client==1.9.0
-- sqlite3 (built-in with Python)
+```
+Flask==3.0.0
+Flask-SocketIO==5.3.5
+websocket-client==1.9.0
+requests==2.31.0
+beautifulsoup4==4.12.2
+pandas==2.1.3
+tqdm==4.66.1
+```
 
-## Error Handling
+## Architecture
 
-The script includes comprehensive error handling:
-- Database connection errors
-- Missing or invalid API key
-- WebSocket connection issues
-- Malformed message data
-- Graceful shutdown on Ctrl+C
+### Data Flow
+
+1. **Collection Layer** (`ais_collector.py`)
+   - Connects to AISStream WebSocket
+   - Filters vessels ≥100m (excludes containers)
+   - Saves to SQLite with UPSERT
+   - Preserves company data on updates
+
+2. **Enrichment Layer** (`retrofill_companies.py`)
+   - Scrapes ITF database for company names
+   - Caches results to minimize API calls
+   - Runs periodically to update new vessels
+
+3. **Tracking Layer** (`web_tracker.py`)
+   - Loads 900 most recent vessels from DB
+   - Creates 18 WebSocket connections (6 keys × 3 each)
+   - Distributes 50 vessels per connection
+   - Streams position updates to web clients
+
+4. **Presentation Layer** (Web Interface)
+   - Interactive Leaflet map
+   - Real-time position updates via Socket.IO
+   - Sidebar with detailed vessel info
+   - Route history visualization
+
+### API Key Rotation
+
+With 6 API keys, the system distributes load:
+- **Key 1:** Connections 1-3 (150 vessels)
+- **Key 2:** Connections 4-6 (150 vessels)
+- **Key 3:** Connections 7-9 (150 vessels)
+- **Key 4:** Connections 10-12 (150 vessels)
+- **Key 5:** Connections 13-15 (150 vessels)
+- **Key 6:** Connections 16-18 (150 vessels)
+
+**Total:** 900 vessels tracked simultaneously
+
+## Monitoring
+
+### Check Service Status
+```bash
+sudo systemctl status ais-collector
+sudo systemctl status ais-web-tracker
+```
+
+### View Logs
+```bash
+# Real-time logs
+sudo journalctl -u ais-collector -f
+sudo journalctl -u ais-web-tracker -f
+
+# Last 100 lines
+sudo journalctl -u ais-collector -n 100
+```
+
+### Database Statistics
+```bash
+python check_data.py
+```
+
+## Troubleshooting
+
+### "Concurrent connections exceeded" Error
+- **Cause:** Too many connections per API key
+- **Solution:** Add more API keys to `api.txt` or reduce vessel limit
+
+### Company Names Disappearing
+- **Cause:** Old bug (now fixed) - collector was overwriting company data
+- **Solution:** Re-run `python retrofill_companies.py`
+
+### No Vessels Showing on Map
+- **Check:** Database has vessels: `python check_data.py`
+- **Check:** Services running: `sudo systemctl status ais-web-tracker`
+- **Check:** Browser console for WebSocket errors
+
+### Database Locked Errors
+- **Cause:** Multiple processes accessing DB simultaneously
+- **Solution:** Script retries automatically (3 attempts)
+
+## Performance
+
+- **Database Size:** ~50MB per 10,000 vessels
+- **Memory Usage:** ~200MB per service
+- **CPU Usage:** <5% on modern VPS
+- **Network:** ~1-2 Mbps for 900 vessels
+- **Position Updates:** ~10-30 per minute per vessel
+
+## License
+
+MIT License - See LICENSE file for details
+
+## Credits
+
+- **AIS Data:** [AISStream.io](https://aisstream.io/)
+- **Company Data:** [ITF Global Lookup](https://lookup.itfglobal.org/)
+- **Maps:** [OpenStreetMap](https://www.openstreetmap.org/) & [Leaflet.js](https://leafletjs.com/)
+
+## Contributing
+
+Pull requests welcome! Please ensure:
+- Code follows existing style
+- API keys remain in gitignored `api.txt`
+- Database schema changes include migration notes
