@@ -73,7 +73,7 @@ def retrofill_companies():
         time.sleep(1.5)  # polite delay
 
     conn.close()
-    print("\n🎯 Done! All available company info added.")
+    print("\n🎯 Done! All available company info added!.")
 
 
 if __name__ == "__main__":
