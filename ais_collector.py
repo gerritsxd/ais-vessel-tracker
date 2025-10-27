@@ -482,4 +482,4 @@ if __name__ == "__main__":
                 print("Database connection closed.")
             except:
                 pass
-        print("Script finished.")
+        print("Script finished!.")
