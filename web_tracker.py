@@ -34,21 +34,26 @@ vessel_static_data = {}  # {mmsi: {name, length, type, flag, ...}}
 tracking_active = False
 
 
-def load_api_key():
-    """Load the API key from api.txt file."""
+def load_api_keys():
+    """Load all API keys from api.txt file."""
     try:
         script_dir = Path(__file__).parent
         api_file_path = script_dir / API_KEY_FILE
         
+        api_keys = []
         with open(api_file_path, 'r') as f:
-            lines = f.readlines()
-            for line in reversed(lines):
+            for line in f:
                 line = line.strip()
-                if line:
-                    return line
-        raise ValueError("No API key found in api.txt")
+                if line and not line.startswith('#'):
+                    api_keys.append(line)
+        
+        if not api_keys:
+            raise ValueError("No API keys found in api.txt")
+        
+        print(f"Loaded {len(api_keys)} API key(s)")
+        return api_keys
     except Exception as e:
-        raise Exception(f"Error loading API key: {e}")
+        raise Exception(f"Error loading API keys: {e}")
 
 
 def get_filtered_vessels():
@@ -447,8 +452,8 @@ def start_tracking():
     global tracking_active, API_KEY
     
     try:
-        print("Loading API key...")
-        API_KEY = load_api_key()
+        print("Loading API keys...")
+        api_keys = load_api_keys()
         
         print("Loading vessels from database...")
         mmsi_list = get_filtered_vessels()
@@ -459,16 +464,26 @@ def start_tracking():
         for i in range(0, len(mmsi_list), MAX_MMSI_PER_CONNECTION):
             batches.append(mmsi_list[i:i + MAX_MMSI_PER_CONNECTION])
         
-        print(f"Creating {len(batches)} tracking connections...")
+        # Limit to 3 connections per API key
+        max_connections = len(api_keys) * 3
+        if len(batches) > max_connections:
+            print(f"WARNING: {len(batches)} batches requested, but only {max_connections} connections available")
+            print(f"Limiting to first {max_connections} batches ({max_connections * MAX_MMSI_PER_CONNECTION} vessels)")
+            batches = batches[:max_connections]
         
-        # Start trackers
+        print(f"Creating {len(batches)} tracking connections across {len(api_keys)} API key(s)...")
+        
+        # Start trackers - rotate API keys (3 connections per key)
         for i, batch in enumerate(batches, 1):
-            tracker = VesselTrackerWebSocket(i, batch, API_KEY)
+            api_key_index = (i - 1) // 3  # Use each API key for 3 connections
+            api_key = api_keys[api_key_index % len(api_keys)]
+            print(f"Batch {i}: Using API key #{api_key_index + 1}")
+            tracker = VesselTrackerWebSocket(i, batch, api_key)
             tracker.start()
             time.sleep(1)
         
         tracking_active = True
-        print(f"Tracking {len(mmsi_list)} vessels across {len(batches)} connections")
+        print(f"Tracking {sum(len(b) for b in batches)} vessels across {len(batches)} connections")
         
     except Exception as e:
         print(f"Error starting tracking: {e}")
