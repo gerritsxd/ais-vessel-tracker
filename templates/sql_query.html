@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Raw SQL Query Interface</title>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+        }
+        
+        #header {
+            background: #16213e;
+            padding: 15px 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        #header h1 {
+            font-size: 24px;
+            color: #00d4ff;
+        }
+        
+        .nav-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .btn {
+            background: #0f3460;
+            color: #00d4ff;
+            border: 1px solid #00d4ff;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        
+        .btn:hover {
+            background: #00d4ff;
+            color: #0f3460;
+        }
+        
+        .btn-primary {
+            background: #00d4ff;
+            color: #0f3460;
+        }
+        
+        .btn-primary:hover {
+            background: #00ffaa;
+        }
+        
+        #content {
+            padding: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .query-section {
+            background: #16213e;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+        
+        .query-section h2 {
+            color: #00d4ff;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+        
+        #sql-input {
+            width: 100%;
+            min-height: 150px;
+            background: #0f3460;
+            color: #eee;
+            border: 1px solid #00d4ff;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            resize: vertical;
+        }
+        
+        .button-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .example-queries {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .example-query {
+            background: #0f3460;
+            padding: 15px;
+            border-radius: 4px;
+            border: 1px solid #00d4ff;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .example-query:hover {
+            background: #1a2942;
+            border-color: #00ffaa;
+        }
+        
+        .example-query h3 {
+            color: #00d4ff;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+        
+        .example-query code {
+            display: block;
+            font-size: 12px;
+            color: #aaa;
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+        }
+        
+        #results {
+            background: #16213e;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            display: none;
+        }
+        
+        #results h2 {
+            color: #00d4ff;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+        
+        .result-info {
+            color: #00ff00;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+        
+        .error {
+            color: #ff0000;
+            background: #330000;
+            padding: 15px;
+            border-radius: 4px;
+            border: 1px solid #ff0000;
+        }
+        
+        #results-table-container {
+            overflow-x: auto;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #0f3460;
+        }
+        
+        th {
+            background: #00d4ff;
+            color: #0f3460;
+            padding: 10px;
+            text-align: left;
+            font-weight: bold;
+            position: sticky;
+            top: 0;
+        }
+        
+        td {
+            padding: 8px 10px;
+            border-bottom: 1px solid #1a2942;
+        }
+        
+        tbody tr:hover {
+            background: #1a2942;
+        }
+        
+        .export-btn {
+            margin-top: 15px;
+        }
+        
+        .schema-info {
+            background: #0f3460;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 15px;
+        }
+        
+        .schema-info h3 {
+            color: #00d4ff;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+        
+        .schema-info ul {
+            list-style: none;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            color: #aaa;
+        }
+        
+        .schema-info li {
+            padding: 3px 0;
+        }
+    </style>
+</head>
+<body>
+    <div id="header">
+        <h1>💻 Raw SQL Query Interface</h1>
+        <div class="nav-buttons">
+            <a href="/ships/database" class="btn">🗄️ Database Viewer</a>
+            <a href="/ships/" class="btn">🗺️ Map</a>
+        </div>
+    </div>
+    
+    <div id="content">
+        <div class="query-section">
+            <h2>📝 SQL Query Editor</h2>
+            <textarea id="sql-input" placeholder="Enter your SQL query here...
+Example: SELECT * FROM vessels_static WHERE length > 200 LIMIT 10"></textarea>
+            
+            <div class="button-row">
+                <button class="btn btn-primary" onclick="executeQuery()">▶️ Execute Query</button>
+                <button class="btn" onclick="clearQuery()">🗑️ Clear</button>
+                <button class="btn" onclick="toggleExamples()">📚 Show Examples</button>
+            </div>
+            
+            <div class="schema-info">
+                <h3>📋 Database Schema</h3>
+                <strong>Table: vessels_static</strong>
+                <ul>
+                    <li>mmsi (INTEGER) - Primary key</li>
+                    <li>name (TEXT)</li>
+                    <li>ship_type (INTEGER)</li>
+                    <li>length (INTEGER)</li>
+                    <li>beam (INTEGER)</li>
+                    <li>imo (INTEGER)</li>
+                    <li>call_sign (TEXT)</li>
+                    <li>flag_state (TEXT)</li>
+                    <li>signatory_company (TEXT)</li>
+                    <li>destination (TEXT)</li>
+                    <li>eta (TEXT)</li>
+                    <li>draught (REAL)</li>
+                    <li>nav_status (INTEGER)</li>
+                    <li>last_updated (TEXT)</li>
+                </ul>
+                <br>
+                <strong>Table: vessel_positions</strong>
+                <ul>
+                    <li>id (INTEGER) - Primary key</li>
+                    <li>mmsi (INTEGER)</li>
+                    <li>latitude (REAL)</li>
+                    <li>longitude (REAL)</li>
+                    <li>sog (REAL)</li>
+                    <li>cog (REAL)</li>
+                    <li>timestamp (TEXT)</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="query-section" id="examples" style="display: none;">
+            <h2>📚 Example Queries</h2>
+            <div class="example-queries">
+                <div class="example-query" onclick="loadExample(this)">
+                    <h3>🚢 All Large Vessels</h3>
+                    <code>SELECT mmsi, name, length, flag_state 
+FROM vessels_static 
+WHERE length >= 200 
+ORDER BY length DESC 
+LIMIT 20</code>
+                </div>
+                
+                <div class="example-query" onclick="loadExample(this)">
+                    <h3>🏢 Vessels by Company</h3>
+                    <code>SELECT signatory_company, COUNT(*) as count, AVG(length) as avg_length
+FROM vessels_static 
+WHERE signatory_company IS NOT NULL 
+GROUP BY signatory_company 
+ORDER BY count DESC 
+LIMIT 10</code>
+                </div>
+                
+                <div class="example-query" onclick="loadExample(this)">
+                    <h3>🌍 Vessels by Flag</h3>
+                    <code>SELECT flag_state, COUNT(*) as count
+FROM vessels_static 
+GROUP BY flag_state 
+ORDER BY count DESC 
+LIMIT 15</code>
+                </div>
+                
+                <div class="example-query" onclick="loadExample(this)">
+                    <h3>🎯 Specific Ship Type</h3>
+                    <code>SELECT mmsi, name, length, ship_type
+FROM vessels_static 
+WHERE ship_type >= 70 AND ship_type < 80
+ORDER BY length DESC 
+LIMIT 20</code>
+                </div>
+                
+                <div class="example-query" onclick="loadExample(this)">
+                    <h3>📍 Recent Position Updates</h3>
+                    <code>SELECT v.mmsi, v.name, p.latitude, p.longitude, p.sog, p.timestamp
+FROM vessel_positions p
+JOIN vessels_static v ON p.mmsi = v.mmsi
+ORDER BY p.timestamp DESC 
+LIMIT 50</code>
+                </div>
+                
+                <div class="example-query" onclick="loadExample(this)">
+                    <h3>📊 Database Statistics</h3>
+                    <code>SELECT 
+    COUNT(*) as total_vessels,
+    COUNT(CASE WHEN length IS NOT NULL THEN 1 END) as with_length,
+    COUNT(CASE WHEN signatory_company IS NOT NULL THEN 1 END) as with_company,
+    AVG(length) as avg_length,
+    MAX(length) as max_length
+FROM vessels_static</code>
+                </div>
+            </div>
+        </div>
+        
+        <div id="results">
+            <h2>📊 Query Results</h2>
+            <div id="result-content"></div>
+        </div>
+    </div>
+    
+    <script>
+        function executeQuery() {
+            const query = document.getElementById('sql-input').value.trim();
+            if (!query) {
+                alert('Please enter a SQL query');
+                return;
+            }
+            
+            const resultsDiv = document.getElementById('results');
+            const contentDiv = document.getElementById('result-content');
+            
+            resultsDiv.style.display = 'block';
+            contentDiv.innerHTML = '<div style="color: #00d4ff;">⏳ Executing query...</div>';
+            
+            fetch('/ships/api/sql/query', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ query: query })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    contentDiv.innerHTML = `<div class="error"><strong>❌ Error:</strong><br>${data.error}</div>`;
+                } else {
+                    displayResults(data);
+                }
+            })
+            .catch(error => {
+                contentDiv.innerHTML = `<div class="error"><strong>❌ Error:</strong><br>${error.message}</div>`;
+            });
+        }
+        
+        function displayResults(data) {
+            const contentDiv = document.getElementById('result-content');
+            
+            if (data.rows.length === 0) {
+                contentDiv.innerHTML = '<div class="result-info">✅ Query executed successfully. No rows returned.</div>';
+                return;
+            }
+            
+            let html = `<div class="result-info">✅ Query executed successfully. ${data.rows.length} row(s) returned in ${data.execution_time}ms</div>`;
+            html += '<div id="results-table-container"><table><thead><tr>';
+            
+            // Headers
+            data.columns.forEach(col => {
+                html += `<th>${col}</th>`;
+            });
+            html += '</tr></thead><tbody>';
+            
+            // Rows
+            data.rows.forEach(row => {
+                html += '<tr>';
+                row.forEach(cell => {
+                    html += `<td>${cell !== null ? cell : '<em style="color: #666;">NULL</em>'}</td>`;
+                });
+                html += '</tr>';
+            });
+            
+            html += '</tbody></table></div>';
+            html += '<button class="btn export-btn" onclick="exportToCSV()">📥 Export to CSV</button>';
+            
+            contentDiv.innerHTML = html;
+        }
+        
+        function clearQuery() {
+            document.getElementById('sql-input').value = '';
+        }
+        
+        function toggleExamples() {
+            const examples = document.getElementById('examples');
+            examples.style.display = examples.style.display === 'none' ? 'block' : 'none';
+        }
+        
+        function loadExample(element) {
+            const code = element.querySelector('code').textContent;
+            document.getElementById('sql-input').value = code;
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+        
+        function exportToCSV() {
+            const query = document.getElementById('sql-input').value.trim();
+            
+            fetch('/ships/api/sql/export', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ query: query })
+            })
+            .then(response => response.blob())
+            .then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `query_results_${Date.now()}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+            })
+            .catch(error => {
+                alert('Error exporting: ' + error.message);
+            });
+        }
+        
+        // Keyboard shortcuts
+        document.getElementById('sql-input').addEventListener('keydown', (e) => {
+            // Ctrl/Cmd + Enter to execute
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                e.preventDefault();
+                executeQuery();
+            }
+        });
+    </script>
+</body>
+</html>

@@ -437,6 +437,114 @@ def get_companies():
             conn.close()
 
 
+@app.route('/sql')
+def sql_query_page():
+    """Render SQL query interface."""
+    return render_template('sql_query.html')
+
+
+@app.route('/api/sql/query', methods=['POST'])
+def execute_sql_query():
+    """Execute a raw SQL query (READ-ONLY)."""
+    try:
+        data = request.get_json()
+        query = data.get('query', '').strip()
+        
+        if not query:
+            return jsonify({'error': 'No query provided'}), 400
+        
+        # Security: Only allow SELECT queries
+        if not query.upper().startswith('SELECT'):
+            return jsonify({'error': 'Only SELECT queries are allowed'}), 403
+        
+        script_dir = Path(__file__).parent
+        db_path = script_dir / DB_NAME
+        
+        conn = None
+        start_time = time.time()
+        
+        try:
+            conn = sqlite3.connect(db_path, timeout=30)
+            conn.execute('PRAGMA journal_mode=WAL')
+            cursor = conn.cursor()
+            
+            cursor.execute(query)
+            rows = cursor.fetchall()
+            columns = [description[0] for description in cursor.description] if cursor.description else []
+            
+            execution_time = int((time.time() - start_time) * 1000)  # ms
+            
+            return jsonify({
+                'columns': columns,
+                'rows': rows,
+                'row_count': len(rows),
+                'execution_time': execution_time
+            })
+            
+        except sqlite3.Error as e:
+            return jsonify({'error': f'SQL Error: {str(e)}'}), 400
+        finally:
+            if conn:
+                conn.close()
+                
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/sql/export', methods=['POST'])
+def export_sql_query():
+    """Export SQL query results to CSV."""
+    try:
+        data = request.get_json()
+        query = data.get('query', '').strip()
+        
+        if not query:
+            return jsonify({'error': 'No query provided'}), 400
+        
+        # Security: Only allow SELECT queries
+        if not query.upper().startswith('SELECT'):
+            return jsonify({'error': 'Only SELECT queries are allowed'}), 403
+        
+        script_dir = Path(__file__).parent
+        db_path = script_dir / DB_NAME
+        
+        conn = None
+        try:
+            conn = sqlite3.connect(db_path, timeout=30)
+            conn.execute('PRAGMA journal_mode=WAL')
+            cursor = conn.cursor()
+            
+            cursor.execute(query)
+            rows = cursor.fetchall()
+            columns = [description[0] for description in cursor.description] if cursor.description else []
+            
+            # Generate CSV
+            import io
+            import csv
+            
+            output = io.StringIO()
+            writer = csv.writer(output)
+            writer.writerow(columns)
+            writer.writerows(rows)
+            
+            # Return as downloadable file
+            from flask import Response
+            return Response(
+                output.getvalue(),
+                mimetype='text/csv',
+                headers={'Content-Disposition': 'attachment; filename=query_results.csv'}
+            )
+            
+        except sqlite3.Error as e:
+            return jsonify({'error': f'SQL Error: {str(e)}'}), 400
+        finally:
+            if conn:
+                conn.close()
+                
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @socketio.on('connect')
 def handle_connect():
     """Handle client connection."""
