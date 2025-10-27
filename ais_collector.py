@@ -143,21 +143,22 @@ def save_vessel_data(mmsi, name, ship_type, length, beam, imo, call_sign, destin
             timestamp = datetime.utcnow().isoformat()
             
             # UPSERT: Insert or replace if MMSI already exists
+            # NOTE: signatory_company is NOT updated here - it's preserved from retrofill_companies.py
             cursor.execute('''
                 INSERT INTO vessels_static (mmsi, name, ship_type, length, beam, imo, call_sign, flag_state, destination, eta, draught, nav_status, last_updated)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(mmsi) DO UPDATE SET
-                    name = excluded.name,
-                    ship_type = excluded.ship_type,
-                    length = excluded.length,
-                    beam = excluded.beam,
-                    imo = excluded.imo,
-                    call_sign = excluded.call_sign,
-                    flag_state = excluded.flag_state,
-                    destination = excluded.destination,
-                    eta = excluded.eta,
-                    draught = excluded.draught,
-                    nav_status = excluded.nav_status,
+                    name = COALESCE(excluded.name, name),
+                    ship_type = COALESCE(excluded.ship_type, ship_type),
+                    length = COALESCE(excluded.length, length),
+                    beam = COALESCE(excluded.beam, beam),
+                    imo = COALESCE(excluded.imo, imo),
+                    call_sign = COALESCE(excluded.call_sign, call_sign),
+                    flag_state = COALESCE(excluded.flag_state, flag_state),
+                    destination = COALESCE(excluded.destination, destination),
+                    eta = COALESCE(excluded.eta, eta),
+                    draught = COALESCE(excluded.draught, draught),
+                    nav_status = COALESCE(excluded.nav_status, nav_status),
                     last_updated = excluded.last_updated
             ''', (mmsi, name, ship_type, length, beam, imo, call_sign, flag_state, destination, eta, draught, nav_status, timestamp))
             
