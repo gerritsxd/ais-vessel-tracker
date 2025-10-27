@@ -34,6 +34,70 @@ vessel_static_data = {}  # {mmsi: {name, length, type, flag, ...}}
 tracking_active = False
 
 
+# Ship type mapping
+SHIP_TYPE_NAMES = {
+    20: "Wing in ground (WIG)",
+    21: "WIG, Hazardous category A",
+    22: "WIG, Hazardous category B",
+    23: "WIG, Hazardous category C",
+    24: "WIG, Hazardous category D",
+    30: "Fishing",
+    40: "Towing",
+    41: "Towing (large)",
+    42: "Towing (large)",
+    43: "Dredging or underwater ops",
+    44: "Diving ops",
+    45: "Military ops",
+    46: "Sailing",
+    47: "Pleasure Craft",
+    50: "Pilot Vessel",
+    51: "Search and Rescue",
+    52: "Tug",
+    53: "Port Tender",
+    54: "Anti-pollution equipment",
+    55: "Law Enforcement",
+    56: "Spare - Local Vessel",
+    57: "Spare - Local Vessel",
+    58: "Medical Transport",
+    59: "Noncombatant ship",
+    60: "Passenger",
+    61: "Passenger, Hazardous category A",
+    62: "Passenger, Hazardous category B",
+    63: "Passenger, Hazardous category C",
+    64: "Passenger, Hazardous category D",
+    69: "Passenger, No additional info",
+    70: "Cargo",
+    71: "Cargo, Hazardous category A",
+    72: "Cargo, Hazardous category B",
+    73: "Cargo, Hazardous category C",
+    74: "Cargo, Hazardous category D",
+    79: "Cargo, No additional info",
+    80: "Tanker",
+    81: "Tanker, Hazardous category A",
+    82: "Tanker, Hazardous category B",
+    83: "Tanker, Hazardous category C",
+    84: "Tanker, Hazardous category D",
+    89: "Tanker, No additional info",
+    90: "Other Type",
+    91: "Other Type, Hazardous category A",
+    92: "Other Type, Hazardous category B",
+    93: "Other Type, Hazardous category C",
+    94: "Other Type, Hazardous category D",
+    99: "Other Type, no additional info"
+}
+
+
+def get_ship_type_name(ship_type_code):
+    """Convert ship type code to human-readable name."""
+    if ship_type_code is None:
+        return None
+    try:
+        code = int(ship_type_code)
+        return SHIP_TYPE_NAMES.get(code, f"Type {code}")
+    except (ValueError, TypeError):
+        return str(ship_type_code)
+
+
 def load_api_keys():
     """Load all API keys from api.txt file."""
     try:
@@ -472,12 +536,25 @@ def execute_sql_query():
             rows = cursor.fetchall()
             columns = [description[0] for description in cursor.description] if cursor.description else []
             
+            # Convert ship_type codes to names if ship_type column exists
+            ship_type_idx = None
+            if 'ship_type' in columns:
+                ship_type_idx = columns.index('ship_type')
+            
+            # Process rows to replace ship_type codes with names
+            processed_rows = []
+            for row in rows:
+                row_list = list(row)
+                if ship_type_idx is not None and row_list[ship_type_idx] is not None:
+                    row_list[ship_type_idx] = get_ship_type_name(row_list[ship_type_idx])
+                processed_rows.append(row_list)
+            
             execution_time = int((time.time() - start_time) * 1000)  # ms
             
             return jsonify({
                 'columns': columns,
-                'rows': rows,
-                'row_count': len(rows),
+                'rows': processed_rows,
+                'row_count': len(processed_rows),
                 'execution_time': execution_time
             })
             
@@ -518,6 +595,19 @@ def export_sql_query():
             rows = cursor.fetchall()
             columns = [description[0] for description in cursor.description] if cursor.description else []
             
+            # Convert ship_type codes to names if ship_type column exists
+            ship_type_idx = None
+            if 'ship_type' in columns:
+                ship_type_idx = columns.index('ship_type')
+            
+            # Process rows to replace ship_type codes with names
+            processed_rows = []
+            for row in rows:
+                row_list = list(row)
+                if ship_type_idx is not None and row_list[ship_type_idx] is not None:
+                    row_list[ship_type_idx] = get_ship_type_name(row_list[ship_type_idx])
+                processed_rows.append(row_list)
+            
             # Generate CSV
             import io
             import csv
@@ -525,7 +615,7 @@ def export_sql_query():
             output = io.StringIO()
             writer = csv.writer(output)
             writer.writerow(columns)
-            writer.writerows(rows)
+            writer.writerows(processed_rows)
             
             # Return as downloadable file
             from flask import Response
