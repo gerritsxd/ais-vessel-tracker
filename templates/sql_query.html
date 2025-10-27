@@ -236,7 +236,7 @@
         <div class="query-section">
             <h2>📝 SQL Query Editor</h2>
             <textarea id="sql-input" placeholder="Enter your SQL query here...
-Example: SELECT * FROM vessels_static WHERE length > 200 LIMIT 10"></textarea>
+Example: SELECT * FROM vessels_static WHERE length > 200"></textarea>
             
             <div class="button-row">
                 <button class="btn btn-primary" onclick="executeQuery()">▶️ Execute Query</button>
@@ -285,8 +285,7 @@ Example: SELECT * FROM vessels_static WHERE length > 200 LIMIT 10"></textarea>
                     <code>SELECT mmsi, name, length, flag_state 
 FROM vessels_static 
 WHERE length >= 200 
-ORDER BY length DESC 
-LIMIT 20</code>
+ORDER BY length DESC</code>
                 </div>
                 
                 <div class="example-query" onclick="loadExample(this)">
@@ -295,8 +294,7 @@ LIMIT 20</code>
 FROM vessels_static 
 WHERE signatory_company IS NOT NULL 
 GROUP BY signatory_company 
-ORDER BY count DESC 
-LIMIT 10</code>
+ORDER BY count DESC</code>
                 </div>
                 
                 <div class="example-query" onclick="loadExample(this)">
@@ -304,8 +302,7 @@ LIMIT 10</code>
                     <code>SELECT flag_state, COUNT(*) as count
 FROM vessels_static 
 GROUP BY flag_state 
-ORDER BY count DESC 
-LIMIT 15</code>
+ORDER BY count DESC</code>
                 </div>
                 
                 <div class="example-query" onclick="loadExample(this)">
@@ -313,8 +310,7 @@ LIMIT 15</code>
                     <code>SELECT mmsi, name, length, ship_type
 FROM vessels_static 
 WHERE ship_type >= 70 AND ship_type < 80
-ORDER BY length DESC 
-LIMIT 20</code>
+ORDER BY length DESC</code>
                 </div>
                 
                 <div class="example-query" onclick="loadExample(this)">
@@ -322,8 +318,7 @@ LIMIT 20</code>
                     <code>SELECT v.mmsi, v.name, p.latitude, p.longitude, p.sog, p.timestamp
 FROM vessel_positions p
 JOIN vessels_static v ON p.mmsi = v.mmsi
-ORDER BY p.timestamp DESC 
-LIMIT 50</code>
+ORDER BY p.timestamp DESC</code>
                 </div>
                 
                 <div class="example-query" onclick="loadExample(this)">
