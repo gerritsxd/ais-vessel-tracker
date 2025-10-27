@@ -252,7 +252,12 @@ def on_message(ws, message):
             
             # Get voyage data
             destination = ship_data.get("Destination", "").strip() or None
-            eta = ship_data.get("Eta") or None
+            eta_raw = ship_data.get("Eta")
+            # Convert ETA dict to string if present
+            if eta_raw and isinstance(eta_raw, dict):
+                eta = json.dumps(eta_raw)
+            else:
+                eta = None
             draught = ship_data.get("MaximumStaticDraught") or None
             nav_status = metadata.get("NavigationalStatus") or None
             
