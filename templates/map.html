@@ -492,7 +492,14 @@
                         opacity: 1,
                         fillOpacity: 0.9
                     }).addTo(map);
-                    startMarker.bindPopup(`<b>Start Position</b><br>${new Date(route[0].timestamp).toLocaleString()}`);
+                    startMarker.bindPopup(`
+                        <b>${vesselName}</b><br>
+                        <b style="color: #00ff00;">🟢 Start Position</b><br>
+                        📍 ${route[0].lat.toFixed(4)}°N, ${route[0].lon.toFixed(4)}°E<br>
+                        🚢 Speed: ${route[0].sog || 0} knots<br>
+                        🧭 Course: ${route[0].cog || 0}°<br>
+                        🕐 ${new Date(route[0].timestamp).toLocaleString()}
+                    `);
                     
                     // Add end marker (red)
                     const endMarker = L.circleMarker([route[route.length-1].lat, route[route.length-1].lon], {
@@ -503,7 +510,14 @@
                         opacity: 1,
                         fillOpacity: 0.9
                     }).addTo(map);
-                    endMarker.bindPopup(`<b>Current Position</b><br>${new Date(route[route.length-1].timestamp).toLocaleString()}`);
+                    endMarker.bindPopup(`
+                        <b>${vesselName}</b><br>
+                        <b style="color: #ff0000;">🔴 Current Position</b><br>
+                        📍 ${route[route.length-1].lat.toFixed(4)}°N, ${route[route.length-1].lon.toFixed(4)}°E<br>
+                        🚢 Speed: ${route[route.length-1].sog || 0} knots<br>
+                        🧭 Course: ${route[route.length-1].cog || 0}°<br>
+                        🕐 ${new Date(route[route.length-1].timestamp).toLocaleString()}
+                    `);
                     
                     // Add popup to route
                     const duration = new Date(route[route.length-1].timestamp) - new Date(route[0].timestamp);
