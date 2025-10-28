@@ -335,8 +335,8 @@ def get_stats():
 
 @app.route('/database')
 def database_viewer():
-    """Serve the database viewer page."""
-    return render_template('database.html')
+    """Serve the enhanced database viewer page with emissions data."""
+    return render_template('database_enhanced.html')
 
 
 @app.route('/api/vessel/<int:mmsi>/route')
@@ -685,6 +685,315 @@ def start_tracking():
         
     except Exception as e:
         print(f"Error starting tracking: {e}")
+
+
+@app.route('/api/emissions/vessel/<int:imo>')
+def get_vessel_emissions(imo):
+    """Get emissions data for a specific vessel by IMO."""
+    script_dir = Path(__file__).parent
+    db_path = script_dir / DB_NAME
+    
+    conn = None
+    try:
+        conn = sqlite3.connect(db_path, timeout=30)
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT e.*, v.mmsi, v.name as ais_name, v.length, v.flag_state
+            FROM eu_mrv_emissions e
+            LEFT JOIN vessels_static v ON e.imo = v.imo
+            WHERE e.imo = ?
+        ''', (imo,))
+        
+        row = cursor.fetchone()
+        if not row:
+            return jsonify({'error': 'Vessel not found'}), 404
+        
+        columns = [description[0] for description in cursor.description]
+        result = dict(zip(columns, row))
+        
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if conn:
+            conn.close()
+
+
+@app.route('/api/emissions/top')
+def get_top_emitters():
+    """Get top CO2 emitters."""
+    limit = request.args.get('limit', 50, type=int)
+    ship_type = request.args.get('ship_type', type=str)
+    
+    script_dir = Path(__file__).parent
+    db_path = script_dir / DB_NAME
+    
+    conn = None
+    try:
+        conn = sqlite3.connect(db_path, timeout=30)
+        cursor = conn.cursor()
+        
+        query = '''
+            SELECT e.imo, e.vessel_name, e.ship_type, e.company_name,
+                   e.total_co2_emissions, e.total_distance_travelled,
+                   e.avg_co2_per_distance, v.mmsi, v.length, v.flag_state
+            FROM eu_mrv_emissions e
+            LEFT JOIN vessels_static v ON e.imo = v.imo
+            WHERE e.total_co2_emissions IS NOT NULL
+        '''
+        
+        params = []
+        if ship_type:
+            query += ' AND e.ship_type = ?'
+            params.append(ship_type)
+        
+        query += ' ORDER BY e.total_co2_emissions DESC LIMIT ?'
+        params.append(limit)
+        
+        cursor.execute(query, params)
+        rows = cursor.fetchall()
+        
+        columns = [description[0] for description in cursor.description]
+        results = [dict(zip(columns, row)) for row in rows]
+        
+        return jsonify(results)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if conn:
+            conn.close()
+
+
+@app.route('/api/emissions/company/<company_name>')
+def get_company_emissions(company_name):
+    """Get emissions data for all vessels of a specific company."""
+    script_dir = Path(__file__).parent
+    db_path = script_dir / DB_NAME
+    
+    conn = None
+    try:
+        conn = sqlite3.connect(db_path, timeout=30)
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT e.imo, e.vessel_name, e.ship_type, e.total_co2_emissions,
+                   e.total_distance_travelled, e.avg_co2_per_distance,
+                   v.mmsi, v.length, v.flag_state
+            FROM eu_mrv_emissions e
+            LEFT JOIN vessels_static v ON e.imo = v.imo
+            WHERE e.company_name LIKE ?
+            ORDER BY e.total_co2_emissions DESC
+        ''', (f'%{company_name}%',))
+        
+        rows = cursor.fetchall()
+        columns = [description[0] for description in cursor.description]
+        results = [dict(zip(columns, row)) for row in rows]
+        
+        # Calculate company totals
+        total_co2 = sum(r['total_co2_emissions'] for r in results if r['total_co2_emissions'])
+        total_vessels = len(results)
+        
+        return jsonify({
+            'company': company_name,
+            'total_vessels': total_vessels,
+            'total_co2_emissions': total_co2,
+            'average_co2_per_vessel': total_co2 / total_vessels if total_vessels > 0 else 0,
+            'vessels': results
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if conn:
+            conn.close()
+
+
+@app.route('/api/emissions/stats')
+def get_emissions_stats():
+    """Get overall emissions statistics."""
+    script_dir = Path(__file__).parent
+    db_path = script_dir / DB_NAME
+    
+    conn = None
+    try:
+        conn = sqlite3.connect(db_path, timeout=30)
+        cursor = conn.cursor()
+        
+        # Overall stats
+        cursor.execute('''
+            SELECT 
+                COUNT(*) as total_vessels,
+                SUM(total_co2_emissions) as total_co2,
+                AVG(total_co2_emissions) as avg_co2,
+                MAX(total_co2_emissions) as max_co2,
+                COUNT(DISTINCT company_name) as total_companies
+            FROM eu_mrv_emissions
+            WHERE total_co2_emissions IS NOT NULL
+        ''')
+        
+        overall = cursor.fetchone()
+        
+        # By ship type
+        cursor.execute('''
+            SELECT ship_type, COUNT(*) as count, SUM(total_co2_emissions) as total_co2
+            FROM eu_mrv_emissions
+            WHERE total_co2_emissions IS NOT NULL AND ship_type IS NOT NULL
+            GROUP BY ship_type
+            ORDER BY total_co2 DESC
+            LIMIT 10
+        ''')
+        
+        by_type = cursor.fetchall()
+        
+        # Vessels with AIS data
+        cursor.execute('''
+            SELECT COUNT(*) 
+            FROM eu_mrv_emissions e
+            INNER JOIN vessels_static v ON e.imo = v.imo
+        ''')
+        
+        matched = cursor.fetchone()[0]
+        
+        return jsonify({
+            'total_vessels': overall[0],
+            'total_co2_emissions': overall[1],
+            'average_co2_per_vessel': overall[2],
+            'max_co2_emission': overall[3],
+            'total_companies': overall[4],
+            'vessels_with_ais_data': matched,
+            'by_ship_type': [{'ship_type': row[0], 'count': row[1], 'total_co2': row[2]} for row in by_type]
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if conn:
+            conn.close()
+
+
+@app.route('/api/vessels/combined')
+def get_combined_vessel_data():
+    """Get vessels with both AIS and emissions data."""
+    limit = request.args.get('limit', 100, type=int)
+    min_co2 = request.args.get('min_co2', type=float)
+    
+    script_dir = Path(__file__).parent
+    db_path = script_dir / DB_NAME
+    
+    conn = None
+    try:
+        conn = sqlite3.connect(db_path, timeout=30)
+        cursor = conn.cursor()
+        
+        query = '''
+            SELECT v.mmsi, v.name, v.imo, v.ship_type, v.length, v.flag_state,
+                   v.signatory_company, v.last_updated as ais_last_updated,
+                   e.company_name as mrv_company, e.total_co2_emissions,
+                   e.total_fuel_consumption, e.total_distance_travelled,
+                   e.avg_co2_per_distance, e.reporting_period
+            FROM vessels_static v
+            INNER JOIN eu_mrv_emissions e ON v.imo = e.imo
+            WHERE e.total_co2_emissions IS NOT NULL
+        '''
+        
+        params = []
+        if min_co2:
+            query += ' AND e.total_co2_emissions >= ?'
+            params.append(min_co2)
+        
+        query += ' ORDER BY e.total_co2_emissions DESC LIMIT ?'
+        params.append(limit)
+        
+        cursor.execute(query, params)
+        rows = cursor.fetchall()
+        
+        columns = [description[0] for description in cursor.description]
+        results = [dict(zip(columns, row)) for row in rows]
+        
+        return jsonify(results)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if conn:
+            conn.close()
+
+
+@app.route('/api/emissions/match-stats')
+def get_match_statistics():
+    """Get real-time matching statistics between AIS and emissions data."""
+    script_dir = Path(__file__).parent
+    db_path = script_dir / DB_NAME
+    
+    conn = None
+    try:
+        conn = sqlite3.connect(db_path, timeout=30)
+        cursor = conn.cursor()
+        
+        # Total vessels with IMO in AIS
+        cursor.execute('SELECT COUNT(*) FROM vessels_static WHERE imo IS NOT NULL AND imo > 0')
+        total_ais_with_imo = cursor.fetchone()[0]
+        
+        # Total vessels in AIS (all)
+        cursor.execute('SELECT COUNT(*) FROM vessels_static')
+        total_ais = cursor.fetchone()[0]
+        
+        # Total vessels in emissions DB
+        cursor.execute('SELECT COUNT(*) FROM eu_mrv_emissions')
+        total_emissions = cursor.fetchone()[0]
+        
+        # Matched vessels (in both databases)
+        cursor.execute('''
+            SELECT COUNT(*)
+            FROM vessels_static v
+            INNER JOIN eu_mrv_emissions e ON v.imo = e.imo
+        ''')
+        matched = cursor.fetchone()[0]
+        
+        # Vessels with emissions data but no AIS
+        cursor.execute('''
+            SELECT COUNT(*)
+            FROM eu_mrv_emissions e
+            WHERE NOT EXISTS (
+                SELECT 1 FROM vessels_static v WHERE v.imo = e.imo
+            )
+        ''')
+        emissions_only = cursor.fetchone()[0]
+        
+        # Vessels with AIS but no emissions
+        cursor.execute('''
+            SELECT COUNT(*)
+            FROM vessels_static v
+            WHERE v.imo IS NOT NULL AND v.imo > 0
+            AND NOT EXISTS (
+                SELECT 1 FROM eu_mrv_emissions e WHERE e.imo = v.imo
+            )
+        ''')
+        ais_only = cursor.fetchone()[0]
+        
+        # Recent matches (vessels added in last 24 hours that have emissions data)
+        cursor.execute('''
+            SELECT COUNT(*)
+            FROM vessels_static v
+            INNER JOIN eu_mrv_emissions e ON v.imo = e.imo
+            WHERE datetime(v.last_updated) > datetime('now', '-1 day')
+        ''')
+        recent_matches = cursor.fetchone()[0]
+        
+        return jsonify({
+            'total_ais_vessels': total_ais,
+            'total_ais_with_imo': total_ais_with_imo,
+            'total_emissions_database': total_emissions,
+            'matched_vessels': matched,
+            'match_rate_percentage': round((matched / total_ais_with_imo * 100), 2) if total_ais_with_imo > 0 else 0,
+            'ais_only': ais_only,
+            'emissions_only': emissions_only,
+            'recent_matches_24h': recent_matches,
+            'potential_new_matches': ais_only  # Vessels that could potentially be matched
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if conn:
+            conn.close()
 
 
 if __name__ == '__main__':
