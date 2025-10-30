@@ -737,7 +737,8 @@ def get_top_emitters():
         query = '''
             SELECT e.imo, e.vessel_name, e.ship_type, e.company_name,
                    e.total_co2_emissions, e.total_distance_travelled,
-                   e.avg_co2_per_distance, v.mmsi, v.length, v.flag_state
+                   e.avg_co2_per_distance, e.econowind_fit_score,
+                   v.mmsi, v.length, v.flag_state
             FROM eu_mrv_emissions e
             LEFT JOIN vessels_static v ON e.imo = v.imo
             WHERE e.total_co2_emissions IS NOT NULL
@@ -779,7 +780,7 @@ def get_company_emissions(company_name):
         cursor.execute('''
             SELECT e.imo, e.vessel_name, e.ship_type, e.total_co2_emissions,
                    e.total_distance_travelled, e.avg_co2_per_distance,
-                   v.mmsi, v.length, v.flag_state
+                   e.econowind_fit_score, v.mmsi, v.length, v.flag_state
             FROM eu_mrv_emissions e
             LEFT JOIN vessels_static v ON e.imo = v.imo
             WHERE e.company_name LIKE ?
@@ -889,7 +890,8 @@ def get_combined_vessel_data():
                    v.signatory_company, v.last_updated as ais_last_updated,
                    e.company_name as mrv_company, e.total_co2_emissions,
                    e.total_fuel_consumption, e.total_distance_travelled,
-                   e.avg_co2_per_distance, e.reporting_period
+                   e.avg_co2_per_distance, e.reporting_period,
+                   e.econowind_fit_score
             FROM vessels_static v
             INNER JOIN eu_mrv_emissions e ON v.imo = e.imo
             WHERE e.total_co2_emissions IS NOT NULL

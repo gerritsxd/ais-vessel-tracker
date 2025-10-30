@@ -256,6 +256,36 @@
         .efficiency-bad {
             color: #ff6b6b;
         }
+
+        .score-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 14px;
+            font-size: 11px;
+            font-weight: bold;
+            background: #00d4ff;
+            color: #0f3460;
+        }
+
+        .score-badge.high {
+            background: #51cf66;
+            color: #0b3d20;
+        }
+
+        .score-badge.medium {
+            background: #ffd43b;
+            color: #3d2f00;
+        }
+
+        .score-badge.low {
+            background: #ff6b6b;
+            color: #1a0b0b;
+        }
+
+        .score-badge.na {
+            background: #495057;
+            color: #f1f3f5;
+        }
         
         #loading {
             text-align: center;
@@ -396,6 +426,7 @@
                     <th class="sortable" data-column="total_co2_emissions" onclick="sortTable('total_co2_emissions')">CO₂ Emissions</th>
                     <th class="sortable" data-column="total_fuel_consumption" onclick="sortTable('total_fuel_consumption')">Fuel (tonnes)</th>
                     <th class="sortable" data-column="avg_co2_per_distance" onclick="sortTable('avg_co2_per_distance')">CO₂/Distance</th>
+                    <th class="sortable" data-column="econowind_fit_score" onclick="sortTable('econowind_fit_score')">Econowind Fit</th>
                     <th>Destination</th>
                     <th>Draught</th>
                     <th>Actions</th>
@@ -436,7 +467,23 @@
             if (num == null) return 'N/A';
             return num.toLocaleString('en-US', { maximumFractionDigits: 0 });
         }
-        
+
+        function renderScoreBadge(score) {
+            if (score == null || score === '' || isNaN(score)) {
+                return '<span class="score-badge na">N/A</span>';
+            }
+
+            const numericScore = Number(score);
+            let badgeClass = 'low';
+            if (numericScore >= 5) {
+                badgeClass = 'high';
+            } else if (numericScore >= 3) {
+                badgeClass = 'medium';
+            }
+
+            return `<span class="score-badge ${badgeClass}">${numericScore}</span>`;
+        }
+
         function sortTable(column) {
             if (currentSort.column === column) {
                 currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
@@ -460,7 +507,7 @@
                 if (valA == null) valA = '';
                 if (valB == null) valB = '';
                 
-                if (column === 'length' || column === 'beam' || column === 'ship_type' || column === 'mmsi' || column === 'imo' || column === 'total_co2_emissions' || column === 'total_fuel_consumption' || column === 'avg_co2_per_distance') {
+                if (column === 'length' || column === 'beam' || column === 'ship_type' || column === 'mmsi' || column === 'imo' || column === 'total_co2_emissions' || column === 'total_fuel_consumption' || column === 'avg_co2_per_distance' || column === 'econowind_fit_score') {
                     valA = Number(valA) || 0;
                     valB = Number(valB) || 0;
                 } else if (column === 'last_updated') {
@@ -484,7 +531,7 @@
             tbody.innerHTML = '';
             
             if (vessels.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="15" class="no-data">No vessels found</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="16" class="no-data">No vessels found</td></tr>';
                 document.getElementById('filtered-count').textContent = 0;
                 return;
             }
@@ -492,6 +539,7 @@
             vessels.forEach(vessel => {
                 const typeInfo = getShipTypeInfo(vessel.ship_type);
                 const hasEmissions = vessel.total_co2_emissions != null;
+                const scoreCell = renderScoreBadge(vessel.econowind_fit_score);
                 const row = document.createElement('tr');
                 if (hasEmissions) row.classList.add('has-emissions');
                 
@@ -507,6 +555,7 @@
                     <td class="co2-value">${vessel.total_co2_emissions ? formatNumber(vessel.total_co2_emissions) + ' t' : 'N/A'}</td>
                     <td>${vessel.total_fuel_consumption ? formatNumber(vessel.total_fuel_consumption) : 'N/A'}</td>
                     <td class="${vessel.avg_co2_per_distance ? (vessel.avg_co2_per_distance < 1000 ? 'efficiency-good' : 'efficiency-bad') : ''}">${vessel.avg_co2_per_distance ? vessel.avg_co2_per_distance.toFixed(1) + ' kg/nm' : 'N/A'}</td>
+                    <td>${scoreCell}</td>
                     <td>${vessel.destination || 'N/A'}</td>
                     <td>${vessel.draught || 'N/A'}</td>
                     <td>
