@@ -1,0 +1,19 @@
+[Unit]
+Description=AIS Econowind Fit Score Updater
+After=network.target
+
+[Service]
+Type=simple
+User=erik
+WorkingDirectory=/var/www/apihub
+ExecStart=/var/www/apihub/venv/bin/python /var/www/apihub/econowind_score_updater.py
+Restart=always
+RestartSec=10
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ais-econowind-updater
+
+[Install]
+WantedBy=multi-user.target
