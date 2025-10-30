@@ -31,6 +31,8 @@ def ensure_econowind_column(conn):
     except sqlite3.OperationalError:
         # Table may not exist yet (e.g., before MRV import). Ignore so API can fail gracefully.
         pass
+
+
 API_KEY_FILE = "api.txt"
 WEBSOCKET_URL = "wss://stream.aisstream.io/v0/stream"
 MAX_MMSI_PER_CONNECTION = 50
