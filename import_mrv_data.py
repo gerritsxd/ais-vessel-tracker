@@ -7,6 +7,7 @@ import pandas as pd
 import sqlite3
 from pathlib import Path
 import sys
+import numpy as np
 
 sys.stdout.reconfigure(encoding='utf-8')
 
@@ -59,10 +60,13 @@ def create_mrv_table(conn):
             avg_co2_per_distance REAL,
             avg_co2_per_transport_work_mass REAL,
             avg_fuel_consumption_per_distance REAL,
-            
+
             -- Technical Efficiency
             technical_efficiency TEXT,
-            
+
+            -- Econowind Fit Score
+            econowind_fit_score INTEGER DEFAULT 0,
+
             -- Metadata
             last_updated TEXT NOT NULL,
             
@@ -77,6 +81,20 @@ def create_mrv_table(conn):
     
     conn.commit()
     print("✓ EU MRV emissions table created")
+
+
+def ensure_econowind_column(conn):
+    """Ensure the Econowind Fit Score column exists for existing databases."""
+    cursor = conn.cursor()
+    cursor.execute('PRAGMA table_info(eu_mrv_emissions)')
+    columns = {row[1] for row in cursor.fetchall()}
+
+    if 'econowind_fit_score' not in columns:
+        cursor.execute(
+            'ALTER TABLE eu_mrv_emissions ADD COLUMN econowind_fit_score INTEGER DEFAULT 0'
+        )
+        conn.commit()
+        print("✓ Added econowind_fit_score column to eu_mrv_emissions")
 
 
 def import_mrv_data(conn):
@@ -158,12 +176,125 @@ def import_mrv_data(conn):
     df_clean = df_clean[df_clean['imo'] > 0]
     
     # Convert numeric columns
-    numeric_cols = [col for col in df_clean.columns if col not in ['imo', 'vessel_name', 'ship_type', 'company_name', 'doc_issuer', 'verifier_name', 'technical_efficiency', 'last_updated']]
+    numeric_cols = [
+        col
+        for col in df_clean.columns
+        if col
+        not in [
+            'imo',
+            'vessel_name',
+            'ship_type',
+            'company_name',
+            'doc_issuer',
+            'verifier_name',
+            'technical_efficiency',
+            'last_updated',
+        ]
+    ]
     for col in numeric_cols:
         if col in df_clean.columns:
             df_clean[col] = pd.to_numeric(df_clean[col], errors='coerce')
-    
+
     print(f"✓ Cleaned data: {len(df_clean)} valid records")
+
+    print("\nCalculating Econowind Fit Score...")
+
+    preferred_types = {
+        "Bulk carrier",
+        "General cargo",
+        "Chemical tanker",
+        "LNG carrier",
+        "Other ship types",
+        "Ro-Ro cargo ship",
+    }
+
+    df_clean['econowind_fit_score'] = 0
+
+    # Ship type scoring
+    df_clean['econowind_fit_score'] += (
+        df_clean['ship_type'].isin(preferred_types).astype(int) * 2
+    )
+
+    # Length scoring (join against AIS database)
+    length_cursor = conn.cursor()
+    length_cursor.execute(
+        '''
+        SELECT imo, length
+        FROM vessels_static
+        WHERE length IS NOT NULL AND length > 0
+        '''
+    )
+    length_map = {imo: length for imo, length in length_cursor.fetchall()}
+    df_clean['length_db'] = df_clean['imo'].map(length_map)
+
+    def score_length(length):
+        try:
+            if length is None:
+                return 0
+            if 100 <= length <= 160:
+                return 2
+            if 80 <= length < 100 or 160 < length <= 200:
+                return 1
+        except Exception:
+            return 0
+        return 0
+
+    df_clean['econowind_fit_score'] += df_clean['length_db'].apply(score_length)
+
+    # Emissions intensity scoring based on CO₂ per nautical mile
+    df_clean['co2_per_nm_numeric'] = pd.to_numeric(
+        df_clean.get('avg_co2_per_distance'), errors='coerce'
+    )
+    co2_series = df_clean['co2_per_nm_numeric'].dropna()
+    if not co2_series.empty:
+        co2_75 = co2_series.quantile(0.75)
+        co2_50 = co2_series.quantile(0.50)
+    else:
+        co2_75 = co2_50 = None
+
+    def score_co2(co2):
+        if pd.isna(co2) or co2_75 is None or co2_50 is None:
+            return 0
+        if co2 >= co2_75:
+            return 2
+        if co2 >= co2_50:
+            return 1
+        return 0
+
+    df_clean['econowind_fit_score'] += df_clean['co2_per_nm_numeric'].apply(score_co2)
+
+    # Technical efficiency scoring
+    def extract_tech_eff(val):
+        if pd.isna(val):
+            return np.nan
+        try:
+            return float(str(val).split('(')[-1].strip(')'))
+        except Exception:
+            return np.nan
+
+    df_clean['technical_eff_value'] = df_clean['technical_efficiency'].apply(
+        extract_tech_eff
+    )
+
+    def score_eff(val):
+        if pd.isna(val):
+            return 0
+        if val > 10:
+            return 2
+        if val >= 6:
+            return 1
+        return 0
+
+    df_clean['econowind_fit_score'] += df_clean['technical_eff_value'].apply(score_eff)
+
+    df_clean['econowind_fit_score'] = df_clean['econowind_fit_score'].astype(int)
+
+    # Remove helper columns not stored in the database
+    df_clean.drop(
+        columns=['length_db', 'co2_per_nm_numeric', 'technical_eff_value'],
+        inplace=True,
+        errors='ignore',
+    )
     
     # Insert into database
     print("\nInserting into database...")
@@ -301,6 +432,7 @@ def main():
     
     try:
         create_mrv_table(conn)
+        ensure_econowind_column(conn)
         import_mrv_data(conn)
         show_statistics(conn)
         
