@@ -739,6 +739,164 @@ def get_vessel_emissions(imo):
             conn.close()
 
 
+@app.route('/api/emissions/vessel/<int:imo>/score-breakdown')
+def get_score_breakdown(imo):
+    """Get detailed breakdown of Econowind fit score for a vessel."""
+    script_dir = Path(__file__).parent
+    db_path = script_dir / DB_NAME
+    
+    conn = None
+    try:
+        conn = sqlite3.connect(db_path, timeout=30)
+        ensure_econowind_column(conn)
+        cursor = conn.cursor()
+        
+        # Get vessel data
+        cursor.execute('''
+            SELECT e.imo, e.vessel_name, e.ship_type, e.avg_co2_per_distance, 
+                   e.technical_efficiency, e.econowind_fit_score, e.total_co2_emissions,
+                   v.length
+            FROM eu_mrv_emissions e
+            LEFT JOIN vessels_static v ON e.imo = v.imo
+            WHERE e.imo = ?
+        ''', (imo,))
+        
+        row = cursor.fetchone()
+        if not row:
+            return jsonify({'error': 'Vessel not found'}), 404
+        
+        imo, vessel_name, ship_type, avg_co2, tech_eff, total_score, total_co2, length = row
+        
+        # Calculate score breakdown
+        breakdown = {
+            'vessel_name': vessel_name,
+            'imo': imo,
+            'total_score': total_score or 0,
+            'max_score': 8,
+            'breakdown': []
+        }
+        
+        # 1. Ship type scoring
+        preferred_types = {
+            "Bulk carrier", "General cargo", "Chemical tanker",
+            "LNG carrier", "Other ship types", "Ro-Ro cargo ship"
+        }
+        ship_type_score = 2 if ship_type in preferred_types else 0
+        breakdown['breakdown'].append({
+            'category': 'Ship Type',
+            'score': ship_type_score,
+            'max': 2,
+            'value': ship_type,
+            'explanation': f"{'✓ Preferred type' if ship_type_score == 2 else '✗ Not a preferred type'} ({ship_type})",
+            'details': 'Preferred: Bulk carrier, General cargo, Chemical tanker, LNG carrier, Ro-Ro cargo, Other'
+        })
+        
+        # 2. Length scoring
+        length_score = 0
+        length_explanation = 'No length data available'
+        if length:
+            if 100 <= length <= 160:
+                length_score = 2
+                length_explanation = f'✓ Optimal size ({length}m is in 100-160m range)'
+            elif 80 <= length < 100 or 160 < length <= 200:
+                length_score = 1
+                length_explanation = f'~ Acceptable size ({length}m is in 80-100m or 160-200m range)'
+            else:
+                length_explanation = f'✗ Outside preferred range ({length}m)'
+        
+        breakdown['breakdown'].append({
+            'category': 'Vessel Length',
+            'score': length_score,
+            'max': 2,
+            'value': f'{length}m' if length else 'N/A',
+            'explanation': length_explanation,
+            'details': 'Optimal: 100-160m (+2), Acceptable: 80-100m or 160-200m (+1)'
+        })
+        
+        # 3. CO2 emissions intensity
+        co2_score = 0
+        co2_explanation = 'No CO₂/distance data available'
+        if avg_co2:
+            # Get quantiles
+            cursor.execute('SELECT avg_co2_per_distance FROM eu_mrv_emissions WHERE avg_co2_per_distance IS NOT NULL')
+            co2_values = [r[0] for r in cursor.fetchall()]
+            if co2_values:
+                import numpy as np
+                co2_75 = np.percentile(co2_values, 75)
+                co2_50 = np.percentile(co2_values, 50)
+                
+                if avg_co2 >= co2_75:
+                    co2_score = 2
+                    co2_explanation = f'✓ High emitter ({avg_co2:.1f} kg/nm, top 25%)'
+                elif avg_co2 >= co2_50:
+                    co2_score = 1
+                    co2_explanation = f'~ Above average ({avg_co2:.1f} kg/nm, above median)'
+                else:
+                    co2_explanation = f'✗ Below average ({avg_co2:.1f} kg/nm, already efficient)'
+        
+        breakdown['breakdown'].append({
+            'category': 'CO₂ Emissions Intensity',
+            'score': co2_score,
+            'max': 2,
+            'value': f'{avg_co2:.1f} kg/nm' if avg_co2 else 'N/A',
+            'explanation': co2_explanation,
+            'details': 'Top 25% emitters (+2), Above median (+1) - Higher emissions = more savings potential'
+        })
+        
+        # 4. Technical efficiency
+        eff_score = 0
+        eff_explanation = 'No technical efficiency data'
+        if tech_eff:
+            try:
+                eff_value = float(str(tech_eff).split('(')[-1].strip(')').split()[0])
+                if eff_value > 10:
+                    eff_score = 2
+                    eff_explanation = f'✓ Poor efficiency ({eff_value:.1f} gCO₂/t·nm)'
+                elif eff_value >= 6:
+                    eff_score = 1
+                    eff_explanation = f'~ Moderate efficiency ({eff_value:.1f} gCO₂/t·nm)'
+                else:
+                    eff_explanation = f'✗ Good efficiency ({eff_value:.1f} gCO₂/t·nm)'
+            except:
+                eff_explanation = f'Could not parse: {tech_eff}'
+        
+        breakdown['breakdown'].append({
+            'category': 'Technical Efficiency',
+            'score': eff_score,
+            'max': 2,
+            'value': tech_eff or 'N/A',
+            'explanation': eff_explanation,
+            'details': 'Poor efficiency >10 (+2), Moderate 6-10 (+1) - Lower efficiency = more improvement potential'
+        })
+        
+        # Summary
+        calculated_total = sum(item['score'] for item in breakdown['breakdown'])
+        breakdown['calculated_total'] = calculated_total
+        breakdown['total_co2_emissions'] = total_co2
+        
+        # Recommendation
+        if calculated_total >= 6:
+            breakdown['recommendation'] = 'Excellent candidate for wind propulsion retrofit'
+            breakdown['recommendation_class'] = 'high'
+        elif calculated_total >= 4:
+            breakdown['recommendation'] = 'Good candidate for wind propulsion retrofit'
+            breakdown['recommendation_class'] = 'medium'
+        elif calculated_total >= 2:
+            breakdown['recommendation'] = 'Potential candidate, further analysis recommended'
+            breakdown['recommendation_class'] = 'low'
+        else:
+            breakdown['recommendation'] = 'Low priority for wind propulsion retrofit'
+            breakdown['recommendation_class'] = 'na'
+        
+        return jsonify(breakdown)
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if conn:
+            conn.close()
+
+
 @app.route('/api/emissions/top')
 def get_top_emitters():
     """Get top CO2 emitters."""

@@ -265,6 +265,13 @@
             font-weight: bold;
             background: #00d4ff;
             color: #0f3460;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .score-badge:hover {
+            transform: scale(1.1);
+            box-shadow: 0 2px 8px rgba(0, 212, 255, 0.4);
         }
 
         .score-badge.high {
@@ -285,6 +292,162 @@
         .score-badge.na {
             background: #495057;
             color: #f1f3f5;
+        }
+        
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+        }
+        
+        .modal-content {
+            background-color: #16213e;
+            margin: 5% auto;
+            padding: 0;
+            border: 1px solid #00d4ff;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 700px;
+            box-shadow: 0 4px 20px rgba(0, 212, 255, 0.3);
+        }
+        
+        .modal-header {
+            padding: 20px;
+            background: linear-gradient(135deg, #0f3460 0%, #16213e 100%);
+            border-bottom: 2px solid #00d4ff;
+            border-radius: 8px 8px 0 0;
+        }
+        
+        .modal-header h2 {
+            color: #00d4ff;
+            margin: 0;
+            font-size: 24px;
+        }
+        
+        .modal-header .vessel-name {
+            color: #aaa;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+        
+        .modal-body {
+            padding: 20px;
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+        
+        .score-summary {
+            text-align: center;
+            padding: 20px;
+            background: #0f3460;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .score-summary .total-score {
+            font-size: 48px;
+            font-weight: bold;
+            color: #00d4ff;
+        }
+        
+        .score-summary .max-score {
+            font-size: 18px;
+            color: #aaa;
+        }
+        
+        .score-item {
+            background: #0f3460;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #00d4ff;
+        }
+        
+        .score-item.full-score {
+            border-left-color: #51cf66;
+        }
+        
+        .score-item.partial-score {
+            border-left-color: #ffd43b;
+        }
+        
+        .score-item.no-score {
+            border-left-color: #495057;
+        }
+        
+        .score-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .score-item-title {
+            font-size: 16px;
+            font-weight: bold;
+            color: #00d4ff;
+        }
+        
+        .score-item-points {
+            font-size: 20px;
+            font-weight: bold;
+            color: #51cf66;
+        }
+        
+        .score-item-explanation {
+            color: #eee;
+            margin-bottom: 5px;
+        }
+        
+        .score-item-details {
+            color: #888;
+            font-size: 12px;
+            font-style: italic;
+        }
+        
+        .recommendation {
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+            text-align: center;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        
+        .recommendation.high {
+            background: rgba(81, 207, 102, 0.2);
+            border: 2px solid #51cf66;
+            color: #51cf66;
+        }
+        
+        .recommendation.medium {
+            background: rgba(255, 212, 59, 0.2);
+            border: 2px solid #ffd43b;
+            color: #ffd43b;
+        }
+        
+        .recommendation.low {
+            background: rgba(255, 107, 107, 0.2);
+            border: 2px solid #ff6b6b;
+            color: #ff6b6b;
+        }
+        
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        .close:hover {
+            color: #00d4ff;
         }
         
         #loading {
@@ -468,7 +631,7 @@
             return num.toLocaleString('en-US', { maximumFractionDigits: 0 });
         }
 
-        function renderScoreBadge(score) {
+        function renderScoreBadge(score, imo) {
             if (score == null || score === '' || isNaN(score)) {
                 return '<span class="score-badge na">N/A</span>';
             }
@@ -481,7 +644,61 @@
                 badgeClass = 'medium';
             }
 
-            return `<span class="score-badge ${badgeClass}">${numericScore}</span>`;
+            return `<span class="score-badge ${badgeClass}" onclick="showScoreBreakdown(${imo})" title="Click to see score breakdown">${numericScore}</span>`;
+        }
+        
+        function showScoreBreakdown(imo) {
+            fetch(`/ships/api/emissions/vessel/${imo}/score-breakdown`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        alert('Error: ' + data.error);
+                        return;
+                    }
+                    
+                    // Build modal content
+                    let breakdownHTML = '';
+                    data.breakdown.forEach(item => {
+                        let itemClass = 'no-score';
+                        if (item.score === item.max) itemClass = 'full-score';
+                        else if (item.score > 0) itemClass = 'partial-score';
+                        
+                        breakdownHTML += `
+                            <div class="score-item ${itemClass}">
+                                <div class="score-item-header">
+                                    <div class="score-item-title">${item.category}</div>
+                                    <div class="score-item-points">${item.score}/${item.max}</div>
+                                </div>
+                                <div class="score-item-explanation">${item.explanation}</div>
+                                <div class="score-item-details">${item.details}</div>
+                            </div>
+                        `;
+                    });
+                    
+                    document.getElementById('modal-vessel-name').textContent = data.vessel_name;
+                    document.getElementById('modal-imo').textContent = `IMO: ${data.imo}`;
+                    document.getElementById('modal-total-score').textContent = data.total_score;
+                    document.getElementById('modal-breakdown').innerHTML = breakdownHTML;
+                    document.getElementById('modal-recommendation').textContent = data.recommendation;
+                    document.getElementById('modal-recommendation').className = `recommendation ${data.recommendation_class}`;
+                    
+                    document.getElementById('scoreModal').style.display = 'block';
+                })
+                .catch(error => {
+                    console.error('Error fetching score breakdown:', error);
+                    alert('Error loading score breakdown');
+                });
+        }
+        
+        function closeModal() {
+            document.getElementById('scoreModal').style.display = 'none';
+        }
+        
+        window.onclick = function(event) {
+            const modal = document.getElementById('scoreModal');
+            if (event.target == modal) {
+                modal.style.display = 'none';
+            }
         }
 
         function sortTable(column) {
@@ -539,7 +756,7 @@
             vessels.forEach(vessel => {
                 const typeInfo = getShipTypeInfo(vessel.ship_type);
                 const hasEmissions = vessel.total_co2_emissions != null;
-                const scoreCell = renderScoreBadge(vessel.econowind_fit_score);
+                const scoreCell = renderScoreBadge(vessel.econowind_fit_score, vessel.imo);
                 const row = document.createElement('tr');
                 if (hasEmissions) row.classList.add('has-emissions');
                 
@@ -671,5 +888,24 @@
             });
         });
     </script>
+    
+    <!-- Score Breakdown Modal -->
+    <div id="scoreModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="close" onclick="closeModal()">&times;</span>
+                <h2 id="modal-vessel-name">Vessel Name</h2>
+                <div class="vessel-name" id="modal-imo">IMO: 0000000</div>
+            </div>
+            <div class="modal-body">
+                <div class="score-summary">
+                    <div class="total-score" id="modal-total-score">0</div>
+                    <div class="max-score">out of 8 points</div>
+                </div>
+                <div id="modal-breakdown"></div>
+                <div id="modal-recommendation" class="recommendation"></div>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
