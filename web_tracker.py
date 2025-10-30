@@ -15,6 +15,22 @@ from datetime import datetime
 
 # Configuration
 DB_NAME = "vessel_static_data.db"
+
+
+def ensure_econowind_column(conn):
+    """Ensure the econowind_fit_score column exists before running queries."""
+    try:
+        cursor = conn.cursor()
+        cursor.execute("PRAGMA table_info(eu_mrv_emissions)")
+        columns = {row[1] for row in cursor.fetchall()}
+        if "econowind_fit_score" not in columns:
+            cursor.execute(
+                "ALTER TABLE eu_mrv_emissions ADD COLUMN econowind_fit_score INTEGER DEFAULT 0"
+            )
+            conn.commit()
+    except sqlite3.OperationalError:
+        # Table may not exist yet (e.g., before MRV import). Ignore so API can fail gracefully.
+        pass
 API_KEY_FILE = "api.txt"
 WEBSOCKET_URL = "wss://stream.aisstream.io/v0/stream"
 MAX_MMSI_PER_CONNECTION = 50
@@ -696,6 +712,7 @@ def get_vessel_emissions(imo):
     conn = None
     try:
         conn = sqlite3.connect(db_path, timeout=30)
+        ensure_econowind_column(conn)
         cursor = conn.cursor()
         
         cursor.execute('''
@@ -732,6 +749,7 @@ def get_top_emitters():
     conn = None
     try:
         conn = sqlite3.connect(db_path, timeout=30)
+        ensure_econowind_column(conn)
         cursor = conn.cursor()
         
         query = '''
@@ -775,6 +793,7 @@ def get_company_emissions(company_name):
     conn = None
     try:
         conn = sqlite3.connect(db_path, timeout=30)
+        ensure_econowind_column(conn)
         cursor = conn.cursor()
         
         cursor.execute('''
@@ -818,6 +837,7 @@ def get_emissions_stats():
     conn = None
     try:
         conn = sqlite3.connect(db_path, timeout=30)
+        ensure_econowind_column(conn)
         cursor = conn.cursor()
         
         # Overall stats
@@ -883,6 +903,7 @@ def get_combined_vessel_data():
     conn = None
     try:
         conn = sqlite3.connect(db_path, timeout=30)
+        ensure_econowind_column(conn)
         cursor = conn.cursor()
         
         query = '''
