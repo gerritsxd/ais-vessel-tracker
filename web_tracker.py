@@ -15,6 +15,22 @@ from datetime import datetime
 
 # Configuration
 DB_NAME = "vessel_static_data.db"
+
+
+def ensure_econowind_column(conn):
+    """Ensure the econowind_fit_score column exists before running queries."""
+    try:
+        cursor = conn.cursor()
+        cursor.execute("PRAGMA table_info(eu_mrv_emissions)")
+        columns = {row[1] for row in cursor.fetchall()}
+        if "econowind_fit_score" not in columns:
+            cursor.execute(
+                "ALTER TABLE eu_mrv_emissions ADD COLUMN econowind_fit_score INTEGER DEFAULT 0"
+            )
+            conn.commit()
+    except sqlite3.OperationalError:
+        # Table may not exist yet (e.g., before MRV import). Ignore so API can fail gracefully.
+        pass
 API_KEY_FILE = "api.txt"
 WEBSOCKET_URL = "wss://stream.aisstream.io/v0/stream"
 MAX_MMSI_PER_CONNECTION = 50
@@ -696,6 +712,7 @@ def get_vessel_emissions(imo):
     conn = None
     try:
         conn = sqlite3.connect(db_path, timeout=30)
+        ensure_econowind_column(conn)
         cursor = conn.cursor()
         
         cursor.execute('''
@@ -732,12 +749,14 @@ def get_top_emitters():
     conn = None
     try:
         conn = sqlite3.connect(db_path, timeout=30)
+        ensure_econowind_column(conn)
         cursor = conn.cursor()
         
         query = '''
             SELECT e.imo, e.vessel_name, e.ship_type, e.company_name,
                    e.total_co2_emissions, e.total_distance_travelled,
-                   e.avg_co2_per_distance, v.mmsi, v.length, v.flag_state
+                   e.avg_co2_per_distance, e.econowind_fit_score,
+                   v.mmsi, v.length, v.flag_state
             FROM eu_mrv_emissions e
             LEFT JOIN vessels_static v ON e.imo = v.imo
             WHERE e.total_co2_emissions IS NOT NULL
@@ -774,12 +793,13 @@ def get_company_emissions(company_name):
     conn = None
     try:
         conn = sqlite3.connect(db_path, timeout=30)
+        ensure_econowind_column(conn)
         cursor = conn.cursor()
         
         cursor.execute('''
             SELECT e.imo, e.vessel_name, e.ship_type, e.total_co2_emissions,
                    e.total_distance_travelled, e.avg_co2_per_distance,
-                   v.mmsi, v.length, v.flag_state
+                   e.econowind_fit_score, v.mmsi, v.length, v.flag_state
             FROM eu_mrv_emissions e
             LEFT JOIN vessels_static v ON e.imo = v.imo
             WHERE e.company_name LIKE ?
@@ -817,6 +837,7 @@ def get_emissions_stats():
     conn = None
     try:
         conn = sqlite3.connect(db_path, timeout=30)
+        ensure_econowind_column(conn)
         cursor = conn.cursor()
         
         # Overall stats
@@ -882,6 +903,7 @@ def get_combined_vessel_data():
     conn = None
     try:
         conn = sqlite3.connect(db_path, timeout=30)
+        ensure_econowind_column(conn)
         cursor = conn.cursor()
         
         query = '''
@@ -889,7 +911,8 @@ def get_combined_vessel_data():
                    v.signatory_company, v.last_updated as ais_last_updated,
                    e.company_name as mrv_company, e.total_co2_emissions,
                    e.total_fuel_consumption, e.total_distance_travelled,
-                   e.avg_co2_per_distance, e.reporting_period
+                   e.avg_co2_per_distance, e.reporting_period,
+                   e.econowind_fit_score
             FROM vessels_static v
             INNER JOIN eu_mrv_emissions e ON v.imo = e.imo
             WHERE e.total_co2_emissions IS NOT NULL
