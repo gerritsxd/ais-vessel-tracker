@@ -1,0 +1,93 @@
+╔══════════════════════════════════════════════════════════════════════╗
+║                  🚢 QUICK FIX FOR 500 ERRORS                        ║
+╚══════════════════════════════════════════════════════════════════════╝
+
+🔴 PROBLEM:
+   https://gerritsxd.com/ships/database → 500 errors
+   
+   Cause 1: Flask routes missing /ships/ prefix
+   Cause 2: eu_mrv_emissions table not imported on VPS
+
+═══════════════════════════════════════════════════════════════════════
+
+✅ FIX APPLIED LOCALLY:
+   - Updated all Flask routes in src/services/web_tracker.py
+   - Added /ships/ prefix to match Nginx proxy + frontend calls
+   
+═══════════════════════════════════════════════════════════════════════
+
+📤 DEPLOY TO VPS (3 steps):
+
+1️⃣  PUSH CODE (On Windows PC):
+   ────────────────────────────────────────────────────────────────
+   cd c:\Users\gerrit\Desktop\apihub
+   git add .
+   git commit -m "Fix: Add /ships/ prefix to Flask routes"
+   git push origin main
+   ────────────────────────────────────────────────────────────────
+
+2️⃣  RUN SCRIPT (On VPS):
+   ────────────────────────────────────────────────────────────────
+   ssh erik@your-vps
+   cd /var/www/apihub
+   bash deploy_to_vps.sh
+   ────────────────────────────────────────────────────────────────
+
+3️⃣  TEST:
+   ────────────────────────────────────────────────────────────────
+   Visit: https://gerritsxd.com/ships/database
+   Check: No console errors, table loads with data
+   ────────────────────────────────────────────────────────────────
+
+═══════════════════════════════════════════════════════════════════════
+
+🔧 MANUAL DEPLOY (If script fails):
+
+   ssh erik@your-vps
+   cd /var/www/apihub
+   
+   # Pull code
+   git pull origin main
+   
+   # Import emissions data (if not already imported)
+   source venv/bin/activate
+   python src/utils/import_mrv_data.py
+   
+   # Restart service
+   sudo systemctl restart ais-web-tracker
+   
+   # Check status
+   sudo systemctl status ais-web-tracker
+   
+   # Test endpoint
+   curl http://localhost:5000/ships/api/stats
+
+═══════════════════════════════════════════════════════════════════════
+
+🧪 VERIFY SUCCESS:
+
+   ✓ systemctl status ais-web-tracker → "active (running)"
+   ✓ curl http://localhost:5000/ships/api/stats → Returns JSON
+   ✓ https://gerritsxd.com/ships/database → Table loads
+   ✓ Browser console (F12) → No errors
+
+═══════════════════════════════════════════════════════════════════════
+
+📁 FILES CREATED:
+   
+   SUMMARY.md                    → Overview & explanation
+   DIAGNOSTIC_REPORT.md          → Detailed technical analysis  
+   VPS_DEPLOYMENT_CHECKLIST.md   → Step-by-step guide
+   deploy_to_vps.sh              → Automated deployment script
+   QUICK_FIX.txt                 → This file
+
+═══════════════════════════════════════════════════════════════════════
+
+🆘 IF STILL BROKEN:
+
+   Check logs: sudo journalctl -u ais-web-tracker -n 100
+   
+   Common issue: Emissions table missing
+   Fix: python src/utils/import_mrv_data.py
+   
+═══════════════════════════════════════════════════════════════════════

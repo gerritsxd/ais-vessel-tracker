@@ -322,13 +322,13 @@ class VesselTrackerWebSocket:
 
 
 # Flask routes
-@app.route('/')
+@app.route('/ships/')
 def index():
     """Serve the main map page."""
     return render_template('map.html')
 
 
-@app.route('/api/vessels')
+@app.route('/ships/api/vessels')
 def get_vessels():
     """Get all tracked vessels and their current positions."""
     vessels = []
@@ -350,7 +350,7 @@ def get_vessels():
     return jsonify(vessels)
 
 
-@app.route('/api/stats')
+@app.route('/ships/api/stats')
 def get_stats():
     """Get tracking statistics."""
     return jsonify({
@@ -360,13 +360,13 @@ def get_stats():
     })
 
 
-@app.route('/database')
+@app.route('/ships/database')
 def database_viewer():
     """Serve the enhanced database viewer page with emissions data."""
     return render_template('database_enhanced.html')
 
 
-@app.route('/api/vessel/<int:mmsi>/route')
+@app.route('/ships/api/vessel/<int:mmsi>/route')
 def get_vessel_route(mmsi):
     """Get position history for a specific vessel."""
     hours = request.args.get('hours', default=24, type=int)
@@ -406,7 +406,7 @@ def get_vessel_route(mmsi):
             conn.close()
 
 
-@app.route('/api/database/vessels')
+@app.route('/ships/api/database/vessels')
 def get_all_vessels():
     """Get all vessels from database with filtering."""
     project_root = Path(__file__).parent.parent.parent
@@ -486,7 +486,7 @@ def get_all_vessels():
             conn.close()
 
 
-@app.route('/api/companies')
+@app.route('/ships/api/companies')
 def get_companies():
     """Get company statistics."""
     project_root = Path(__file__).parent.parent.parent
@@ -528,13 +528,13 @@ def get_companies():
             conn.close()
 
 
-@app.route('/sql')
+@app.route('/ships/sql')
 def sql_query_page():
     """Render SQL query interface."""
     return render_template('sql_query.html')
 
 
-@app.route('/api/sql/query', methods=['POST'])
+@app.route('/ships/api/sql/query', methods=['POST'])
 def execute_sql_query():
     """Execute a raw SQL query (READ-ONLY)."""
     try:
@@ -595,7 +595,7 @@ def execute_sql_query():
         return jsonify({'error': str(e)}), 500
 
 
-@app.route('/api/sql/export', methods=['POST'])
+@app.route('/ships/api/sql/export', methods=['POST'])
 def export_sql_query():
     """Export SQL query results to CSV."""
     try:
@@ -714,7 +714,7 @@ def start_tracking():
         print(f"Error starting tracking: {e}")
 
 
-@app.route('/api/emissions/vessel/<int:imo>')
+@app.route('/ships/api/emissions/vessel/<int:imo>')
 def get_vessel_emissions(imo):
     """Get emissions data for a specific vessel by IMO."""
     project_root = Path(__file__).parent.parent.parent
@@ -748,7 +748,7 @@ def get_vessel_emissions(imo):
             conn.close()
 
 
-@app.route('/api/emissions/vessel/<int:imo>/score-breakdown')
+@app.route('/ships/api/emissions/vessel/<int:imo>/score-breakdown')
 def get_score_breakdown(imo):
     """Get detailed breakdown of Econowind fit score for a vessel."""
     project_root = Path(__file__).parent.parent.parent
@@ -906,7 +906,7 @@ def get_score_breakdown(imo):
             conn.close()
 
 
-@app.route('/api/emissions/top')
+@app.route('/ships/api/emissions/top')
 def get_top_emitters():
     """Get top CO2 emitters."""
     limit = request.args.get('limit', 50, type=int)
@@ -953,7 +953,7 @@ def get_top_emitters():
             conn.close()
 
 
-@app.route('/api/emissions/company/<company_name>')
+@app.route('/ships/api/emissions/company/<company_name>')
 def get_company_emissions(company_name):
     """Get emissions data for all vessels of a specific company."""
     project_root = Path(__file__).parent.parent.parent
@@ -997,7 +997,7 @@ def get_company_emissions(company_name):
             conn.close()
 
 
-@app.route('/api/emissions/stats')
+@app.route('/ships/api/emissions/stats')
 def get_emissions_stats():
     """Get overall emissions statistics."""
     project_root = Path(__file__).parent.parent.parent
@@ -1060,7 +1060,7 @@ def get_emissions_stats():
             conn.close()
 
 
-@app.route('/api/vessels/combined')
+@app.route('/ships/api/vessels/combined')
 def get_combined_vessel_data():
     """Get vessels with both AIS and emissions data."""
     limit = request.args.get('limit', 100, type=int)
@@ -1109,13 +1109,13 @@ def get_combined_vessel_data():
             conn.close()
 
 
-@app.route('/fleet-visualization')
+@app.route('/ships/fleet-visualization')
 def fleet_visualization():
     """Serve the 3D fleet visualization page."""
     return render_template('fleet_visualization.html')
 
 
-@app.route('/api/visualization/fleet-network')
+@app.route('/ships/api/visualization/fleet-network')
 def get_fleet_network():
     """Get company-ship network data for 3D visualization."""
     project_root = Path(__file__).parent.parent.parent
@@ -1216,7 +1216,7 @@ def get_fleet_network():
             conn.close()
 
 
-@app.route('/api/emissions/match-stats')
+@app.route('/ships/api/emissions/match-stats')
 def get_match_statistics():
     """Get real-time matching statistics between AIS and emissions data."""
     project_root = Path(__file__).parent.parent.parent
