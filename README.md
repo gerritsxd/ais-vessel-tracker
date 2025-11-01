@@ -1,10 +1,10 @@
-# AIS Stream Collector & Vessel Tracker
+# 🚢 Maritime Data Intelligence Platform
 
-Real-time vessel tracking system with web interface. Collects AIS (Automatic Identification System) data from aisstream.io and provides live tracking of large vessels worldwide.
+A production-grade vessel tracking and emissions analysis system. Combines real-time AIS data streaming, EU MRV emissions data, and interactive 3D visualizations to provide comprehensive maritime intelligence.
 
-🌐 **Live Demo:** [View Tracked Vessels](http://149.202.53.2:5000/ships/)
+🌐 **Live Demo:** [https://gerritsxd.com/ships/](https://gerritsxd.com/ships/)
 
-![Vessel Tracker](https://img.shields.io/badge/Vessels-900+-blue) ![API Keys-6-green](https://img.shields.io/badge/API_Keys-6-green) ![Status-Live](https://img.shields.io/badge/Status-Live-success)
+![Vessels](https://img.shields.io/badge/Vessels-1050+-blue) ![Emissions Data](https://img.shields.io/badge/Emissions-16K+-green) ![Status](https://img.shields.io/badge/Status-Live-success) ![Python](https://img.shields.io/badge/Python-3.13-blue)
 
 ## Features
 
@@ -264,28 +264,60 @@ python export_to_csv.py
 python export_to_csv.py my_vessels.csv
 ```
 
-## Project Structure
+## 📁 Project Structure
 
 ```
-ais-vessel-tracker/
-├── ais_collector.py          # Background data collector (systemd service)
-├── web_tracker.py            # Flask web app with real-time tracking
-├── company_lookup.py         # ITF database scraper for company names
-├── retrofill_companies.py    # Batch company data enrichment
-├── track_filtered_vessels.py # Standalone vessel tracker (legacy)
-├── query_vessels.py          # Interactive database query tool
-├── export_to_csv.py          # CSV export utility
-├── check_data.py             # Data quality statistics
-├── check_big_ships.py        # List vessels >100m
-├── api.txt                   # AISStream API keys (gitignored)
-├── vessel_static_data.db     # SQLite database
-├── company_cache.json        # Cached company lookups
-├── templates/
-│   ├── map.html              # Main tracking interface
-│   └── database.html         # Database viewer
-├── ais-collector.service     # Systemd service file
-├── ais-web-tracker.service   # Systemd service file
-└── requirements.txt          # Python dependencies
+apihub/
+├── src/                              # Core application code
+│   ├── collectors/                   # Data collection services
+│   │   ├── ais_collector.py          # Real-time AIS data streaming
+│   │   ├── company_lookup.py         # ITF company database scraper
+│   │   └── mmsi_mid_lookup.py        # MMSI to country decoder
+│   ├── services/                     # Background services
+│   │   ├── web_tracker.py            # Flask web app + REST API
+│   │   ├── emissions_matcher.py      # Match vessels to EU MRV data
+│   │   └── econowind_score_updater.py # Calculate retrofit suitability
+│   └── utils/                        # Utility scripts
+│       ├── cleanup_database.py       # Database maintenance
+│       ├── import_mrv_data.py        # Import EU emissions data
+│       └── query_vessels.py          # Interactive DB queries
+│
+├── templates/                        # HTML templates
+│   ├── map.html                      # Real-time tracking map
+│   ├── database_enhanced.html        # Database browser
+│   ├── fleet_visualization.html      # 3D company network viz
+│   └── sql_query.html                # SQL query interface
+│
+├── data/                             # Data files (gitignored)
+│   ├── vessel_static_data.db         # SQLite database
+│   ├── company_cache.json            # Cached company lookups
+│   └── 2024-v99-*.xlsx               # EU MRV emissions data
+│
+├── config/                           # Configuration
+│   ├── requirements.txt              # Python dependencies
+│   ├── api.txt                       # AISStream API keys (gitignored)
+│   └── systemd/                      # Service files
+│       ├── ais-collector.service
+│       ├── ais-web-tracker.service
+│       ├── ais-emissions-matcher.service
+│       └── ais-econowind-updater.service
+│
+├── scripts/                          # One-off/utility scripts
+│   ├── check_big_ships.py            # List vessels >100m
+│   ├── export_to_csv.py              # CSV export
+│   ├── retrofill_companies.py        # Batch company enrichment
+│   └── setup_vps.sh                  # VPS deployment script
+│
+├── docs/                             # Documentation
+│   ├── QUICK_START.md                # Getting started guide
+│   ├── DEPLOYMENT.md                 # Production deployment
+│   ├── DATA_SOURCES_OVERVIEW.md      # Data sources & APIs
+│   └── reference/                    # Reference docs
+│       ├── SQL_QUERY_CHEATSHEET.txt
+│       └── SHIP_TYPE_CHEATSHEET.md
+│
+└── exports/                          # Generated exports
+    └── vessels_current.csv
 ```
 
 ## API Endpoints

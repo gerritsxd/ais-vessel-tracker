@@ -1,0 +1,116 @@
+EU MRV DATASET COLUMNS
+================================================================================
+
+  1. Ship_Unnamed: 0_level_1_IMO Number
+  2. Ship_Unnamed: 1_level_1_Name
+  3. Ship_Unnamed: 2_level_1_Ship type
+  4. Ship_Unnamed: 3_level_1_Reporting Period
+  5. Ship_Unnamed: 4_level_1_Technical efficiency
+  6. Ship_Unnamed: 5_level_1_Port of Registry
+  7. Ship_Unnamed: 6_level_1_Home Port
+  8. Ship_Unnamed: 7_level_1_Ice Class
+  9. Company_Unnamed: 8_level_1_IMO Number
+ 10. Company_Unnamed: 9_level_1_Name
+ 11. DoC_Unnamed: 10_level_1_DoC issue date
+ 12. DoC_Unnamed: 11_level_1_DoC expiry date
+ 13. Verifier_Unnamed: 12_level_1_Verifier Name
+ 14. Verifier_Unnamed: 13_level_1_Verifier Address
+ 15. Verifier_Unnamed: 14_level_1_Verifier City
+ 16. Verifier_Unnamed: 15_level_1_Verifier Country
+ 17. Verifier_Unnamed: 16_level_1_Verifier Accreditation number
+ 18. Verifier_Unnamed: 17_level_1_Verifier NAB
+ 19. Monitoring methods_Unnamed: 18_level_1_A
+ 20. Monitoring methods_Unnamed: 19_level_1_B
+ 21. Monitoring methods_Unnamed: 20_level_1_C
+ 22. Monitoring methods_Unnamed: 21_level_1_D
+ 23. Monitoring methods_Unnamed: 22_level_1_D
+ 24. Annual monitoring results_Fuel consumption_Total fuel consumption [m tonnes]
+ 25. Annual monitoring results_Fuel consumption_Total fuel benefitting from a derogation in accordance with Part C, point 1.2, of Annex II to Regulation (EU) 2015/757 (voluntary) [m tonnes]
+ 26. Annual monitoring results_Fuel consumption_Fuel consumptions assigned to On laden [m tonnes]
+ 27. Annual monitoring results_Fuel consumption_Fuel consumptions assigned to Cargo heating [m tonnes]
+ 28. Annual monitoring results_Fuel consumption_Fuel consumptions assigned to Dynamic positioning [m tonnes]
+ 29. Annual monitoring results_CO₂ Emissions_Total CO₂ emissions [m tonnes]
+ 30. Annual monitoring results_CO₂ Emissions_CO₂ emissions from all voyages between ports under a MS jurisdiction [m tonnes]
+ 31. Annual monitoring results_CO₂ Emissions_CO₂ emissions from all voyages which departed from ports under a MS jurisdiction [m tonnes]
+ 32. Annual monitoring results_CO₂ Emissions_CO₂ emissions from all voyages to ports under a MS jurisdiction [m tonnes]
+ 33. Annual monitoring results_CO₂ Emissions_CO₂ emissions which occurred within ports under a MS jurisdiction at berth [m tonnes]
+ 34. Annual monitoring results_CO₂ Emissions_CO₂ emissions which occurred within ports under a MS jurisdiction [m tonnes]
+ 35. Annual monitoring results_CO₂ Emissions_CO₂ emissions assigned to On laden [m tonnes]
+ 36. Annual monitoring results_CO₂ Emissions_CO₂ emissions assigned to Passenger transport [m tonnes]
+ 37. Annual monitoring results_CO₂ Emissions_CO₂ emissions assigned to Freight transport [m tonnes]
+ 38. Annual monitoring results_CO₂ Emissions_CO2 emissions to be reported under Directive 2003/87/EC [m tonnes]
+ 39. Annual monitoring results_CH₄ Emissions_Total CH₄ emissions [m tonnes]
+ 40. Annual monitoring results_CH₄ Emissions_CH₄ emissions from all voyages between ports under a MS jurisdiction [m tonnes]
+ 41. Annual monitoring results_CH₄ Emissions_CH₄ emissions from all voyages which departed from ports under a MS jurisdiction [m tonnes]
+ 42. Annual monitoring results_CH₄ Emissions_CH₄ emissions from all voyages to ports under a MS jurisdiction [m tonnes]
+ 43. Annual monitoring results_CH₄ Emissions_CH₄ emissions which occurred within ports under a MS jurisdiction at berth [m tonnes]
+ 44. Annual monitoring results_CH₄ Emissions_CH₄ emissions which occurred within ports under a MS jurisdiction [m tonnes]
+ 45. Annual monitoring results_CH₄ Emissions_CH₄ emissions assigned to On laden [m tonnes]
+ 46. Annual monitoring results_CH₄ Emissions_CH₄ emissions assigned to Passenger transport [m tonnes]
+ 47. Annual monitoring results_CH₄ Emissions_CH₄ emissions assigned to Freight transport [m tonnes]
+ 48. Annual monitoring results_CH₄ Emissions_CH₄ emissions to be reported under Directive 2003/87/EC [m tonnes]
+ 49. Annual monitoring results_N₂O Emissions_Total N₂O emissions [m tonnes]
+ 50. Annual monitoring results_N₂O Emissions_N₂O emissions from all voyages between ports under a MS jurisdiction [m tonnes]
+ 51. Annual monitoring results_N₂O Emissions_N₂O emissions from all voyages which departed from ports under a MS jurisdiction [m tonnes]
+ 52. Annual monitoring results_N₂O Emissions_N₂O emissions from all voyages to ports under a MS jurisdiction [m tonnes]
+ 53. Annual monitoring results_N₂O Emissions_N₂O emissions which occurred within ports under a MS jurisdiction at berth [m tonnes]
+ 54. Annual monitoring results_N₂O Emissions_N₂O emissions which occurred within ports under a MS jurisdiction [m tonnes]
+ 55. Annual monitoring results_N₂O Emissions_N₂O emissions assigned to On laden [m tonnes]
+ 56. Annual monitoring results_N₂O Emissions_N₂O emissions assigned to Passenger transport [m tonnes]
+ 57. Annual monitoring results_N₂O Emissions_N₂O emissions assigned to Freight transport [m tonnes]
+ 58. Annual monitoring results_N₂O Emissions_N₂O emissions to be reported under Directive 2003/87/EC [m tonnes]
+ 59. Annual monitoring results_CO₂eq Emissions_Total CO₂eq emissions [m tonnes]
+ 60. Annual monitoring results_CO₂eq Emissions_CO₂eq emissions from all voyages between ports under a MS jurisdiction [m tonnes]
+ 61. Annual monitoring results_CO₂eq Emissions_CO₂eq emissions from all voyages which departed from ports under a MS jurisdiction [m tonnes]
+ 62. Annual monitoring results_CO₂eq Emissions_CO₂eq emissions from all voyages to ports under a MS jurisdiction [m tonnes]
+ 63. Annual monitoring results_CO₂eq Emissions_CO₂eq emissions which occurred within ports under a MS jurisdiction at berth [m tonnes]
+ 64. Annual monitoring results_CO₂eq Emissions_CO₂eq emissions which occurred within ports under a MS jurisdiction [m tonnes]
+ 65. Annual monitoring results_CO₂eq Emissions_CO₂eq emissions assigned to On laden [m tonnes]
+ 66. Annual monitoring results_CO₂eq Emissions_CO₂eq emissions assigned to Passenger transport [m tonnes]
+ 67. Annual monitoring results_CO₂eq Emissions_CO₂eq emissions assigned to Freight transport [m tonnes]
+ 68. Annual monitoring results_CO₂eq Emissions_CO₂eq emissions to be reported under Directive 2003/87/EC [m tonnes]
+ 69. Annual monitoring results_CO₂eq Emissions_CO₂eq emissions benefitting from a derogation in accordance with Part C, point 1.2, of Annex II to Regulation (EU) 2015/757 (voluntary) [m tonnes]
+ 70. Annual monitoring results_Distance and time_Distance through ice [n miles]
+ 71. Annual monitoring results_Distance and time_Time spent at sea [hours]
+ 72. Annual monitoring results_Distance and time_Time spent at sea through ice [hours]
+ 73. Annual monitoring results_Average energy efficiency_Fuel consumption per distance [kg / n mile]
+ 74. Annual monitoring results_Average energy efficiency_Fuel consumption per distance on laden voyages [kg / n mile]
+ 75. Annual monitoring results_Average energy efficiency_Fuel consumption per transport work (mass) [g / m tonnes · n miles]
+ 76. Annual monitoring results_Average energy efficiency_Fuel consumption per transport work (mass) on laden voyages [g / m tonnes · n miles]
+ 77. Annual monitoring results_Average energy efficiency_Fuel consumption per transport work (volume) [g / m³ · n miles]
+ 78. Annual monitoring results_Average energy efficiency_Fuel consumption per transport work (volume) on laden voyages [g / m³ · n miles]
+ 79. Annual monitoring results_Average energy efficiency_Fuel consumption per transport work (dwt) [g / dwt carried · n miles]
+ 80. Annual monitoring results_Average energy efficiency_Fuel consumption per transport work (dwt) on laden voyages [g / dwt carried · n miles]
+ 81. Annual monitoring results_Average energy efficiency_Fuel consumption per transport work (pax) [g / pax · n miles]
+ 82. Annual monitoring results_Average energy efficiency_Fuel consumption per transport work (pax) on laden voyages [g / pax · n miles]
+ 83. Annual monitoring results_Average energy efficiency_Fuel consumption per transport work (freight) [g / m tonnes · n miles]
+ 84. Annual monitoring results_Average energy efficiency_Fuel consumption per transport work (freight) on laden voyages [g / m tonnes · n miles]
+ 85. Annual monitoring results_Average energy efficiency_Fuel consumption per time spent at sea [m tonnes / hour]
+ 86. Annual monitoring results_Average energy efficiency_CO₂ emissions per distance [kg CO₂ / n mile]
+ 87. Annual monitoring results_Average energy efficiency_CO₂ emissions per distance on laden voyages [kg CO₂ / n mile]
+ 88. Annual monitoring results_Average energy efficiency_CO₂ emissions per transport work (mass) [g CO₂ / m tonnes · n miles]
+ 89. Annual monitoring results_Average energy efficiency_CO₂ emissions per transport work (mass) on laden voyages [g CO₂ / m tonnes · n miles]
+ 90. Annual monitoring results_Average energy efficiency_CO₂ emissions per transport work (volume) [g CO₂ / m³ · n miles]
+ 91. Annual monitoring results_Average energy efficiency_CO₂ emissions per transport work (volume) on laden voyages [g CO₂ / m³ · n miles]
+ 92. Annual monitoring results_Average energy efficiency_CO₂ emissions per transport work (dwt) [g CO₂ / dwt carried · n miles]
+ 93. Annual monitoring results_Average energy efficiency_CO₂ emissions per transport work (dwt) on laden voyages [g CO₂ / dwt carried · n miles]
+ 94. Annual monitoring results_Average energy efficiency_CO₂ emissions per transport work (pax) [g CO₂ / pax · n miles]
+ 95. Annual monitoring results_Average energy efficiency_CO₂ emissions per transport work (pax) on laden voyages [g CO₂ / pax · n miles]
+ 96. Annual monitoring results_Average energy efficiency_CO₂ emissions per transport work (freight) [g CO₂ / m tonnes · n miles]
+ 97. Annual monitoring results_Average energy efficiency_CO₂ emissions per transport work (freight) on laden voyages [g CO₂ / m tonnes · n miles]
+ 98. Annual monitoring results_Average energy efficiency_CO₂ emissions per time spent at sea [m tonnes CO₂ / hour]
+ 99. Annual monitoring results_Average energy efficiency_CO₂eq emissions per distance [kg CO₂eq / n mile]
+100. Annual monitoring results_Average energy efficiency_CO₂eq emissions per distance on laden voyages [kg CO₂eq / n mile]
+101. Annual monitoring results_Average energy efficiency_CO₂eq emissions per transport work (mass) [g CO₂eq / m tonnes · n miles]
+102. Annual monitoring results_Average energy efficiency_CO₂eq emissions per transport work (mass) on laden voyages [g CO₂eq / m tonnes · n miles]
+103. Annual monitoring results_Average energy efficiency_CO₂eq emissions per transport work (volume) [g CO₂eq / m³ · n miles]
+104. Annual monitoring results_Average energy efficiency_CO₂eq emissions per transport work (volume) on laden voyages [g CO₂eq / m³ · n miles]
+105. Annual monitoring results_Average energy efficiency_CO₂eq emissions per transport work (dwt) [g CO₂eq / dwt carried · n miles]
+106. Annual monitoring results_Average energy efficiency_CO₂eq emissions per transport work (dwt) on laden voyages [g CO₂eq / dwt carried · n miles]
+107. Annual monitoring results_Average energy efficiency_CO₂eq emissions per transport work (pax) [g CO₂eq / pax · n miles]
+108. Annual monitoring results_Average energy efficiency_CO₂eq emissions per transport work (pax) on laden voyages [g CO₂eq / pax · n miles]
+109. Annual monitoring results_Average energy efficiency_CO₂eq emissions per transport work (freight) [g CO₂eq / m tonnes · n miles]
+110. Annual monitoring results_Average energy efficiency_CO₂eq emissions per transport work (freight) on laden voyages [g CO₂eq / m tonnes · n miles]
+111. Annual monitoring results_Average energy efficiency_CO₂eq emissions per time spent at sea [m tonnes CO₂eq / m tonnes · n miles]
+112. Annual monitoring results_Additional voluntary reporting_Additional information to facilitate the understanding of the reported average operational energy efficiency indicators
+113. Annual monitoring results_Additional voluntary reporting_Average density of the cargo transported [m tonnes / m³]

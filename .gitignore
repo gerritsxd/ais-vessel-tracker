@@ -26,17 +26,20 @@ Thumbs.db
 *.tmp
 *.log
 
-# CSV exports
+# Data files (large/sensitive - don't commit)
+data/
+exports/
 *.csv
-
-# Database (don't commit the actual database)
-vessel_static_data.db
+*.db
 *.db-journal
 *.db-wal
 *.db-shm
+*.xlsx
+*.json
 
-# API Key (IMPORTANT - never commit this!)
+# API Keys (IMPORTANT - never commit!)
 api.txt
+config/api.txt
 
 # VPS specific
 *.pid
