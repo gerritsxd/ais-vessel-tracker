@@ -411,15 +411,15 @@ def show_statistics(conn):
 
 def main():
     """Main import process."""
-    script_dir = Path(__file__).parent
-    db_path = script_dir / DB_NAME
+    project_root = Path(__file__).parent.parent.parent
+    db_path = project_root / DB_NAME
     
     if not db_path.exists():
         print(f"Error: Database not found: {db_path}")
         print("Run ais_collector.py first to create the database.")
         return
     
-    mrv_path = script_dir / MRV_FILE
+    mrv_path = project_root / MRV_FILE
     if not mrv_path.exists():
         print(f"Error: MRV file not found: {mrv_path}")
         return

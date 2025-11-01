@@ -4,7 +4,7 @@ import sqlite3
 import os
 from datetime import datetime
 from pathlib import Path
-from mmsi_mid_lookup import get_flag_state
+from .mmsi_mid_lookup import get_flag_state
 
 # Database configuration
 DB_NAME = "vessel_static_data.db"

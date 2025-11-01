@@ -128,8 +128,8 @@ def get_ship_type_name(ship_type_code):
 def load_api_keys():
     """Load all API keys from api.txt file."""
     try:
-        script_dir = Path(__file__).parent
-        api_file_path = script_dir / API_KEY_FILE
+        project_root = Path(__file__).parent.parent.parent
+        api_file_path = project_root / API_KEY_FILE
         
         api_keys = []
         with open(api_file_path, 'r') as f:
@@ -548,8 +548,8 @@ def execute_sql_query():
         if not query.upper().startswith('SELECT'):
             return jsonify({'error': 'Only SELECT queries are allowed'}), 403
         
-        script_dir = Path(__file__).parent
-        db_path = script_dir / DB_NAME
+        project_root = Path(__file__).parent.parent.parent
+        db_path = project_root / DB_NAME
         
         conn = None
         start_time = time.time()
@@ -609,8 +609,8 @@ def export_sql_query():
         if not query.upper().startswith('SELECT'):
             return jsonify({'error': 'Only SELECT queries are allowed'}), 403
         
-        script_dir = Path(__file__).parent
-        db_path = script_dir / DB_NAME
+        project_root = Path(__file__).parent.parent.parent
+        db_path = project_root / DB_NAME
         
         conn = None
         try:
