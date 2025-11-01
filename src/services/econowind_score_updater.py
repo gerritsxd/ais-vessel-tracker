@@ -193,8 +193,8 @@ class EconowindScoreUpdater:
 
 def main():
     """Main entry point."""
-    script_dir = Path(__file__).parent
-    db_path = script_dir / DB_NAME
+    project_root = Path(__file__).parent.parent.parent
+    db_path = project_root / DB_NAME
     
     if not db_path.exists():
         print(f"Error: Database not found: {db_path}")

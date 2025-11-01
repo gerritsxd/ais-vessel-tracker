@@ -149,8 +149,8 @@ def load_api_keys():
 
 def get_filtered_vessels():
     """Get vessels from database matching filter criteria."""
-    script_dir = Path(__file__).parent
-    db_path = script_dir / DB_NAME
+    project_root = Path(__file__).parent.parent.parent
+    db_path = project_root / DB_NAME
     
     conn = None
     try:
@@ -242,8 +242,8 @@ class VesselTrackerWebSocket:
                     # Save position to history database
                     conn = None
                     try:
-                        script_dir = Path(__file__).parent
-                        db_path = script_dir / DB_NAME
+                        project_root = Path(__file__).parent.parent.parent
+                        db_path = project_root / DB_NAME
                         conn = sqlite3.connect(db_path, timeout=5)
                         conn.execute('PRAGMA journal_mode=WAL')
                         cursor = conn.cursor()
@@ -371,8 +371,8 @@ def get_vessel_route(mmsi):
     """Get position history for a specific vessel."""
     hours = request.args.get('hours', default=24, type=int)
     
-    script_dir = Path(__file__).parent
-    db_path = script_dir / DB_NAME
+    project_root = Path(__file__).parent.parent.parent
+    db_path = project_root / DB_NAME
     
     conn = None
     try:
@@ -409,8 +409,8 @@ def get_vessel_route(mmsi):
 @app.route('/api/database/vessels')
 def get_all_vessels():
     """Get all vessels from database with filtering."""
-    script_dir = Path(__file__).parent
-    db_path = script_dir / DB_NAME
+    project_root = Path(__file__).parent.parent.parent
+    db_path = project_root / DB_NAME
     
     conn = None
     try:
@@ -489,8 +489,8 @@ def get_all_vessels():
 @app.route('/api/companies')
 def get_companies():
     """Get company statistics."""
-    script_dir = Path(__file__).parent
-    db_path = script_dir / DB_NAME
+    project_root = Path(__file__).parent.parent.parent
+    db_path = project_root / DB_NAME
     
     conn = None
     try:
@@ -717,8 +717,8 @@ def start_tracking():
 @app.route('/api/emissions/vessel/<int:imo>')
 def get_vessel_emissions(imo):
     """Get emissions data for a specific vessel by IMO."""
-    script_dir = Path(__file__).parent
-    db_path = script_dir / DB_NAME
+    project_root = Path(__file__).parent.parent.parent
+    db_path = project_root / DB_NAME
     
     conn = None
     try:
@@ -751,8 +751,8 @@ def get_vessel_emissions(imo):
 @app.route('/api/emissions/vessel/<int:imo>/score-breakdown')
 def get_score_breakdown(imo):
     """Get detailed breakdown of Econowind fit score for a vessel."""
-    script_dir = Path(__file__).parent
-    db_path = script_dir / DB_NAME
+    project_root = Path(__file__).parent.parent.parent
+    db_path = project_root / DB_NAME
     
     conn = None
     try:
@@ -912,8 +912,8 @@ def get_top_emitters():
     limit = request.args.get('limit', 50, type=int)
     ship_type = request.args.get('ship_type', type=str)
     
-    script_dir = Path(__file__).parent
-    db_path = script_dir / DB_NAME
+    project_root = Path(__file__).parent.parent.parent
+    db_path = project_root / DB_NAME
     
     conn = None
     try:
@@ -956,8 +956,8 @@ def get_top_emitters():
 @app.route('/api/emissions/company/<company_name>')
 def get_company_emissions(company_name):
     """Get emissions data for all vessels of a specific company."""
-    script_dir = Path(__file__).parent
-    db_path = script_dir / DB_NAME
+    project_root = Path(__file__).parent.parent.parent
+    db_path = project_root / DB_NAME
     
     conn = None
     try:
@@ -1000,8 +1000,8 @@ def get_company_emissions(company_name):
 @app.route('/api/emissions/stats')
 def get_emissions_stats():
     """Get overall emissions statistics."""
-    script_dir = Path(__file__).parent
-    db_path = script_dir / DB_NAME
+    project_root = Path(__file__).parent.parent.parent
+    db_path = project_root / DB_NAME
     
     conn = None
     try:
@@ -1066,8 +1066,8 @@ def get_combined_vessel_data():
     limit = request.args.get('limit', 100, type=int)
     min_co2 = request.args.get('min_co2', type=float)
     
-    script_dir = Path(__file__).parent
-    db_path = script_dir / DB_NAME
+    project_root = Path(__file__).parent.parent.parent
+    db_path = project_root / DB_NAME
     
     conn = None
     try:
@@ -1118,8 +1118,8 @@ def fleet_visualization():
 @app.route('/api/visualization/fleet-network')
 def get_fleet_network():
     """Get company-ship network data for 3D visualization."""
-    script_dir = Path(__file__).parent
-    db_path = script_dir / DB_NAME
+    project_root = Path(__file__).parent.parent.parent
+    db_path = project_root / DB_NAME
     
     conn = None
     try:
@@ -1219,8 +1219,8 @@ def get_fleet_network():
 @app.route('/api/emissions/match-stats')
 def get_match_statistics():
     """Get real-time matching statistics between AIS and emissions data."""
-    script_dir = Path(__file__).parent
-    db_path = script_dir / DB_NAME
+    project_root = Path(__file__).parent.parent.parent
+    db_path = project_root / DB_NAME
     
     conn = None
     try:

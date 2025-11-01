@@ -34,8 +34,8 @@ def load_api_key():
         print(f"Using API key from environment variable")
         return env_key
     try:
-        script_dir = Path(__file__).parent
-        api_file_path = script_dir / API_KEY_FILE
+        project_root = Path(__file__).parent.parent.parent
+        api_file_path = project_root / API_KEY_FILE
         
         with open(api_file_path, 'r') as f:
             lines = f.readlines()
@@ -57,8 +57,8 @@ def init_database():
     Initialize the SQLite database and create the vessels_static table if it doesn't exist.
     Returns the database connection.
     """
-    script_dir = Path(__file__).parent
-    db_path = script_dir / DB_NAME
+    project_root = Path(__file__).parent.parent.parent
+    db_path = project_root / DB_NAME
     
     conn = sqlite3.connect(db_path, check_same_thread=False)
     cursor = conn.cursor()
