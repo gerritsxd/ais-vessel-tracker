@@ -97,12 +97,12 @@ def ensure_econowind_column(conn):
         print("✓ Added econowind_fit_score column to eu_mrv_emissions")
 
 
-def import_mrv_data(conn):
+def import_mrv_data(conn, mrv_file_path):
     """Import EU MRV data from Excel file."""
-    print(f"\nReading {MRV_FILE}...")
+    print(f"\nReading {mrv_file_path.name}...")
     
     # Read Excel with multi-level headers
-    df = pd.read_excel(MRV_FILE, header=[0, 1, 2])
+    df = pd.read_excel(str(mrv_file_path), header=[0, 1, 2])
     
     # Flatten column names
     df.columns = ['_'.join(str(i) for i in col).strip() for col in df.columns.values]
@@ -433,7 +433,7 @@ def main():
     try:
         create_mrv_table(conn)
         ensure_econowind_column(conn)
-        import_mrv_data(conn)
+        import_mrv_data(conn, mrv_path)
         show_statistics(conn)
         
         print("✓ Import successful!")
