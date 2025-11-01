@@ -419,7 +419,7 @@ def main():
         print("Run ais_collector.py first to create the database.")
         return
     
-    mrv_path = project_root / MRV_FILE
+    mrv_path = project_root / "data" / MRV_FILE
     if not mrv_path.exists():
         print(f"Error: MRV file not found: {mrv_path}")
         return
