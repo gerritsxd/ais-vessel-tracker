@@ -294,20 +294,20 @@
         
         <div class="control-group">
             <label>Physics Strength</label>
-            <input type="range" id="physics-strength" min="0" max="200" value="100" step="10">
-            <span id="physics-value">100</span>
+            <input type="range" id="physics-strength" min="0" max="200" value="200" step="10">
+            <span id="physics-value">200</span>
         </div>
         
         <div class="control-group">
             <label>Node Spacing</label>
-            <input type="range" id="node-spacing" min="50" max="500" value="200" step="25">
-            <span id="spacing-value">200</span>
+            <input type="range" id="node-spacing" min="50" max="500" value="225" step="25">
+            <span id="spacing-value">225</span>
         </div>
         
         <div class="control-group">
             <label>CO2 Height Scale</label>
-            <input type="range" id="co2-scale" min="0.5" max="3" value="1.5" step="0.1">
-            <span id="co2-scale-value">1.5x</span>
+            <input type="range" id="co2-scale" min="0.5" max="5" value="2.5" step="0.1">
+            <span id="co2-scale-value">2.5x</span>
         </div>
         
         <div class="control-group">
@@ -416,8 +416,8 @@
                 .onNodeClick(handleNodeClick);
             
             // Configure physics forces separately
-            graph.d3Force('charge').strength(-100);
-            graph.d3Force('link').distance(200);
+            graph.d3Force('charge').strength(-200);
+            graph.d3Force('link').distance(225);
             graph.d3Force('collision', null);
             
             return graph;
@@ -523,7 +523,8 @@
                 if (node.type === 'ship') {
                     // Y position based on CO2 emissions (logarithmic scale for better distribution)
                     const co2 = node.co2 || 1;
-                    node.fy = Math.log10(co2) * 100 * co2Scale;
+                    // Amplified height scale for dramatic visual effect
+                    node.fy = Math.log10(co2) * 150 * co2Scale;
                     // Ships can move freely in X and Z (will cluster around their company)
                     delete node.fx;
                     delete node.fz;
