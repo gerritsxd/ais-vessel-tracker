@@ -6,7 +6,7 @@ After=network.target
 Type=simple
 User=erik
 WorkingDirectory=/var/www/apihub
-ExecStart=/var/www/apihub/venv/bin/python /var/www/apihub/econowind_score_updater.py
+ExecStart=/var/www/apihub/venv/bin/python /var/www/apihub/src/services/econowind_score_updater.py
 Restart=always
 RestartSec=10
 

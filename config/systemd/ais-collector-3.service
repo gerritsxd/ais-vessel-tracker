@@ -1,0 +1,21 @@
+[Unit]
+Description=AIS Vessel Data Collector #3
+After=network.target
+
+[Service]
+Type=simple
+User=erik
+WorkingDirectory=/var/www/apihub
+Environment="PATH=/var/www/apihub/venv/bin"
+Environment="AIS_API_KEY=801f17933ffa1371fb90afd2503964ac576c820e"
+ExecStart=/var/www/apihub/venv/bin/python /var/www/apihub/src/collectors/ais_collector.py
+Restart=always
+RestartSec=10
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ais-collector-3
+
+[Install]
+WantedBy=multi-user.target

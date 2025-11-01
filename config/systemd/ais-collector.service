@@ -1,19 +1,20 @@
 [Unit]
-Description=AIS Emissions Data Matcher
+Description=AIS Vessel Data Collector
 After=network.target
 
 [Service]
 Type=simple
 User=erik
 WorkingDirectory=/var/www/apihub
-ExecStart=/var/www/apihub/venv/bin/python /var/www/apihub/src/services/emissions_matcher.py
+Environment="PATH=/var/www/apihub/venv/bin"
+ExecStart=/var/www/apihub/venv/bin/python /var/www/apihub/src/collectors/ais_collector.py
 Restart=always
 RestartSec=10
 
 # Logging
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=ais-emissions-matcher
+SyslogIdentifier=ais-collector
 
 [Install]
 WantedBy=multi-user.target
