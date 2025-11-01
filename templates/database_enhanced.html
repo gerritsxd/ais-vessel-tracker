@@ -648,7 +648,7 @@
         }
         
         function showScoreBreakdown(imo) {
-            fetch(`/ships/api/emissions/vessel/${imo}/score-breakdown`)
+            fetch(`/api/emissions/vessel/${imo}/score-breakdown`)
                 .then(response => response.json())
                 .then(data => {
                     if (data.error) {
@@ -796,7 +796,7 @@
             const minCo2 = document.getElementById('min-co2').value;
             const showFilter = document.getElementById('show-filter').value;
             
-            let url = '/ships/api/vessels/combined?limit=1000';
+            let url = '/api/vessels/combined?limit=1000';
             if (minCo2) url += `&min_co2=${minCo2}`;
             
             document.getElementById('loading').style.display = 'block';
@@ -864,15 +864,15 @@
         
         // Load statistics
         Promise.all([
-            fetch('/ships/api/stats').then(r => r.json()),
-            fetch('/ships/api/emissions/match-stats').then(r => r.json())
+            fetch('/api/stats').then(r => r.json()),
+            fetch('/api/emissions/match-stats').then(r => r.json())
         ]).then(([aisStats, matchStats]) => {
             document.getElementById('total-vessels').textContent = formatNumber(matchStats.total_ais_vessels);
             document.getElementById('matched-vessels').textContent = formatNumber(matchStats.matched_vessels);
             document.getElementById('match-rate').textContent = matchStats.match_rate_percentage + '%';
             
             // Get emissions stats
-            fetch('/ships/api/emissions/stats').then(r => r.json()).then(emissionsStats => {
+            fetch('/api/emissions/stats').then(r => r.json()).then(emissionsStats => {
                 document.getElementById('total-co2').textContent = (emissionsStats.total_co2_emissions / 1000000).toFixed(1);
                 document.getElementById('avg-co2').textContent = formatNumber(Math.round(emissionsStats.average_co2_per_vessel));
             });
