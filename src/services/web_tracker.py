@@ -39,8 +39,17 @@ MAX_MMSI_PER_CONNECTION = 50
 
 # Flask app
 from werkzeug.middleware.proxy_fix import ProxyFix
+import os
+import sys
 
-app = Flask(__name__)
+# Get project root directory (two levels up from this file)
+project_root = Path(__file__).parent.parent.parent
+template_dir = project_root / 'templates'
+static_dir = project_root / 'static'
+
+app = Flask(__name__, 
+            template_folder=str(template_dir),
+            static_folder=str(static_dir))
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 app.config['SECRET_KEY'] = 'ais-tracker-secret'
 socketio = SocketIO(app, cors_allowed_origins="*")
