@@ -74,6 +74,7 @@ def init_database():
             imo INTEGER,
             call_sign TEXT,
             flag_state TEXT,
+            signatory_company TEXT,
             last_updated TEXT NOT NULL
         )
     ''')
@@ -102,6 +103,7 @@ def init_database():
     # Add new columns if they don't exist (for existing databases)
     new_columns = [
         ('flag_state', 'TEXT'),
+        ('signatory_company', 'TEXT'),
         ('destination', 'TEXT'),
         ('eta', 'TEXT'),
         ('draught', 'REAL'),
