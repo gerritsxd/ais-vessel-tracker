@@ -1,0 +1,19 @@
+[Unit]
+Description=AIS Web Tracker
+After=network.target
+
+[Service]
+Type=simple
+User=erik
+WorkingDirectory=/var/www/apihub
+ExecStart=/var/www/apihub/venv/bin/python /var/www/apihub/src/services/web_tracker.py
+Restart=always
+RestartSec=10
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ais-web-tracker
+
+[Install]
+WantedBy=multi-user.target
