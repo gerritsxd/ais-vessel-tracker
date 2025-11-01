@@ -406,12 +406,13 @@
                     }
                 })
                 .nodeOpacity(0.9)
-                .linkColor(() => 'rgba(0, 212, 255, 0.3)')
-                .linkWidth(0.5)
-                .linkOpacity(0.6)
-                .linkDirectionalParticles(2)
-                .linkDirectionalParticleWidth(1)
-                .linkDirectionalParticleSpeed(0.005)
+                .linkColor(() => 'rgba(0, 212, 255, 0.8)')
+                .linkWidth(2)
+                .linkOpacity(0.8)
+                .linkDirectionalParticles(4)
+                .linkDirectionalParticleWidth(2)
+                .linkDirectionalParticleSpeed(0.006)
+                .linkDirectionalParticleColor(() => '#00d4ff')
                 .onNodeClick(handleNodeClick);
             
             // Configure physics forces separately
@@ -494,17 +495,39 @@
                 nodeIds.has(link.target.id || link.target)
             );
             
-            // Apply CO2-based Y positioning
-            filteredNodes = filteredNodes.map(node => {
+            // Sort companies by total CO2 (or vessel count) for organized layout
+            const companies = filteredNodes.filter(n => n.type === 'company')
+                .sort((a, b) => b.total_co2 - a.total_co2);
+            
+            // Arrange companies in concentric circles based on size
+            const numCompanies = companies.length;
+            const companiesPerRing = 12; // Max companies per ring
+            
+            companies.forEach((company, index) => {
+                const ring = Math.floor(index / companiesPerRing);
+                const posInRing = index % companiesPerRing;
+                const totalInRing = Math.min(companiesPerRing, numCompanies - ring * companiesPerRing);
+                
+                // Radius increases with each ring (bigger companies closer to center)
+                const radius = 300 + (ring * 400);
+                const angle = (posInRing / totalInRing) * Math.PI * 2;
+                
+                // Fix company positions (fx, fy, fz)
+                company.fx = Math.cos(angle) * radius;
+                company.fz = Math.sin(angle) * radius;
+                company.fy = 0; // Companies at center height
+            });
+            
+            // Apply CO2-based Y positioning for ships
+            filteredNodes.forEach(node => {
                 if (node.type === 'ship') {
                     // Y position based on CO2 emissions (logarithmic scale for better distribution)
                     const co2 = node.co2 || 1;
                     node.fy = Math.log10(co2) * 100 * co2Scale;
-                } else {
-                    // Companies at center height
-                    node.fy = 0;
+                    // Ships can move freely in X and Z (will cluster around their company)
+                    delete node.fx;
+                    delete node.fz;
                 }
-                return node;
             });
             
             graphData = {
