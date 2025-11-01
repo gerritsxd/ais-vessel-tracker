@@ -1100,6 +1100,113 @@ def get_combined_vessel_data():
             conn.close()
 
 
+@app.route('/fleet-visualization')
+def fleet_visualization():
+    """Serve the 3D fleet visualization page."""
+    return render_template('fleet_visualization.html')
+
+
+@app.route('/api/visualization/fleet-network')
+def get_fleet_network():
+    """Get company-ship network data for 3D visualization."""
+    script_dir = Path(__file__).parent
+    db_path = script_dir / DB_NAME
+    
+    conn = None
+    try:
+        conn = sqlite3.connect(db_path, timeout=30)
+        ensure_econowind_column(conn)
+        cursor = conn.cursor()
+        
+        # Get vessels with both AIS and emissions data
+        cursor.execute('''
+            SELECT 
+                v.mmsi, v.name, v.imo, v.length, v.ship_type, v.flag_state,
+                COALESCE(v.signatory_company, e.company_name) as company,
+                e.total_co2_emissions, e.total_fuel_consumption,
+                e.avg_co2_per_distance, e.econowind_fit_score
+            FROM vessels_static v
+            INNER JOIN eu_mrv_emissions e ON v.imo = e.imo
+            WHERE e.total_co2_emissions IS NOT NULL
+              AND v.length IS NOT NULL
+              AND COALESCE(v.signatory_company, e.company_name) IS NOT NULL
+            ORDER BY e.total_co2_emissions DESC
+            LIMIT 500
+        ''')
+        
+        vessels = cursor.fetchall()
+        
+        # Build nodes and links
+        nodes = []
+        links = []
+        companies = {}
+        
+        for vessel in vessels:
+            mmsi, name, imo, length, ship_type, flag, company, co2, fuel, co2_per_nm, fit_score = vessel
+            
+            # Track companies
+            if company not in companies:
+                companies[company] = {
+                    'total_co2': 0,
+                    'vessel_count': 0,
+                    'total_length': 0
+                }
+            
+            companies[company]['total_co2'] += co2 or 0
+            companies[company]['vessel_count'] += 1
+            companies[company]['total_length'] += length or 0
+            
+            # Create ship node
+            nodes.append({
+                'id': f'ship_{mmsi}',
+                'type': 'ship',
+                'mmsi': mmsi,
+                'name': name or 'Unknown',
+                'imo': imo,
+                'length': length,
+                'ship_type': ship_type,
+                'flag_state': flag,
+                'company': company,
+                'co2': co2,
+                'fuel': fuel,
+                'co2_per_nm': co2_per_nm,
+                'fit_score': fit_score or 0
+            })
+            
+            # Create link from ship to company
+            links.append({
+                'source': f'ship_{mmsi}',
+                'target': f'company_{company}'
+            })
+        
+        # Create company nodes
+        for company_name, stats in companies.items():
+            nodes.append({
+                'id': f'company_{company_name}',
+                'type': 'company',
+                'name': company_name,
+                'vessel_count': stats['vessel_count'],
+                'total_co2': stats['total_co2'],
+                'avg_vessel_length': stats['total_length'] / stats['vessel_count'] if stats['vessel_count'] > 0 else 0
+            })
+        
+        return jsonify({
+            'nodes': nodes,
+            'links': links,
+            'stats': {
+                'total_ships': len(vessels),
+                'total_companies': len(companies),
+                'total_co2': sum(c['total_co2'] for c in companies.values())
+            }
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if conn:
+            conn.close()
+
+
 @app.route('/api/emissions/match-stats')
 def get_match_statistics():
     """Get real-time matching statistics between AIS and emissions data."""

@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Fleet Visualization - Company Networks</title>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0a0a0f;
+            color: #eee;
+            overflow: hidden;
+        }
+        
+        #header {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: rgba(22, 33, 62, 0.95);
+            padding: 15px 20px;
+            box-shadow: 0 2px 20px rgba(0, 212, 255, 0.3);
+            z-index: 100;
+            backdrop-filter: blur(10px);
+        }
+        
+        #header h1 {
+            font-size: 24px;
+            color: #00d4ff;
+            display: inline-block;
+        }
+        
+        .nav-buttons {
+            float: right;
+            display: flex;
+            gap: 10px;
+        }
+        
+        .btn {
+            background: #0f3460;
+            color: #00d4ff;
+            border: 1px solid #00d4ff;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        
+        .btn:hover {
+            background: #00d4ff;
+            color: #0f3460;
+            box-shadow: 0 0 15px rgba(0, 212, 255, 0.5);
+        }
+        
+        #viz-container {
+            position: absolute;
+            top: 60px;
+            left: 0;
+            right: 0;
+            bottom: 0;
+        }
+        
+        #controls {
+            position: absolute;
+            top: 80px;
+            left: 20px;
+            background: rgba(22, 33, 62, 0.95);
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #00d4ff;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+            z-index: 50;
+            max-width: 300px;
+            backdrop-filter: blur(10px);
+        }
+        
+        #controls h3 {
+            color: #00d4ff;
+            margin-bottom: 15px;
+            font-size: 16px;
+        }
+        
+        .control-group {
+            margin-bottom: 15px;
+        }
+        
+        .control-group label {
+            display: block;
+            color: #aaa;
+            font-size: 12px;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+        }
+        
+        .control-group input[type="range"] {
+            width: 100%;
+            margin: 5px 0;
+        }
+        
+        .control-group select,
+        .control-group input[type="number"] {
+            width: 100%;
+            padding: 8px;
+            background: #0f3460;
+            border: 1px solid #00d4ff;
+            color: #eee;
+            border-radius: 4px;
+        }
+        
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #0f3460;
+        }
+        
+        .stat-label {
+            color: #aaa;
+            font-size: 12px;
+        }
+        
+        .stat-value {
+            color: #00d4ff;
+            font-weight: bold;
+        }
+        
+        #info-panel {
+            position: absolute;
+            top: 80px;
+            right: 20px;
+            background: rgba(22, 33, 62, 0.95);
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #00d4ff;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+            z-index: 50;
+            max-width: 350px;
+            max-height: calc(100vh - 120px);
+            overflow-y: auto;
+            backdrop-filter: blur(10px);
+            display: none;
+        }
+        
+        #info-panel h3 {
+            color: #00d4ff;
+            margin-bottom: 10px;
+        }
+        
+        #info-panel .close-btn {
+            float: right;
+            background: none;
+            border: none;
+            color: #ff6b6b;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 0;
+            width: 25px;
+            height: 25px;
+        }
+        
+        .info-table {
+            width: 100%;
+            margin-top: 10px;
+        }
+        
+        .info-table tr {
+            border-bottom: 1px solid #0f3460;
+        }
+        
+        .info-table td {
+            padding: 8px 4px;
+            font-size: 13px;
+        }
+        
+        .info-table td:first-child {
+            color: #aaa;
+            width: 40%;
+        }
+        
+        .info-table td:last-child {
+            color: #eee;
+            font-weight: 500;
+        }
+        
+        .legend {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(22, 33, 62, 0.95);
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #00d4ff;
+            z-index: 50;
+            backdrop-filter: blur(10px);
+        }
+        
+        .legend h4 {
+            color: #00d4ff;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 8px 0;
+            font-size: 12px;
+        }
+        
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            margin-right: 10px;
+            border: 2px solid #fff;
+        }
+        
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            z-index: 200;
+        }
+        
+        .loading-spinner {
+            border: 4px solid #0f3460;
+            border-top: 4px solid #00d4ff;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .loading-text {
+            color: #00d4ff;
+            font-size: 18px;
+        }
+        
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #0f3460;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #00d4ff;
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #00a8cc;
+        }
+    </style>
+</head>
+<body>
+    <div id="header">
+        <h1>🌐 3D Fleet Visualization</h1>
+        <div class="nav-buttons">
+            <a href="/ships/" class="btn">🗺️ Map</a>
+            <a href="/ships/database" class="btn">📊 Database</a>
+            <a href="/ships/sql" class="btn">💾 SQL</a>
+        </div>
+    </div>
+    
+    <div id="loading" class="loading">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Loading Fleet Network...</div>
+    </div>
+    
+    <div id="viz-container"></div>
+    
+    <div id="controls">
+        <h3>⚙️ Controls</h3>
+        
+        <div class="control-group">
+            <label>Physics Strength</label>
+            <input type="range" id="physics-strength" min="0" max="200" value="100" step="10">
+            <span id="physics-value">100</span>
+        </div>
+        
+        <div class="control-group">
+            <label>Node Spacing</label>
+            <input type="range" id="node-spacing" min="50" max="500" value="200" step="25">
+            <span id="spacing-value">200</span>
+        </div>
+        
+        <div class="control-group">
+            <label>CO2 Height Scale</label>
+            <input type="range" id="co2-scale" min="0.5" max="3" value="1.5" step="0.1">
+            <span id="co2-scale-value">1.5x</span>
+        </div>
+        
+        <div class="control-group">
+            <label>Filter by Company</label>
+            <select id="company-filter">
+                <option value="all">All Companies</option>
+            </select>
+        </div>
+        
+        <div class="control-group">
+            <label>Min CO2 Emissions (tonnes)</label>
+            <input type="number" id="min-co2" placeholder="0" min="0">
+        </div>
+        
+        <hr style="border-color: #0f3460; margin: 15px 0;">
+        
+        <div class="stat-row">
+            <span class="stat-label">Total Ships:</span>
+            <span class="stat-value" id="stat-ships">0</span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-label">Companies:</span>
+            <span class="stat-value" id="stat-companies">0</span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-label">Total CO2:</span>
+            <span class="stat-value" id="stat-co2">0 Mt</span>
+        </div>
+    </div>
+    
+    <div id="info-panel">
+        <button class="close-btn" onclick="closeInfo()">×</button>
+        <h3 id="info-title">Node Info</h3>
+        <table class="info-table" id="info-content"></table>
+    </div>
+    
+    <div class="legend">
+        <h4>Legend</h4>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #ff6b6b; box-shadow: 0 0 15px #ff6b6b;"></div>
+            <span>Company Hub</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #00d4ff; box-shadow: 0 0 10px #00d4ff;"></div>
+            <span>Vessel (Size = Length)</span>
+        </div>
+        <div class="legend-item">
+            <div style="width: 20px; height: 2px; background: #00d4ff; margin-right: 10px; opacity: 0.6;"></div>
+            <span>Ownership Link</span>
+        </div>
+        <div class="legend-item">
+            <div style="width: 20px; height: 20px; margin-right: 10px; text-align: center; color: #51cf66;">↑</div>
+            <span>Height = CO2 Emissions</span>
+        </div>
+    </div>
+    
+    <!-- 3D Force Graph Library -->
+    <script src="https://unpkg.com/3d-force-graph@1.73.3/dist/3d-force-graph.min.js"></script>
+    
+    <script>
+        let graph;
+        let graphData = { nodes: [], links: [] };
+        let allData = { nodes: [], links: [] };
+        let companies = new Set();
+        
+        // Initialize 3D graph
+        function initGraph() {
+            const container = document.getElementById('viz-container');
+            
+            graph = ForceGraph3D()(container)
+                .backgroundColor('#0a0a0f')
+                .nodeLabel(node => {
+                    if (node.type === 'company') {
+                        return `<b>${node.name}</b><br>Vessels: ${node.vessel_count}<br>CO2: ${formatNumber(node.total_co2)} tonnes`;
+                    } else {
+                        return `<b>${node.name}</b><br>Length: ${node.length}m<br>CO2: ${formatNumber(node.co2)} tonnes`;
+                    }
+                })
+                .nodeColor(node => {
+                    if (node.type === 'company') {
+                        return '#ff6b6b';
+                    } else {
+                        // Color by ship type
+                        const type = node.ship_type || 0;
+                        if (type >= 60 && type < 70) return '#ff00ff'; // Passenger
+                        if (type >= 70 && type < 80) return '#00ff00'; // Cargo
+                        if (type >= 80 && type < 90) return '#ffaa00'; // Tanker
+                        return '#00d4ff'; // Other
+                    }
+                })
+                .nodeVal(node => {
+                    if (node.type === 'company') {
+                        return Math.pow(node.vessel_count, 1.5) * 3;
+                    } else {
+                        return Math.pow(node.length / 50, 2);
+                    }
+                })
+                .nodeOpacity(0.9)
+                .linkColor(() => 'rgba(0, 212, 255, 0.3)')
+                .linkWidth(0.5)
+                .linkOpacity(0.6)
+                .linkDirectionalParticles(2)
+                .linkDirectionalParticleWidth(1)
+                .linkDirectionalParticleSpeed(0.005)
+                .onNodeClick(handleNodeClick)
+                .d3Force('charge').strength(-100)
+                .d3Force('link').distance(200);
+            
+            // Custom node positioning for Y-axis (CO2 emissions)
+            graph.d3Force('collision', null);
+            
+            return graph;
+        }
+        
+        // Load data from API
+        async function loadData() {
+            try {
+                const response = await fetch('/ships/api/visualization/fleet-network');
+                const data = await response.json();
+                
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                allData = data;
+                
+                // Extract companies for filter
+                companies = new Set();
+                data.nodes.forEach(node => {
+                    if (node.type === 'company') {
+                        companies.add(node.name);
+                    }
+                });
+                
+                // Populate company filter
+                const companyFilter = document.getElementById('company-filter');
+                Array.from(companies).sort().forEach(company => {
+                    const option = document.createElement('option');
+                    option.value = company;
+                    option.textContent = company;
+                    companyFilter.appendChild(option);
+                });
+                
+                // Update stats
+                document.getElementById('stat-ships').textContent = data.stats.total_ships;
+                document.getElementById('stat-companies').textContent = data.stats.total_companies;
+                document.getElementById('stat-co2').textContent = (data.stats.total_co2 / 1000000).toFixed(2) + ' Mt';
+                
+                // Apply initial filters
+                applyFilters();
+                
+                document.getElementById('loading').style.display = 'none';
+                
+            } catch (error) {
+                console.error('Error loading data:', error);
+                document.querySelector('.loading-text').textContent = 'Error loading data: ' + error.message;
+            }
+        }
+        
+        // Apply filters
+        function applyFilters() {
+            const companyFilter = document.getElementById('company-filter').value;
+            const minCo2 = parseFloat(document.getElementById('min-co2').value) || 0;
+            const co2Scale = parseFloat(document.getElementById('co2-scale').value);
+            
+            // Filter nodes
+            let filteredNodes = allData.nodes.filter(node => {
+                if (node.type === 'ship') {
+                    if (companyFilter !== 'all' && node.company !== companyFilter) return false;
+                    if (node.co2 < minCo2) return false;
+                }
+                if (node.type === 'company') {
+                    if (companyFilter !== 'all' && node.name !== companyFilter) return false;
+                }
+                return true;
+            });
+            
+            // Get IDs of filtered nodes
+            const nodeIds = new Set(filteredNodes.map(n => n.id));
+            
+            // Filter links to only include those between filtered nodes
+            let filteredLinks = allData.links.filter(link => 
+                nodeIds.has(link.source.id || link.source) && 
+                nodeIds.has(link.target.id || link.target)
+            );
+            
+            // Apply CO2-based Y positioning
+            filteredNodes = filteredNodes.map(node => {
+                if (node.type === 'ship') {
+                    // Y position based on CO2 emissions (logarithmic scale for better distribution)
+                    const co2 = node.co2 || 1;
+                    node.fy = Math.log10(co2) * 100 * co2Scale;
+                } else {
+                    // Companies at center height
+                    node.fy = 0;
+                }
+                return node;
+            });
+            
+            graphData = {
+                nodes: filteredNodes,
+                links: filteredLinks
+            };
+            
+            graph.graphData(graphData);
+        }
+        
+        // Handle node click
+        function handleNodeClick(node) {
+            const panel = document.getElementById('info-panel');
+            const title = document.getElementById('info-title');
+            const content = document.getElementById('info-content');
+            
+            panel.style.display = 'block';
+            
+            if (node.type === 'company') {
+                title.textContent = `🏢 ${node.name}`;
+                content.innerHTML = `
+                    <tr><td>Type:</td><td>Company Hub</td></tr>
+                    <tr><td>Vessels:</td><td>${node.vessel_count}</td></tr>
+                    <tr><td>Total CO2:</td><td>${formatNumber(node.total_co2)} tonnes</td></tr>
+                    <tr><td>Avg CO2/Vessel:</td><td>${formatNumber(node.total_co2 / node.vessel_count)} tonnes</td></tr>
+                    <tr><td>Avg Vessel Length:</td><td>${node.avg_vessel_length.toFixed(1)}m</td></tr>
+                `;
+            } else {
+                title.textContent = `🚢 ${node.name}`;
+                content.innerHTML = `
+                    <tr><td>MMSI:</td><td>${node.mmsi}</td></tr>
+                    <tr><td>IMO:</td><td>${node.imo || 'N/A'}</td></tr>
+                    <tr><td>Company:</td><td>${node.company}</td></tr>
+                    <tr><td>Length:</td><td>${node.length}m</td></tr>
+                    <tr><td>Flag:</td><td>${node.flag_state || 'Unknown'}</td></tr>
+                    <tr><td>CO2 Emissions:</td><td>${formatNumber(node.co2)} tonnes</td></tr>
+                    <tr><td>Fuel Consumption:</td><td>${formatNumber(node.fuel)} tonnes</td></tr>
+                    <tr><td>CO2 per nm:</td><td>${node.co2_per_nm ? node.co2_per_nm.toFixed(2) : 'N/A'} kg/nm</td></tr>
+                    <tr><td>Econowind Score:</td><td>${node.fit_score}/8</td></tr>
+                `;
+            }
+            
+            // Center camera on node
+            graph.cameraPosition(
+                { x: node.x, y: node.y, z: node.z + 500 },
+                node,
+                1000
+            );
+        }
+        
+        function closeInfo() {
+            document.getElementById('info-panel').style.display = 'none';
+        }
+        
+        function formatNumber(num) {
+            if (!num) return '0';
+            return num.toLocaleString('en-US', { maximumFractionDigits: 0 });
+        }
+        
+        // Event listeners
+        document.getElementById('physics-strength').addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            document.getElementById('physics-value').textContent = value;
+            graph.d3Force('charge').strength(-value);
+            graph.numDimensions(3);
+        });
+        
+        document.getElementById('node-spacing').addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            document.getElementById('spacing-value').textContent = value;
+            graph.d3Force('link').distance(value);
+            graph.numDimensions(3);
+        });
+        
+        document.getElementById('co2-scale').addEventListener('input', (e) => {
+            const value = parseFloat(e.target.value);
+            document.getElementById('co2-scale-value').textContent = value.toFixed(1) + 'x';
+            applyFilters();
+        });
+        
+        document.getElementById('company-filter').addEventListener('change', applyFilters);
+        document.getElementById('min-co2').addEventListener('input', applyFilters);
+        
+        // Initialize
+        initGraph();
+        loadData();
+    </script>
+</body>
+</html>
