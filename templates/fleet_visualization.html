@@ -412,11 +412,11 @@
                 .linkDirectionalParticles(2)
                 .linkDirectionalParticleWidth(1)
                 .linkDirectionalParticleSpeed(0.005)
-                .onNodeClick(handleNodeClick)
-                .d3Force('charge').strength(-100)
-                .d3Force('link').distance(200);
+                .onNodeClick(handleNodeClick);
             
-            // Custom node positioning for Y-axis (CO2 emissions)
+            // Configure physics forces separately
+            graph.d3Force('charge').strength(-100);
+            graph.d3Force('link').distance(200);
             graph.d3Force('collision', null);
             
             return graph;
