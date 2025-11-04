@@ -362,6 +362,11 @@
             <div style="width: 20px; height: 20px; margin-right: 10px; text-align: center; color: #51cf66;">⭕</div>
             <span>Orbit Distance = CO2 Emissions</span>
         </div>
+        <hr style="border-color: #0f3460; margin: 10px 0;">
+        <div class="legend-item">
+            <div style="width: 20px; height: 20px; margin-right: 10px; text-align: center; color: #00d4ff;">⌨️</div>
+            <span>WASD/QE to move camera</span>
+        </div>
     </div>
     
     <!-- 3D Force Graph Library -->
@@ -400,7 +405,8 @@
                 })
                 .nodeVal(node => {
                     if (node.type === 'company') {
-                        return Math.pow(node.vessel_count, 1.5) * 3;
+                        // Make companies MUCH larger so they're visible from far away
+                        return Math.pow(node.vessel_count, 1.5) * 10; // Increased from 3 to 10
                     } else {
                         // Ship node size formula: 100 + ((length - 100) * 1.5)
                         // Then normalize for visualization (divide by 100)
@@ -638,6 +644,74 @@
             if (!num) return '0';
             return num.toLocaleString('en-US', { maximumFractionDigits: 0 });
         }
+        
+        // WASD Camera Controls
+        const moveSpeed = 50; // Units per keypress
+        
+        document.addEventListener('keydown', (e) => {
+            const camera = graph.cameraPosition();
+            const lookAt = { x: 0, y: 0, z: 0 }; // Always look at center (sun)
+            
+            switch(e.key.toLowerCase()) {
+                case 'w': // Move forward (toward center)
+                    const forwardDir = {
+                        x: (lookAt.x - camera.x) * 0.1,
+                        y: (lookAt.y - camera.y) * 0.1,
+                        z: (lookAt.z - camera.z) * 0.1
+                    };
+                    graph.cameraPosition({
+                        x: camera.x + forwardDir.x * moveSpeed,
+                        y: camera.y + forwardDir.y * moveSpeed,
+                        z: camera.z + forwardDir.z * moveSpeed
+                    }, lookAt, 500);
+                    break;
+                    
+                case 's': // Move backward (away from center)
+                    const backDir = {
+                        x: (camera.x - lookAt.x) * 0.1,
+                        y: (camera.y - lookAt.y) * 0.1,
+                        z: (camera.z - lookAt.z) * 0.1
+                    };
+                    graph.cameraPosition({
+                        x: camera.x + backDir.x * moveSpeed,
+                        y: camera.y + backDir.y * moveSpeed,
+                        z: camera.z + backDir.z * moveSpeed
+                    }, lookAt, 500);
+                    break;
+                    
+                case 'a': // Strafe left
+                    graph.cameraPosition({
+                        x: camera.x - moveSpeed,
+                        y: camera.y,
+                        z: camera.z
+                    }, lookAt, 500);
+                    break;
+                    
+                case 'd': // Strafe right
+                    graph.cameraPosition({
+                        x: camera.x + moveSpeed,
+                        y: camera.y,
+                        z: camera.z
+                    }, lookAt, 500);
+                    break;
+                    
+                case 'q': // Move up
+                    graph.cameraPosition({
+                        x: camera.x,
+                        y: camera.y + moveSpeed,
+                        z: camera.z
+                    }, lookAt, 500);
+                    break;
+                    
+                case 'e': // Move down
+                    graph.cameraPosition({
+                        x: camera.x,
+                        y: camera.y - moveSpeed,
+                        z: camera.z
+                    }, lookAt, 500);
+                    break;
+            }
+        });
         
         // Event listeners
         document.getElementById('co2-scale').addEventListener('input', (e) => {
