@@ -351,8 +351,20 @@
             <span>Company Hub</span>
         </div>
         <div class="legend-item">
+            <div class="legend-color" style="background: #ff00ff; box-shadow: 0 0 10px #ff00ff;"></div>
+            <span>Passenger Ships</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #00ff00; box-shadow: 0 0 10px #00ff00;"></div>
+            <span>Cargo Ships</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #ff0000; box-shadow: 0 0 10px #ff0000;"></div>
+            <span>Tanker Ships</span>
+        </div>
+        <div class="legend-item">
             <div class="legend-color" style="background: #00d4ff; box-shadow: 0 0 10px #00d4ff;"></div>
-            <span>Vessel (Size = Length)</span>
+            <span>Other Ships</span>
         </div>
         <div class="legend-item">
             <div style="width: 20px; height: 2px; background: #00d4ff; margin-right: 10px; opacity: 0.6;"></div>
@@ -388,21 +400,25 @@
                 })
                 .nodeColor(node => {
                     if (node.type === 'company') {
-                        return '#ff6b6b';
+                        return '#ff6b6b'; // Company nodes: coral red
                     } else {
-                        // Color by ship type
+                        // Color by ship type - matching map colors
                         const type = node.ship_type || 0;
-                        if (type >= 60 && type < 70) return '#ff00ff'; // Passenger
-                        if (type >= 70 && type < 80) return '#00ff00'; // Cargo
-                        if (type >= 80 && type < 90) return '#ffaa00'; // Tanker
-                        return '#00d4ff'; // Other
+                        if (type >= 60 && type < 70) return '#ff00ff'; // Passenger: magenta
+                        if (type >= 70 && type < 80) return '#00ff00'; // Cargo: green
+                        if (type >= 80 && type < 90) return '#ff0000'; // Tanker: red
+                        return '#00d4ff'; // Other: cyan
                     }
                 })
                 .nodeVal(node => {
                     if (node.type === 'company') {
                         return Math.pow(node.vessel_count, 1.5) * 3;
                     } else {
-                        return Math.pow(node.length / 50, 2);
+                        // Ship node size formula: 100 + ((length - 100) * 1.5)
+                        // Then normalize for visualization (divide by 100)
+                        const length = node.length || 100;
+                        const nodeSize = 100 + ((length - 100) * 1.5);
+                        return nodeSize / 100; // Normalize for 3D graph
                     }
                 })
                 .nodeOpacity(0.9)
@@ -519,11 +535,14 @@
             });
             
             // Apply CO2-based Y positioning for ships
+            // Higher CO2 emissions = higher position on Y-axis
+            // Lower CO2 emissions = closer to company node (lower position)
             filteredNodes.forEach(node => {
                 if (node.type === 'ship') {
                     // Y position based on CO2 emissions (logarithmic scale for better distribution)
                     const co2 = node.co2 || 1;
-                    // Amplified height scale for dramatic visual effect
+                    // Higher CO2 = higher position (more positive Y)
+                    // Using log scale to distribute values better
                     node.fy = Math.log10(co2) * 150 * co2Scale;
                     // Ships can move freely in X and Z (will cluster around their company)
                     delete node.fx;
