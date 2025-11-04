@@ -500,27 +500,27 @@
                 nodeIds.has(link.target.id || link.target)
             );
             
-            // Sort companies by total CO2 - BIGGEST FIRST (for center positioning)
+            // Sort companies by total CO2 - BIGGEST FIRST (closest to sun)
             const companies = filteredNodes.filter(n => n.type === 'company')
                 .sort((a, b) => b.total_co2 - a.total_co2);
             
-            // Create concentric sphere layout - biggest companies at CENTER
+            // SOLAR SYSTEM MODEL: Companies orbit the sun (center at 0,0,0) like planets
             const numCompanies = companies.length;
             
             companies.forEach((company, index) => {
-                // Golden angle spiral for even distribution
+                // Orbital radius from sun - bigger companies closer (like inner planets)
+                // Spread them out with good spacing for readability
+                const orbitRadius = 300 + (index * 250); // 300, 550, 800, 1050, etc.
+                
+                // Distribute companies around the sun in a ring (on XZ plane)
+                // Use golden angle for even distribution
                 const goldenAngle = Math.PI * (3 - Math.sqrt(5));
-                const phi = goldenAngle * index;
-                const theta = Math.acos(1 - 2 * (index + 0.5) / numCompanies);
+                const angle = goldenAngle * index;
                 
-                // REVERSE: Biggest companies closer to center (0), smaller ones further out
-                const sizeRank = index / numCompanies; // 0 to 1
-                const baseRadius = 200 + (sizeRank * 800); // 200 to 1000 (biggest = 200)
-                
-                // Convert spherical to Cartesian coordinates
-                company.fx = baseRadius * Math.sin(theta) * Math.cos(phi);
-                company.fy = baseRadius * Math.sin(theta) * Math.sin(phi);
-                company.fz = baseRadius * Math.cos(theta);
+                // Position company in orbit around sun (Y=0 plane for now)
+                company.fx = orbitRadius * Math.cos(angle);
+                company.fy = 0; // Keep companies on same plane initially
+                company.fz = orbitRadius * Math.sin(angle);
             });
             
             // Position ships around their companies like planets in a solar system
@@ -556,28 +556,28 @@
                         // Calculate percentile position (0 to 1)
                         const percentile = co2Values.filter(v => v <= co2).length / co2Values.length;
                         
-                        // Orbital radius based on CO2 percentile - clearer tiers
-                        // Low emitters orbit close, high emitters orbit far
-                        let orbitRadius;
-                        if (percentile < 0.33) {
-                            orbitRadius = 60 + (percentile / 0.33) * 40; // 60-100
-                        } else if (percentile < 0.67) {
-                            orbitRadius = 100 + ((percentile - 0.33) / 0.34) * 60; // 100-160
-                        } else {
-                            orbitRadius = 160 + ((percentile - 0.67) / 0.33) * 60; // 160-220
-                        }
+                        // EXAGGERATED orbital radius - small CO2 differences = large visual differences
+                        // Use exponential scaling to dramatize differences
+                        // Low CO2 = tight orbit, High CO2 = far orbit
+                        const baseOrbit = 80; // Minimum orbit distance
+                        const maxOrbit = 300; // Maximum orbit distance
                         
-                        orbitRadius *= co2Scale;
+                        // Exponential curve: small differences at low end, huge differences at high end
+                        const exponent = 2.5; // Exaggerate differences
+                        const orbitRadius = baseOrbit + (Math.pow(percentile, exponent) * (maxOrbit - baseOrbit));
                         
-                        // Distribute ships in organized rings around company
+                        const scaledRadius = orbitRadius * co2Scale;
+                        
+                        // Distribute ships evenly around company in circular orbit
                         const angle = (index / companyShips.length) * Math.PI * 2;
-                        // Less random elevation for clearer orbital rings
-                        const elevation = Math.sin(angle * 3) * 0.3; // Wavy pattern
                         
-                        // Position relative to company center
-                        ship.fx = companyNode.fx + orbitRadius * Math.cos(angle) * Math.cos(elevation);
-                        ship.fy = companyNode.fy + orbitRadius * Math.sin(elevation);
-                        ship.fz = companyNode.fz + orbitRadius * Math.sin(angle) * Math.cos(elevation);
+                        // Keep ships in relatively flat orbital plane around their company
+                        const elevation = Math.sin(angle * 2) * 0.15; // Slight wave for visual interest
+                        
+                        // Position relative to company center (satellite orbiting planet)
+                        ship.fx = companyNode.fx + scaledRadius * Math.cos(angle) * Math.cos(elevation);
+                        ship.fy = companyNode.fy + scaledRadius * Math.sin(elevation);
+                        ship.fz = companyNode.fz + scaledRadius * Math.sin(angle) * Math.cos(elevation);
                     });
                 });
             }
