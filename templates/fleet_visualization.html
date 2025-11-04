@@ -431,9 +431,10 @@
                 .linkDirectionalParticleColor(() => '#00d4ff')
                 .onNodeClick(handleNodeClick);
             
-            // Configure physics forces separately
-            graph.d3Force('charge').strength(-200);
-            graph.d3Force('link').distance(225);
+            // Disable physics forces - we're using fixed positions for the universe layout
+            graph.d3Force('charge', null);
+            graph.d3Force('link', null);
+            graph.d3Force('center', null);
             graph.d3Force('collision', null);
             
             return graph;
