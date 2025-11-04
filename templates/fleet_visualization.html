@@ -371,8 +371,8 @@
             <span>Ownership Link</span>
         </div>
         <div class="legend-item">
-            <div style="width: 20px; height: 20px; margin-right: 10px; text-align: center; color: #51cf66;">↑</div>
-            <span>Height = CO2 Emissions</span>
+            <div style="width: 20px; height: 20px; margin-right: 10px; text-align: center; color: #51cf66;">⭕</div>
+            <span>Orbit Distance = CO2 Emissions</span>
         </div>
     </div>
     
@@ -515,64 +515,86 @@
             const companies = filteredNodes.filter(n => n.type === 'company')
                 .sort((a, b) => b.total_co2 - a.total_co2);
             
-            // Arrange companies in concentric circles based on size
+            // Create a "universe" layout - distribute companies in 3D space like solar systems
             const numCompanies = companies.length;
-            const companiesPerRing = 12; // Max companies per ring
             
+            // Use spherical distribution for a more organic universe feel
             companies.forEach((company, index) => {
-                const ring = Math.floor(index / companiesPerRing);
-                const posInRing = index % companiesPerRing;
-                const totalInRing = Math.min(companiesPerRing, numCompanies - ring * companiesPerRing);
+                // Golden angle spiral for even distribution in 3D space
+                const goldenAngle = Math.PI * (3 - Math.sqrt(5)); // ~2.4 radians
+                const phi = goldenAngle * index;
+                const theta = Math.acos(1 - 2 * (index + 0.5) / numCompanies);
                 
-                // Radius increases with each ring (bigger companies closer to center)
-                const radius = 300 + (ring * 400);
-                const angle = (posInRing / totalInRing) * Math.PI * 2;
+                // Base radius - larger companies get positioned further out (more prominent)
+                const sizeRank = index / numCompanies; // 0 to 1
+                const baseRadius = 400 + (sizeRank * 600); // 400 to 1000
                 
-                // Fix company positions (fx, fy, fz)
-                company.fx = Math.cos(angle) * radius;
-                company.fz = Math.sin(angle) * radius;
-                company.fy = 0; // Companies at center height
+                // Add some variation based on company size for visual interest
+                const sizeVariation = Math.pow(company.vessel_count, 0.3) * 50;
+                const radius = baseRadius + sizeVariation;
+                
+                // Convert spherical to Cartesian coordinates
+                company.fx = radius * Math.sin(theta) * Math.cos(phi);
+                company.fy = radius * Math.sin(theta) * Math.sin(phi); // Y varies now!
+                company.fz = radius * Math.cos(theta);
             });
             
-            // Apply CO2-based Y positioning for ships using percentile-based relative positioning
-            // This creates dramatic visual differences without extreme heights
+            // Position ships around their companies like planets in a solar system
+            // Ships orbit at distances based on CO2 emissions (higher CO2 = further orbit)
             const ships = filteredNodes.filter(n => n.type === 'ship');
             
             // Get all CO2 values and sort them to calculate percentiles
             const co2Values = ships.map(s => s.co2 || 0).filter(v => v > 0).sort((a, b) => a - b);
             
+            // Group ships by company for orbital positioning
+            const shipsByCompany = {};
+            ships.forEach(ship => {
+                if (!shipsByCompany[ship.company]) {
+                    shipsByCompany[ship.company] = [];
+                }
+                shipsByCompany[ship.company].push(ship);
+            });
+            
             if (co2Values.length > 0) {
                 const minCo2 = co2Values[0];
                 const maxCo2 = co2Values[co2Values.length - 1];
                 
-                ships.forEach(node => {
-                    const co2 = node.co2 || minCo2;
+                // Position each company's ships in orbit around it
+                Object.keys(shipsByCompany).forEach(companyName => {
+                    const companyShips = shipsByCompany[companyName];
+                    const companyNode = companies.find(c => c.name === companyName);
                     
-                    // Calculate percentile position (0 to 1)
-                    const percentile = co2Values.filter(v => v <= co2).length / co2Values.length;
+                    if (!companyNode) return;
                     
-                    // Map percentile to height with dramatic scaling
-                    // Bottom 25% ships: Y = 0 to 100
-                    // Middle 50% ships: Y = 100 to 300
-                    // Top 25% ships: Y = 300 to 600
-                    let height;
-                    if (percentile < 0.25) {
-                        // Low emitters: 0-100
-                        height = (percentile / 0.25) * 100;
-                    } else if (percentile < 0.75) {
-                        // Medium emitters: 100-300
-                        height = 100 + ((percentile - 0.25) / 0.5) * 200;
-                    } else {
-                        // High emitters: 300-600
-                        height = 300 + ((percentile - 0.75) / 0.25) * 300;
-                    }
-                    
-                    // Apply scale factor from slider
-                    node.fy = height * co2Scale;
-                    
-                    // Ships can move freely in X and Z (will cluster around their company)
-                    delete node.fx;
-                    delete node.fz;
+                    companyShips.forEach((ship, index) => {
+                        const co2 = ship.co2 || minCo2;
+                        
+                        // Calculate percentile position (0 to 1)
+                        const percentile = co2Values.filter(v => v <= co2).length / co2Values.length;
+                        
+                        // Orbital radius based on CO2 percentile
+                        // Low emitters orbit close (50-100 units)
+                        // High emitters orbit far (100-250 units)
+                        let orbitRadius;
+                        if (percentile < 0.25) {
+                            orbitRadius = 50 + (percentile / 0.25) * 50; // 50-100
+                        } else if (percentile < 0.75) {
+                            orbitRadius = 100 + ((percentile - 0.25) / 0.5) * 100; // 100-200
+                        } else {
+                            orbitRadius = 200 + ((percentile - 0.75) / 0.25) * 50; // 200-250
+                        }
+                        
+                        orbitRadius *= co2Scale;
+                        
+                        // Distribute ships evenly around the company in 3D space
+                        const angle = (index / companyShips.length) * Math.PI * 2;
+                        const elevation = (Math.random() - 0.5) * Math.PI * 0.5; // Random elevation
+                        
+                        // Position relative to company center
+                        ship.fx = companyNode.fx + orbitRadius * Math.cos(angle) * Math.cos(elevation);
+                        ship.fy = companyNode.fy + orbitRadius * Math.sin(elevation);
+                        ship.fz = companyNode.fz + orbitRadius * Math.sin(angle) * Math.cos(elevation);
+                    });
                 });
             }
             
