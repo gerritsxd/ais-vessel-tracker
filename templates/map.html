@@ -463,6 +463,13 @@
                     <span>SHOW WIND DATA</span>
                 </button>
             </div>
+            
+            <div class="filter-group" id="wind-opacity-control" style="display: none;">
+                <label>Wind Opacity:</label>
+                <input type="range" id="wind-opacity-slider" min="0" max="100" value="50" 
+                       oninput="updateWindOpacity(this.value)" style="width: 120px; cursor: pointer;">
+                <span id="wind-opacity-value" style="margin-left: 8px; font-weight: bold;">50%</span>
+            </div>
         </div>
         
         <div id="stats">
@@ -887,12 +894,18 @@
                 windLayer = null;
                 btn.classList.remove('active');
                 btn.innerHTML = '<span style="font-size: 20px;">💨</span><span>SHOW WIND DATA</span>';
+                
+                // Hide opacity slider
+                document.getElementById('wind-opacity-control').style.display = 'none';
             } else {
                 // Show wind layer - Simple iframe overlay approach
                 console.log('Showing wind layer with iframe');
                 
                 const center = map.getCenter();
                 const zoom = map.getZoom();
+                
+                // Get opacity from slider
+                const opacityValue = document.getElementById('wind-opacity-slider').value / 100;
                 
                 // Create iframe container
                 const iframe = document.createElement('iframe');
@@ -903,8 +916,9 @@
                 iframe.style.height = '100%';
                 iframe.style.border = 'none';
                 iframe.style.pointerEvents = 'none';  // Click through to vessels above
-                iframe.style.opacity = '0.5';  // More transparent
+                iframe.style.opacity = opacityValue.toString();
                 iframe.style.zIndex = '400';  // Below vessels (which are at 600+)
+                iframe.id = 'wind-iframe';  // Add ID for easy access
                 
                 // Windy embed URL with wind overlay only
                 iframe.src = `https://embed.windy.com/embed2.html?lat=${center.lat}&lon=${center.lng}&zoom=${zoom}&level=surface&overlay=wind&product=ecmwf&menu=&message=&marker=&calendar=now&pressure=&type=map&location=coordinates&detail=&metricWind=default&metricTemp=default&radarRange=-1`;
@@ -928,8 +942,21 @@
                 
                 btn.classList.add('active');
                 btn.innerHTML = '<span style="font-size: 20px;">💨</span><span>HIDE WIND DATA</span>';
+                
+                // Show opacity slider
+                document.getElementById('wind-opacity-control').style.display = 'flex';
+                
                 console.log('Wind layer iframe added with sync');
             }
+        }
+        
+        // Update wind overlay opacity
+        function updateWindOpacity(value) {
+            const iframe = document.getElementById('wind-iframe');
+            if (iframe) {
+                iframe.style.opacity = (value / 100).toString();
+            }
+            document.getElementById('wind-opacity-value').textContent = value + '%';
         }
         
         // Update statistics
