@@ -159,7 +159,7 @@ def get_filtered_vessels():
         cursor = conn.cursor()
         
         query = '''
-            SELECT mmsi, name, ship_type, detailed_ship_type, length, beam, imo, call_sign, flag_state, signatory_company
+            SELECT mmsi, name, ship_type, detailed_ship_type, length, beam, imo, call_sign, flag_state, signatory_company, wind_assisted
             FROM vessels_static
             WHERE mmsi IS NOT NULL
               AND last_updated >= datetime('now', '-30 days')
@@ -175,7 +175,7 @@ def get_filtered_vessels():
     
     # Store static data
     for vessel in vessels:
-        mmsi, name, ship_type, detailed_ship_type, length, beam, imo, call_sign, flag_state, signatory_company = vessel
+        mmsi, name, ship_type, detailed_ship_type, length, beam, imo, call_sign, flag_state, signatory_company, wind_assisted = vessel
         vessel_static_data[mmsi] = {
             'name': name or 'Unknown',
             'ship_type': ship_type,
@@ -185,7 +185,8 @@ def get_filtered_vessels():
             'imo': imo,
             'call_sign': call_sign,
             'flag_state': flag_state or 'Unknown',
-            'signatory_company': signatory_company
+            'signatory_company': signatory_company,
+            'wind_assisted': wind_assisted or 0  # Wind propulsion flag
         }
     
     return [vessel[0] for vessel in vessels]
@@ -337,7 +338,8 @@ def get_vessels():
             'length': static['length'],
             'flag_state': static['flag_state'],
             'ship_type': static['ship_type'],
-            'detailed_ship_type': static.get('detailed_ship_type')  # From CO2 emissions dataset
+            'detailed_ship_type': static.get('detailed_ship_type'),  # From CO2 emissions dataset
+            'wind_assisted': static.get('wind_assisted', 0)  # Wind propulsion flag
         }
         
         # Add position if available
