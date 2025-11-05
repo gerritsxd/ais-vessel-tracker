@@ -8,6 +8,10 @@
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
+    <!-- Windy Leaflet Plugin -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://api.windy.com/assets/map-forecast/libBoot.js"></script>
+    
     <style>
         * {
             margin: 0;
@@ -852,44 +856,28 @@
                 btn.classList.remove('active');
                 btn.innerHTML = '<span style="font-size: 20px;">💨</span><span>SHOW WIND DATA</span>';
             } else {
-                // Show wind layer - Using Windy API with proper endpoint
-                console.log('Showing wind layer');
+                // Show wind layer - Using Windy API
+                console.log('Showing wind layer with Windy API');
                 
-                // Windy.com API - wind particle overlay (no authentication needed for tiles)
-                // Using the public tile endpoint
-                const windTileUrl = 'https://ims.windy.com/v3.0/img/wind/{z}/{x}/{y}.jpg';
+                const options = {
+                    key: 'RQHDtQ6TkVpXFXP7KExY6IeBcLd8KPvm',
+                    verbose: true,
+                    lat: map.getCenter().lat,
+                    lon: map.getCenter().lng,
+                    zoom: map.getZoom()
+                };
                 
-                console.log('Wind tile URL:', windTileUrl);
-                
-                windLayer = L.tileLayer(windTileUrl, {
-                    attribution: 'Wind data © Windy.com',
-                    opacity: 0.5,  // Semi-transparent so vessels show through
-                    maxZoom: 11,  // Windy tiles only go to zoom 11
-                    minZoom: 0,
-                    zIndex: 1000  // Put it on top of vessels
+                windyInit(options, windyAPI => {
+                    console.log('Windy API initialized');
+                    const { map: windyMap } = windyAPI;
+                    
+                    // Store reference
+                    windLayer = { windy: windyAPI, active: true };
+                    
+                    btn.classList.add('active');
+                    btn.innerHTML = '<span style="font-size: 20px;">💨</span><span>HIDE WIND DATA</span>';
+                    console.log('Wind layer added successfully');
                 });
-                
-                // Add error handler to see if tiles are loading
-                windLayer.on('tileerror', function(error, tile) {
-                    console.error('Wind tile failed to load:', error);
-                    if (tile && tile.src) {
-                        console.error('Failed tile URL:', tile.src);
-                    }
-                });
-                
-                windLayer.on('tileload', function(e) {
-                    console.log('Wind tile loaded successfully!', e.tile.src);
-                });
-                
-                windLayer.on('loading', function() {
-                    console.log('Wind layer is loading tiles...');
-                });
-                
-                console.log('Wind layer created, adding to map');
-                windLayer.addTo(map);
-                btn.classList.add('active');
-                btn.innerHTML = '<span style="font-size: 20px;">💨</span><span>HIDE WIND DATA</span>';
-                console.log('Wind layer added successfully');
             }
         }
         
