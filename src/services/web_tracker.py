@@ -1435,6 +1435,62 @@ def get_vessel_photo(mmsi):
         return jsonify({'photo_url': None, 'source': None, 'error': str(e)}), 500
 
 
+@app.route('/ships/api/vessel/<int:mmsi>/wind-tech')
+def get_vessel_wind_tech(mmsi):
+    """Get wind propulsion technology details for a vessel."""
+    project_root = Path(__file__).parent.parent.parent
+    db_path = project_root / DB_NAME
+    
+    conn = None
+    try:
+        conn = sqlite3.connect(db_path, timeout=30)
+        cursor = conn.cursor()
+        
+        # Try MMSI-based table first
+        cursor.execute('''
+            SELECT technology_installed, installation_year, installation_type
+            FROM wind_propulsion_mmsi
+            WHERE mmsi = ?
+        ''', (mmsi,))
+        
+        result = cursor.fetchone()
+        
+        if result:
+            return jsonify({
+                'technology': result[0],
+                'year': result[1],
+                'type': result[2],
+                'found': True
+            })
+        
+        # Fallback to name-based table
+        cursor.execute('''
+            SELECT w.technology_installed, w.installation_year, w.installation_type
+            FROM wind_propulsion w
+            INNER JOIN vessels_static v ON UPPER(TRIM(v.name)) = UPPER(TRIM(w.vessel_name))
+            WHERE v.mmsi = ?
+        ''', (mmsi,))
+        
+        result = cursor.fetchone()
+        
+        if result:
+            return jsonify({
+                'technology': result[0],
+                'year': result[1],
+                'type': result[2],
+                'found': True
+            })
+        
+        return jsonify({'found': False})
+        
+    except Exception as e:
+        print(f"Error fetching wind tech for MMSI {mmsi}: {e}")
+        return jsonify({'error': str(e), 'found': False}), 500
+    finally:
+        if conn:
+            conn.close()
+
+
 if __name__ == '__main__':
     # Start tracking in background
     tracking_thread = threading.Thread(target=start_tracking, daemon=True)

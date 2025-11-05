@@ -563,7 +563,10 @@
                     </div>
                     <span class="ship-type-badge ${typeInfo.badge}">${typeInfo.name}</span>
                     ${vessel.detailed_ship_type ? `<br><span style="font-size: 12px; color: #666;">Type: ${vessel.detailed_ship_type}</span>` : ''}
-                    ${vessel.wind_assisted === 1 ? `<br><span style="font-size: 13px; color: #00ff00; font-weight: bold;">🌬️ Wind-Assisted Propulsion</span>` : ''}
+                    ${vessel.wind_assisted === 1 ? `
+                        <br><span style="font-size: 13px; color: #00ff00; font-weight: bold;">🌬️ Wind-Assisted Propulsion</span>
+                        <div id="popup-wind-tech-${mmsi}" style="font-size: 11px; color: #aaa; margin-top: 5px;">Loading technology details...</div>
+                    ` : ''}
                     <table>
                         <tr><td>MMSI:</td><td>${mmsi}</td></tr>
                         <tr><td>Flag:</td><td>${vessel.flag_state || 'Unknown'}</td></tr>
@@ -622,6 +625,30 @@
                         }
                     });
             }, 100);
+            
+            // Fetch wind technology details if vessel has wind propulsion
+            if (vessel.wind_assisted === 1) {
+                setTimeout(() => {
+                    fetch(`/ships/api/vessel/${mmsi}/wind-tech`)
+                        .then(response => response.json())
+                        .then(data => {
+                            const techDiv = document.getElementById(`popup-wind-tech-${mmsi}`);
+                            if (techDiv && data.found) {
+                                techDiv.innerHTML = `<strong>${data.technology}</strong><br>Installed: ${data.year} (${data.type})`;
+                                techDiv.style.color = '#00ff00';
+                            } else if (techDiv) {
+                                techDiv.innerHTML = 'Wind-assisted (details pending)';
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error loading wind tech:', error);
+                            const techDiv = document.getElementById(`popup-wind-tech-${mmsi}`);
+                            if (techDiv) {
+                                techDiv.innerHTML = 'Wind-assisted propulsion';
+                            }
+                        });
+                }, 150);
+            }
             
             return content;
         }
@@ -750,6 +777,20 @@
                     ` : ''}
                 </div>
                 
+                ${vessel.wind_assisted === 1 ? `
+                <div class="info-section" style="background: linear-gradient(135deg, #1a3a1a 0%, #2d5a2d 100%); border-left: 4px solid #00ff00;">
+                    <h3>🌬️ Wind-Assisted Propulsion</h3>
+                    <div class="info-row">
+                        <span class="info-label">Status</span>
+                        <span class="info-value" style="color: #00ff00; font-weight: bold;">✓ INSTALLED</span>
+                    </div>
+                    <div id="wind-tech-details-${mmsi}" class="info-row">
+                        <span class="info-label">Technology</span>
+                        <span class="info-value">Loading...</span>
+                    </div>
+                </div>
+                ` : ''}
+                
                 <div class="info-section">
                     <h3>📏 Dimensions</h3>
                     <div class="info-row">
@@ -808,6 +849,46 @@
             `;
             
             sidebar.classList.add('active');
+            
+            // Fetch wind technology details if vessel has wind propulsion
+            if (vessel.wind_assisted === 1) {
+                fetch(`/ships/api/vessel/${mmsi}/wind-tech`)
+                    .then(response => response.json())
+                    .then(data => {
+                        const detailsDiv = document.getElementById(`wind-tech-details-${mmsi}`);
+                        if (detailsDiv && data.found) {
+                            detailsDiv.innerHTML = `
+                                <span class="info-label">Technology</span>
+                                <span class="info-value">${data.technology}</span>
+                            `;
+                            
+                            // Add installation details
+                            const parentSection = detailsDiv.parentElement;
+                            const yearRow = document.createElement('div');
+                            yearRow.className = 'info-row';
+                            yearRow.innerHTML = `
+                                <span class="info-label">Installed</span>
+                                <span class="info-value">${data.year} (${data.type})</span>
+                            `;
+                            parentSection.appendChild(yearRow);
+                        } else if (detailsDiv) {
+                            detailsDiv.innerHTML = `
+                                <span class="info-label">Technology</span>
+                                <span class="info-value">Wind-assisted (details pending)</span>
+                            `;
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error loading wind tech:', error);
+                        const detailsDiv = document.getElementById(`wind-tech-details-${mmsi}`);
+                        if (detailsDiv) {
+                            detailsDiv.innerHTML = `
+                                <span class="info-label">Technology</span>
+                                <span class="info-value">Wind-assisted</span>
+                            `;
+                        }
+                    });
+            }
         }
         
         // Close sidebar
