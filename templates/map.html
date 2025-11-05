@@ -339,6 +339,39 @@
         .status-inactive {
             background: #666;
         }
+        
+        /* WASP Filter Button */
+        #wasp-filter-btn {
+            background: linear-gradient(135deg, #00ff00 0%, #00cc00 100%);
+            color: #000;
+            border: 3px solid #00ff00;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.5);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        #wasp-filter-btn:hover {
+            background: linear-gradient(135deg, #00ff00 0%, #00ff00 100%);
+            box-shadow: 0 0 30px rgba(0, 255, 0, 0.8);
+            transform: scale(1.05);
+        }
+        
+        #wasp-filter-btn.active {
+            background: linear-gradient(135deg, #ff00ff 0%, #cc00cc 100%);
+            border-color: #ff00ff;
+            box-shadow: 0 0 20px rgba(255, 0, 255, 0.5);
+        }
+        
+        #wasp-filter-btn.active:hover {
+            box-shadow: 0 0 30px rgba(255, 0, 255, 0.8);
+        }
     </style>
 </head>
 <body>
@@ -366,6 +399,13 @@
                     <option value="large">Large (≥200m)</option>
                     <option value="medium">Medium (100-200m)</option>
                 </select>
+            </div>
+            
+            <div class="filter-group">
+                <button id="wasp-filter-btn" onclick="toggleWaspFilter()">
+                    <span style="font-size: 20px;">🌬️</span>
+                    <span>WIND-ASSISTED ONLY</span>
+                </button>
             </div>
         </div>
         
@@ -473,7 +513,8 @@
         let allVessels = [];
         let currentFilters = {
             type: 'all',
-            size: 'all'
+            size: 'all',
+            waspOnly: false
         };
         let currentRoute = null; // Store current route polyline
         let currentRouteMarkers = []; // Store route start/end markers
@@ -655,6 +696,13 @@
         
         // Check if vessel passes filters
         function passesFilters(vessel) {
+            // WASP filter - show only wind-assisted vessels
+            if (currentFilters.waspOnly) {
+                if (vessel.wind_assisted !== 1) {
+                    return false;
+                }
+            }
+            
             // Detailed type filter (by detailed_ship_type from emissions data)
             if (currentFilters.type !== 'all') {
                 if (!vessel.detailed_ship_type || vessel.detailed_ship_type !== currentFilters.type) {
@@ -726,6 +774,22 @@
                     updateVessel(vessel.mmsi, vessel);
                 }
             });
+        }
+        
+        // Toggle WASP filter
+        function toggleWaspFilter() {
+            const btn = document.getElementById('wasp-filter-btn');
+            currentFilters.waspOnly = !currentFilters.waspOnly;
+            
+            if (currentFilters.waspOnly) {
+                btn.classList.add('active');
+                btn.innerHTML = '<span style="font-size: 20px;">🌬️</span><span>SHOW ALL VESSELS</span>';
+            } else {
+                btn.classList.remove('active');
+                btn.innerHTML = '<span style="font-size: 20px;">🌬️</span><span>WIND-ASSISTED ONLY</span>';
+            }
+            
+            applyFilters();
         }
         
         // Update statistics
