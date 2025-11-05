@@ -168,6 +168,13 @@ def import_mrv_data(conn, mrv_file_path):
     df_clean = df[available_cols].copy()
     df_clean.columns = [all_mappings[col] for col in available_cols]
     
+    # Debug: Check if gross_tonnage was imported
+    if 'gross_tonnage' in df_clean.columns:
+        gt_count = df_clean['gross_tonnage'].notna().sum()
+        print(f"✓ Gross tonnage column found: {gt_count} vessels with GT data")
+    else:
+        print("⚠ WARNING: gross_tonnage column NOT found in imported data!")
+    
     # Add timestamp
     from datetime import datetime
     df_clean['last_updated'] = datetime.utcnow().isoformat()
