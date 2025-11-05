@@ -211,6 +211,21 @@
         }
         
         /* Enhanced Popup */
+        .leaflet-popup-content-wrapper {
+            background: #16213e;
+            color: #fff;
+            border-radius: 8px;
+        }
+        
+        .leaflet-popup-content {
+            margin: 15px;
+            min-width: 280px !important;
+        }
+        
+        .leaflet-popup-tip {
+            background: #16213e;
+        }
+        
         .vessel-popup {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             min-width: 300px;
@@ -461,6 +476,7 @@
             size: 'all'
         };
         let currentRoute = null; // Store current route polyline
+        const photoCache = {}; // Cache photo results to avoid repeated requests
         
         // Detailed ship type colors (based on EU MRV detailed_ship_type)
         const detailedShipTypeColors = {
@@ -559,23 +575,42 @@
                 </div>
             `;
             
-            // Fetch photo asynchronously
+            // Fetch photo asynchronously (with caching)
             setTimeout(() => {
+                const photoContainer = document.getElementById(`photo-${mmsi}`);
+                if (!photoContainer) return;
+                
+                // Check cache first
+                if (photoCache[mmsi] !== undefined) {
+                    if (photoCache[mmsi]) {
+                        photoContainer.innerHTML = `<img src="${photoCache[mmsi]}" class="vessel-photo" alt="${vessel.name}" onerror="this.parentElement.innerHTML='<div class=\\'vessel-photo-placeholder\\'>🚢</div>'">`;
+                    } else {
+                        photoContainer.innerHTML = '<div class="vessel-photo-placeholder">🚢</div>';
+                    }
+                    return;
+                }
+                
+                // Fetch from API
                 fetch(`/ships/api/vessel/${mmsi}/photo`)
-                    .then(response => response.json())
+                    .then(response => {
+                        if (!response.ok) throw new Error('Photo fetch failed');
+                        return response.json();
+                    })
                     .then(data => {
-                        const photoContainer = document.getElementById(`photo-${mmsi}`);
+                        const photoUrl = data.photo_url;
+                        photoCache[mmsi] = photoUrl; // Cache the result
+                        
                         if (photoContainer) {
-                            if (data.photo_url) {
-                                photoContainer.innerHTML = `<img src="${data.photo_url}" class="vessel-photo" alt="${vessel.name}" onerror="this.parentElement.innerHTML='<div class=\\'vessel-photo-placeholder\\'>🚢</div>'">`;
+                            if (photoUrl) {
+                                photoContainer.innerHTML = `<img src="${photoUrl}" class="vessel-photo" alt="${vessel.name}" onerror="this.parentElement.innerHTML='<div class=\\'vessel-photo-placeholder\\'>🚢</div>'; photoCache[${mmsi}] = null;">`;
                             } else {
                                 photoContainer.innerHTML = '<div class="vessel-photo-placeholder">🚢</div>';
                             }
                         }
                     })
                     .catch(error => {
-                        console.error('Error loading photo:', error);
-                        const photoContainer = document.getElementById(`photo-${mmsi}`);
+                        console.error(`Error loading photo for ${mmsi}:`, error);
+                        photoCache[mmsi] = null; // Cache the failure
                         if (photoContainer) {
                             photoContainer.innerHTML = '<div class="vessel-photo-placeholder">🚢</div>';
                         }
@@ -627,7 +662,11 @@
                     icon: createVesselIcon(vessel)
                 }).addTo(map);
                 
-                marker.bindPopup(createPopupContent(mmsi, vessel));
+                marker.bindPopup(createPopupContent(mmsi, vessel), {
+                    maxWidth: 350,
+                    minWidth: 300,
+                    className: 'vessel-info-popup'
+                });
                 
                 // Add click handler to show sidebar and route
                 marker.on('click', () => {

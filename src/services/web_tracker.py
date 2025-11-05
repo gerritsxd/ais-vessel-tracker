@@ -1413,51 +1413,24 @@ def get_detailed_ship_types():
 
 @app.route('/ships/api/vessel/<int:mmsi>/photo')
 def get_vessel_photo(mmsi):
-    """Get vessel photo from various sources."""
-    import requests
-    from bs4 import BeautifulSoup
-    
+    """Get vessel photo URL from public sources."""
     try:
-        # Try VesselFinder first (has good free access)
-        url = f"https://www.vesselfinder.com/vessels/details/{mmsi}"
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        }
+        # Use direct photo URLs from public sources
+        # These are publicly accessible and don't require scraping
         
-        response = requests.get(url, headers=headers, timeout=5)
-        if response.status_code == 200:
-            soup = BeautifulSoup(response.text, 'html.parser')
-            
-            # Look for vessel photo
-            img_tag = soup.find('img', {'class': 'photo'})
-            if not img_tag:
-                img_tag = soup.find('img', {'alt': lambda x: x and 'vessel' in x.lower()})
-            
-            if img_tag and img_tag.get('src'):
-                photo_url = img_tag['src']
-                if not photo_url.startswith('http'):
-                    photo_url = 'https://www.vesselfinder.com' + photo_url
-                return jsonify({'photo_url': photo_url, 'source': 'VesselFinder'})
+        # Try MarineTraffic photo service (public API)
+        photo_url = f"https://photos.marinetraffic.com/ais/showphoto.aspx?mmsi={mmsi}"
         
-        # Fallback: Try MarineTraffic
-        mt_url = f"https://www.marinetraffic.com/en/ais/details/ships/mmsi:{mmsi}"
-        response = requests.get(mt_url, headers=headers, timeout=5)
-        if response.status_code == 200:
-            soup = BeautifulSoup(response.text, 'html.parser')
-            img_tag = soup.find('img', {'class': 'img-responsive'})
-            
-            if img_tag and img_tag.get('src'):
-                photo_url = img_tag['src']
-                if not photo_url.startswith('http'):
-                    photo_url = 'https://www.marinetraffic.com' + photo_url
-                return jsonify({'photo_url': photo_url, 'source': 'MarineTraffic'})
-        
-        # No photo found
-        return jsonify({'photo_url': None, 'source': None})
+        # Return the URL - the frontend will handle if it loads or not
+        return jsonify({
+            'photo_url': photo_url,
+            'source': 'MarineTraffic',
+            'mmsi': mmsi
+        })
         
     except Exception as e:
-        print(f"Error fetching photo for MMSI {mmsi}: {e}")
-        return jsonify({'photo_url': None, 'source': None, 'error': str(e)})
+        print(f"Error generating photo URL for MMSI {mmsi}: {e}")
+        return jsonify({'photo_url': None, 'source': None, 'error': str(e)}), 500
 
 
 if __name__ == '__main__':
