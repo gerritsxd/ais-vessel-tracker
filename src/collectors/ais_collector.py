@@ -2,9 +2,17 @@ import websocket
 import json
 import sqlite3
 import os
+import sys
 from datetime import datetime
 from pathlib import Path
-from .mmsi_mid_lookup import get_flag_state
+
+# Handle both direct script execution and module import
+try:
+    from .mmsi_mid_lookup import get_flag_state
+except ImportError:
+    # Add parent directory to path for direct script execution
+    sys.path.insert(0, str(Path(__file__).parent))
+    from mmsi_mid_lookup import get_flag_state
 
 # Database configuration
 DB_NAME = "vessel_static_data.db"
