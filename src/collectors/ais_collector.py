@@ -288,16 +288,15 @@ def on_message(ws, message):
             print(f"  Draught: {draught}m")
             print("-" * 40)
             
-            # Save to database - ONLY if vessel meets criteria
+            # Save to database - Filter: >= 100m AND type 70-89 (Cargo/Tanker)
             if mmsi is not None:
-                # Filter: Only save CARGO (70-79) and TANKER (80-89) vessels >= 100m
                 if length and length >= 100:
-                    if vessel_type and (70 <= vessel_type <= 79 or 80 <= vessel_type <= 89):
+                    if vessel_type and (70 <= vessel_type <= 89):
                         save_vessel_data(mmsi, vessel_name, vessel_type, length, beam, imo, call_sign, destination, eta, draught, nav_status)
-                        print("✓ Saved (Cargo/Tanker)")
+                        print(f"✓ Saved (type {vessel_type}, {length}m)")
                     else:
                         type_desc = f"type {vessel_type}" if vessel_type else "unknown type"
-                        print(f"✗ Skipped ({type_desc}, not cargo/tanker)")
+                        print(f"✗ Skipped ({type_desc}, not 70-89)")
                 else:
                     print(f"✗ Skipped (length {length}m < 100m)")
             else:
@@ -351,16 +350,15 @@ def on_message(ws, message):
             print(f"  Call Sign: {call_sign}")
             print("-" * 40)
             
-            # Save to database - ONLY if vessel meets criteria
+            # Save to database - Filter: >= 100m AND type 70-89 (Cargo/Tanker)
             if mmsi is not None:
-                # Filter: Only save CARGO (70-79) and TANKER (80-89) vessels >= 100m
                 if length and length >= 100:
-                    if vessel_type and (70 <= vessel_type <= 79 or 80 <= vessel_type <= 89):
+                    if vessel_type and (70 <= vessel_type <= 89):
                         save_vessel_data(mmsi, vessel_name, vessel_type, length, beam, imo, call_sign)
-                        print("✓ Saved (Cargo/Tanker)")
+                        print(f"✓ Saved (type {vessel_type}, {length}m)")
                     else:
                         type_desc = f"type {vessel_type}" if vessel_type else "unknown type"
-                        print(f"✗ Skipped ({type_desc}, not cargo/tanker)")
+                        print(f"✗ Skipped ({type_desc}, not 70-89)")
                 else:
                     print(f"✗ Skipped (length {length}m < 100m)")
             else:

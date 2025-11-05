@@ -449,12 +449,7 @@
         
         // Check if vessel passes filters
         function passesFilters(vessel) {
-            // Only show cargo (70-79) and tankers (80-89)
-            if (!vessel.ship_type || vessel.ship_type < 70 || vessel.ship_type >= 90) {
-                return false;
-            }
-            
-            // Detailed type filter
+            // Detailed type filter (by detailed_ship_type from emissions data)
             if (currentFilters.type !== 'all') {
                 if (!vessel.detailed_ship_type || vessel.detailed_ship_type !== currentFilters.type) {
                     return false;
