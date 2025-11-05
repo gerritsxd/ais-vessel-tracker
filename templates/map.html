@@ -440,6 +440,17 @@
             </div>
             
             <div class="filter-group">
+                <label>Gross Tonnage:</label>
+                <select id="filter-gt">
+                    <option value="all">All GT</option>
+                    <option value="under100">≤100 GT</option>
+                    <option value="over100">>100 GT</option>
+                    <option value="over1000">>1,000 GT (IMO)</option>
+                    <option value="over5000">>5,000 GT (EU ETS)</option>
+                </select>
+            </div>
+            
+            <div class="filter-group">
                 <button id="wasp-filter-btn" onclick="toggleWaspFilter()">
                     <span style="font-size: 20px;">🌬️</span>
                     <span>WIND-ASSISTED ONLY</span>
@@ -562,6 +573,7 @@
         let currentFilters = {
             type: 'all',
             size: 'all',
+            gt: 'all',
             waspOnly: false
         };
         let currentRoute = null; // Store current route polyline
@@ -763,6 +775,17 @@
             if (currentFilters.size !== 'all') {
                 if (currentFilters.size === 'large' && vessel.length < 200) return false;
                 if (currentFilters.size === 'medium' && (vessel.length < 100 || vessel.length >= 200)) return false;
+            }
+            
+            // Gross Tonnage filter (regulatory compliance thresholds)
+            if (currentFilters.gt !== 'all') {
+                const gt = vessel.gross_tonnage;
+                if (!gt) return false; // Exclude vessels without GT data
+                
+                if (currentFilters.gt === 'under100' && gt > 100) return false;
+                if (currentFilters.gt === 'over100' && gt <= 100) return false;
+                if (currentFilters.gt === 'over1000' && gt <= 1000) return false; // IMO threshold
+                if (currentFilters.gt === 'over5000' && gt <= 5000) return false; // EU ETS threshold
             }
             
             return true;
@@ -1302,6 +1325,11 @@
         
         document.getElementById('filter-size').addEventListener('change', (e) => {
             currentFilters.size = e.target.value;
+            applyFilters();
+        });
+        
+        document.getElementById('filter-gt').addEventListener('change', (e) => {
+            currentFilters.gt = e.target.value;
             applyFilters();
         });
     </script>

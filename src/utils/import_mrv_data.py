@@ -63,6 +63,9 @@ def create_mrv_table(conn):
 
             -- Technical Efficiency
             technical_efficiency TEXT,
+            
+            -- Vessel Specifications
+            gross_tonnage REAL,
 
             -- Econowind Fit Score
             econowind_fit_score INTEGER DEFAULT 0,

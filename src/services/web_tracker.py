@@ -159,11 +159,13 @@ def get_filtered_vessels():
         cursor = conn.cursor()
         
         query = '''
-            SELECT mmsi, name, ship_type, detailed_ship_type, length, beam, imo, call_sign, flag_state, signatory_company, wind_assisted
-            FROM vessels_static
-            WHERE mmsi IS NOT NULL
-              AND last_updated >= datetime('now', '-30 days')
-            ORDER BY last_updated DESC
+            SELECT v.mmsi, v.name, v.ship_type, v.detailed_ship_type, v.length, v.beam, v.imo, 
+                   v.call_sign, v.flag_state, v.signatory_company, v.wind_assisted, e.gross_tonnage
+            FROM vessels_static v
+            LEFT JOIN eu_mrv_emissions e ON v.imo = e.imo
+            WHERE v.mmsi IS NOT NULL
+              AND v.last_updated >= datetime('now', '-30 days')
+            ORDER BY v.last_updated DESC
             LIMIT 2000
         '''
         
@@ -175,7 +177,7 @@ def get_filtered_vessels():
     
     # Store static data
     for vessel in vessels:
-        mmsi, name, ship_type, detailed_ship_type, length, beam, imo, call_sign, flag_state, signatory_company, wind_assisted = vessel
+        mmsi, name, ship_type, detailed_ship_type, length, beam, imo, call_sign, flag_state, signatory_company, wind_assisted, gross_tonnage = vessel
         vessel_static_data[mmsi] = {
             'name': name or 'Unknown',
             'ship_type': ship_type,
@@ -186,7 +188,8 @@ def get_filtered_vessels():
             'call_sign': call_sign,
             'flag_state': flag_state or 'Unknown',
             'signatory_company': signatory_company,
-            'wind_assisted': wind_assisted or 0  # Wind propulsion flag
+            'wind_assisted': wind_assisted or 0,  # Wind propulsion flag
+            'gross_tonnage': gross_tonnage  # From EU MRV emissions
         }
     
     return [vessel[0] for vessel in vessels]
@@ -339,7 +342,8 @@ def get_vessels():
             'flag_state': static['flag_state'],
             'ship_type': static['ship_type'],
             'detailed_ship_type': static.get('detailed_ship_type'),  # From CO2 emissions dataset
-            'wind_assisted': static.get('wind_assisted', 0)  # Wind propulsion flag
+            'wind_assisted': static.get('wind_assisted', 0),  # Wind propulsion flag
+            'gross_tonnage': static.get('gross_tonnage')  # From EU MRV emissions
         }
         
         # Add position if available
