@@ -308,10 +308,6 @@
                 <label>Type:</label>
                 <select id="filter-type">
                     <option value="all">All Types</option>
-                    <option value="60">Passenger</option>
-                    <option value="70">Cargo</option>
-                    <option value="80">Tanker</option>
-                    <option value="other">Other</option>
                 </select>
             </div>
             
@@ -347,20 +343,12 @@
         <div class="legend">
             <h3>Legend</h3>
             <div class="legend-item">
-                <div class="legend-color" style="background: #ff00ff;"></div>
-                <span>Passenger Ships</span>
-            </div>
-            <div class="legend-item">
                 <div class="legend-color" style="background: #00ff00;"></div>
-                <span>Cargo Ships</span>
+                <span>Cargo Ships (70-79)</span>
             </div>
             <div class="legend-item">
                 <div class="legend-color" style="background: #ff0000;"></div>
-                <span>Tankers</span>
-            </div>
-            <div class="legend-item">
-                <div class="legend-color" style="background: #00d4ff;"></div>
-                <span>Other Vessels</span>
+                <span>Tankers (80-89)</span>
             </div>
             <div class="legend-size">
                 <strong>Size:</strong><br>
@@ -401,19 +389,16 @@
         };
         let currentRoute = null; // Store current route polyline
         
-        // Ship type colors and names
+        // Ship type colors and names (only cargo and tankers)
         const shipTypeInfo = {
-            60: { color: '#ff00ff', name: 'Passenger', badge: 'type-passenger' },
             70: { color: '#00ff00', name: 'Cargo', badge: 'type-cargo' },
-            80: { color: '#ff0000', name: 'Tanker', badge: 'type-tanker' },
-            default: { color: '#00d4ff', name: 'Other', badge: 'type-other' }
+            80: { color: '#ff0000', name: 'Tanker', badge: 'type-tanker' }
         };
         
         function getShipTypeInfo(shipType) {
-            if (shipType >= 60 && shipType < 70) return shipTypeInfo[60];
             if (shipType >= 70 && shipType < 80) return shipTypeInfo[70];
             if (shipType >= 80 && shipType < 90) return shipTypeInfo[80];
-            return shipTypeInfo.default;
+            return shipTypeInfo[70]; // Default to cargo color
         }
         
         // Create custom icon
@@ -443,6 +428,7 @@
                     <h3>${vessel.name}</h3>
                     <div class="vessel-photo-placeholder">🚢</div>
                     <span class="ship-type-badge ${typeInfo.badge}">${typeInfo.name}</span>
+                    ${vessel.detailed_ship_type ? `<br><span style="font-size: 12px; color: #666;">Type: ${vessel.detailed_ship_type}</span>` : ''}
                     <table>
                         <tr><td>MMSI:</td><td>${mmsi}</td></tr>
                         <tr><td>Flag:</td><td>${vessel.flag_state || 'Unknown'}</td></tr>
@@ -463,15 +449,15 @@
         
         // Check if vessel passes filters
         function passesFilters(vessel) {
-            // Type filter
+            // Only show cargo (70-79) and tankers (80-89)
+            if (!vessel.ship_type || vessel.ship_type < 70 || vessel.ship_type >= 90) {
+                return false;
+            }
+            
+            // Detailed type filter
             if (currentFilters.type !== 'all') {
-                if (currentFilters.type === 'other') {
-                    if (vessel.ship_type >= 60 && vessel.ship_type < 90) return false;
-                } else {
-                    const typeNum = parseInt(currentFilters.type);
-                    if (!vessel.ship_type || vessel.ship_type < typeNum || vessel.ship_type >= typeNum + 10) {
-                        return false;
-                    }
+                if (!vessel.detailed_ship_type || vessel.detailed_ship_type !== currentFilters.type) {
+                    return false;
                 }
             }
             
@@ -572,6 +558,12 @@
                         <span class="info-label">Ship Type</span>
                         <span class="info-value">${typeInfo.name} (${vessel.ship_type || 'N/A'})</span>
                     </div>
+                    ${vessel.detailed_ship_type ? `
+                    <div class="info-row">
+                        <span class="info-label">Detailed Type</span>
+                        <span class="info-value">${vessel.detailed_ship_type}</span>
+                    </div>
+                    ` : ''}
                     ${vessel.signatory_company ? `
                     <div class="info-row">
                         <span class="info-label">Company</span>
@@ -731,6 +723,20 @@
                     alert(`Error loading route for ${vesselName}.\n\nPlease try again later.`);
                 });
         }
+        
+        // Load detailed ship types for filter dropdown
+        fetch('/ships/api/detailed-ship-types')
+            .then(response => response.json())
+            .then(types => {
+                const select = document.getElementById('filter-type');
+                types.forEach(type => {
+                    const option = document.createElement('option');
+                    option.value = type.name;
+                    option.textContent = `${type.name} (${type.count})`;
+                    select.appendChild(option);
+                });
+            })
+            .catch(error => console.error('Error loading ship types:', error));
         
         // Load initial data
         fetch('/ships/api/vessels')

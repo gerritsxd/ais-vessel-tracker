@@ -1367,6 +1367,42 @@ def get_ship_type_statistics():
             conn.close()
 
 
+@app.route('/ships/api/detailed-ship-types')
+def get_detailed_ship_types():
+    """Get list of unique detailed ship types for filtering."""
+    project_root = Path(__file__).parent.parent.parent
+    db_path = project_root / DB_NAME
+    
+    conn = None
+    try:
+        conn = sqlite3.connect(db_path, timeout=30)
+        conn.execute('PRAGMA journal_mode=WAL')
+        cursor = conn.cursor()
+        
+        # Get unique detailed ship types with counts
+        cursor.execute('''
+            SELECT detailed_ship_type, COUNT(*) as count
+            FROM vessels_static
+            WHERE detailed_ship_type IS NOT NULL
+            GROUP BY detailed_ship_type
+            ORDER BY detailed_ship_type
+        ''')
+        
+        types = []
+        for ship_type, count in cursor.fetchall():
+            types.append({
+                'name': ship_type,
+                'count': count
+            })
+        
+        return jsonify(types)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if conn:
+            conn.close()
+
+
 if __name__ == '__main__':
     # Start tracking in background
     tracking_thread = threading.Thread(target=start_tracking, daemon=True)
