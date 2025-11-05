@@ -482,6 +482,10 @@
                 <div class="stat-label">Active Tracking</div>
             </div>
             <div class="stat">
+                <div class="stat-value" id="vessels-with-gt">0</div>
+                <div class="stat-label">With GT Data</div>
+            </div>
+            <div class="stat">
                 <div class="stat-label">
                     <span class="status-indicator status-active"></span>
                     Live Updates
@@ -1287,6 +1291,10 @@
                     // Update allVessels array
                     allVessels = vessels;
                     document.getElementById('total-vessels').textContent = vessels.length;
+                    
+                    // Count vessels with GT data
+                    const vesselsWithGT = vessels.filter(v => v.gross_tonnage != null && v.gross_tonnage > 0).length;
+                    document.getElementById('vessels-with-gt').textContent = vesselsWithGT;
                     
                     // Add/update vessels on map
                     let newVesselsAdded = 0;
