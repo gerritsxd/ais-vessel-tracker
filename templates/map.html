@@ -406,27 +406,9 @@
             box-shadow: 0 0 30px rgba(255, 102, 0, 0.8);
         }
         
-        /* Windy iframe container */
-        #windy-container {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            z-index: 400;
-            display: none;
-        }
-        
-        #windy-container.active {
-            display: block;
-        }
-        
-        #windy-container iframe {
-            width: 100%;
-            height: 100%;
-            border: none;
-            opacity: 0.7;
+        /* Wind layer styles */
+        .leaflet-tile-pane {
+            z-index: 200;
         }
     </style>
 </head>
@@ -491,9 +473,6 @@
     </div>
     
     <div id="map">
-        <!-- Windy.com wind layer overlay -->
-        <div id="windy-container"></div>
-        
         <div class="legend" style="max-height: 500px; overflow-y: auto;">
             <h3>🎨 Ship Type Colors</h3>
             <div class="legend-item">
@@ -585,6 +564,7 @@
         let currentRoute = null; // Store current route polyline
         let currentRouteMarkers = []; // Store route start/end markers
         const photoCache = {}; // Cache photo results to avoid repeated requests
+        let windLayer = null; // Store wind overlay layer
         
         // Detailed ship type colors (based on EU MRV detailed_ship_type)
         const detailedShipTypeColors = {
@@ -861,24 +841,23 @@
         // Toggle Wind Layer
         function toggleWindLayer() {
             const btn = document.getElementById('wind-toggle-btn');
-            const container = document.getElementById('windy-container');
             
-            if (container.classList.contains('active')) {
+            if (windLayer) {
                 // Hide wind layer
-                container.classList.remove('active');
-                container.innerHTML = '';
+                map.removeLayer(windLayer);
+                windLayer = null;
                 btn.classList.remove('active');
                 btn.innerHTML = '<span style="font-size: 20px;">💨</span><span>SHOW WIND DATA</span>';
             } else {
-                // Show wind layer
-                const center = map.getCenter();
-                const zoom = map.getZoom();
+                // Show wind layer - OpenWeatherMap wind overlay
+                // Using free tier - shows wind speed visualization
+                windLayer = L.tileLayer('https://tile.openweathermap.org/map/wind_new/{z}/{x}/{y}.png?appid=q5yckYXxXSL9yobDZrFUA01P1Bqki3mJ', {
+                    attribution: 'Wind data © OpenWeatherMap',
+                    opacity: 0.6,
+                    maxZoom: 19
+                });
                 
-                // Create Windy.com embed with your API key
-                const windyUrl = `https://embed.windy.com/embed2.html?lat=${center.lat}&lon=${center.lng}&detailLat=${center.lat}&detailLon=${center.lng}&width=100%&height=100%&zoom=${zoom}&level=surface&overlay=wind&product=ecmwf&menu=&message=&marker=&calendar=now&pressure=&type=map&location=coordinates&detail=&metricWind=default&metricTemp=default&radarRange=-1`;
-                
-                container.innerHTML = `<iframe src="${windyUrl}" frameborder="0"></iframe>`;
-                container.classList.add('active');
+                windLayer.addTo(map);
                 btn.classList.add('active');
                 btn.innerHTML = '<span style="font-size: 20px;">💨</span><span>HIDE WIND DATA</span>';
             }
