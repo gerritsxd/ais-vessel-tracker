@@ -1,0 +1,78 @@
+Ship Name	Type	DWT	GT	Length	Technology Installed	Installation Year	Installation Type Mmsi Imo	
+1	E-Ship 1	Ro-Ro	10,020	12,968	130	4 x 27m fixed rotor sails	2010	newbuild	218108000
+2	Estraden	Ro-Ro	9,741	18,205	163	2 x 18m fixed rotor sails	2014	retrofit	230917000
+3	Goldy Seven	General Cargo	4,250	2,844	90	1 x 18m fixed rotor sail	2018	retrofit	677012600
+4	New Vitality	Tanker	306,751	162,636	333	2 x 32m retractable wing sails	2018	newbuild	477231700
+5	Hu Po	Tanker	109,647	61,724	245	2 x 30m fixed rotor sails	2018	retrofit	667002022
+6	Afros	Bulk Carrier	63,223	36,452	199	4 x 16m movable rotor sails	2018	newbuild	538007531
+7	Copenhagen	Ferry	5,088	24,000	169	1 x 30m fixed rotor sail	2020	retrofit	219423000
+8	Ankie	General Cargo	3,638	2,528	90	2 x 13m hinged suction wings	2020	retrofit	244554000
+9	Anika Braren	General Cargo	5,023	2,996	85	1 x 18m fixed rotor sail	2021	newbuild	211302790
+10	SC Connector	Ro-Ro	8,843	12,251	155	2 x 35m hinged rotor sails	2021	retrofit	256149000
+11	Sea Zhoushan	Bulk Carrier	324,268	173,504	340	5 x 24m hinged rotor sails	2021	newbuild	353441000
+12	Frisian Sea	General Cargo	6,477	4,298	118	2 x 11m flat-rack/hinged suction wings	2021	retrofit	244780424
+13	Naumon	General Cargo/Theatre Vessel	1,006	1,057	59	1 x 17m fixed suction sail	2021	retrofit	Na	6506329
+14	GNV BRIDGE	Ferry	8,632	32,581	203	1 x 12m retractable wing sail	2021	retrofit	247435900
+15	Marfret Niolon	Ro-Ro	5,282	7,395	123	2 x 12m hinged/container suction wings	2022	retrofit	253343000
+16	Anna	General Cargo	5,097	2,993	90	2 x 16m hinged suctions wings	2022	retrofit	305842000
+17	Berlin	Ferry	4,835	22,319	169	1 x 30m fixed rotor sail	2022	retrofit	211727510	
+18	Shofu Maru	Bulk Carrier	100,422	58,209	235	1 x 48m retractable wing sail	2022	newbuild	431794000
+19	Delphine	Ro-Ro	27,687	74,273	234	1 x 35m hinged rotor sails	2022	retrofit	248189000
+20	New Aden	Tanker	306,751	162,636	333	4 x 40m retractable wing sails	2022	newbuild	477833400
+21	MN Pelican	Ro-Ro	8,847	12,076	154	1 x 100m2 inflatable wing sail	2022	retrofit	228315700
+22	EEMS Traveller	General Cargo	2,850	2,137	90	2 x 17m fixed suction sails	2023	retrofit	246498000
+23	Sunnanvik	Cement Carrier	9,060	7,454	124	2 x 16m suction wings	2023	retrofit	259286000
+24	Chang Hang Sheng Hai	Bulk Carrier	45,542	27,629	190	4 x 24m rotor sails	2023	retrofit	412379910
+25	TR Lady	Bulk Carrier	82,042	44,190	229	3 x 24m movable rotor sails	2023	retrofit	538007011
+26	Cape Brolga	Bulk Carrier	211,982	108,967	300	1 x 1,000m2 dynamic kite	2023	retrofit	431568000
+27	Canopee	Ro-Ro	4,700	10,400	121	4 x 30m retractable hybrid wing sails	2023	newbuild	228438700
+28	Pyxis Ocean	Bulk Carrier	80,962	43,291	229	2 x 40m retractable wing sails	2023	retrofit	563021600
+29	Jun Bai 56	Tanker	4,940	2,988	96	1 x 16m rotor sail	2024	newbuild	413560160
+30	Hai Yang Shi You 226	Heavy Lift Vessel - Deck Carrier	12,752	17,223	153	2 x 18m rotor sails	2024	retrofit	413301740
+31	Grain de Sail 2	General Cargo	350	497	51	2 x mast soft sail (traditional)	2024	newbuild	228450700
+32	Chemical Challenger	Tanker	16,111	9,155	134	4 x 16m suction wings	2024	retrofit	256160000
+33	Odda Marie	General Cargo	5,000	3,998	100	2 x 12m suction wings	2024	retrofit	230691000
+34	Ville de Bordeaux	Ro-Ro	5,200	21,528	154	3 x 22m suction sails	2024	retrofit	228084000
+35	Berge Olympus	Bulk Carrier	211,153	109,716	300	4 x 40m retractable wing sails	2024	retrofit	232012398
+36	Juren Ae	General Cargo	292	460	48	2 x mast soft sail (Indosail)	2024	newbuild	538011083
+37	Kalamazoo	Container	12,593	9,743	143	2 x 2 x 12m containerised retractable suction wings	2024	retrofit	563004600
+38	Northern Pioneer	Tanker - CO2	8,000	10,747	130	1 x 28m rotor sail	2024	newbuild	257833000
+39	Northern Pathfinder	Tanker - CO2	8,000	10,747	130	1 x 28m rotor sail	2024	newbuild	257874000
+40	Alcyone	Tanker	49,990	29,507	183	1 x 35m rotor sail	2024	retrofit	228423800
+41	Berge Neblina	Bulk Carrier	388,000	195,199	360	4 x 35m hinged rotor sails	2024	retrofit	235094793
+42	Koryu	Bulk Carrier	53,762	30,476	190	1 x 35m hinged rotor sail	2024	retrofit	538005264
+43	NBA Magritte	Bulk Carrier	82,099	43,013	229	2 x 10m flat-rack/hinged suction wings	2024	retrofit	229347000
+44	Anemos	General Cargo	1,512	1672	80	2 x mast soft sail (traditional)	2024	newbuild	228439900
+45	Green Winds	Bulk Carrier	63,896	36,498	200	1 x 48m retractable wing sail	2024	newbuild	352003910
+46	Sohar Max	Bulk Carrier	400,315	201.757	360	5 x 35m rotor sails	2024	retrofit	538004888
+47	Artemis	General Cargo	1,581	1,672	80	2 x mast soft sail (traditional)	2024	newbuild	244875000
+48	Amadeus Saffier	General Cargo	3,600	2,549	88	2 x 16m suction wings	2024	newbuild	245918000
+49	Jumbo Jubilee	Heavy Load Carrier	13,017	15,342	145	2 x 16m suction wings	2024	retrofit
+50	Cem Commander	Cement Carrier	5,876	4,332	113	1 x 24m rotor sail	2024	retrofit
+51	Chinook Oldendorff	Bulk Carrier	100,450	53,219	235	3 x 24m rotor sails	2024	retrofit
+52	Pacific Grebe	Nuclear Transport Vessel	4,902	6,840	104	1 x 20m rigid wing	2024	retrofit
+53	Yodohime	Bulk Carrier	85,022	47,181	229	1 x 24m rotor sail	2024	retrofit
+54	Camellia Dream	Bulk Carrier	206,863	108,115	299	2 x 35m rotor sails	2024	retrofit
+55	Oceanus Aurora	Gas Tanker	58,495	53,694	230	2 x 20m rotor sails	2025	newbuild
+56	Coral Patula	Chemical Tanker/LPG	8,571	7,251	115	2 x 16m suction wings	2025	retrofit
+57	Coral Pearl	Chemical Tanker/LPG	8,602	7,251	115	2 x 16m suction wings	2025	retrofit
+58	Prima Verde	General Cargo	17,611	13,281	130	1 x 10m suction wing (containerized)	2025	newbuild
+59	Waalvliet	General Cargo	3,800	2,781	88	2 x 16m suction wings	2025	newbuild
+60	Rijnvliet	General Cargo	3,800	2,781	88	2 x 16m suction wings	2025	newbuild
+61	Tern Vik	Chemical Tanker	15,109	11,408	147	4 x 16m suction wings	2025	newbuild
+62	Onego Duesto	General Cargo	9,832	6,312	132	2 x 16m suction wings	2025	retrofit
+63	Pacific Sentinel	Chemical Tanker	50,332	29,708	183	3 x 22m suction sails	2025	retrofit
+64	Bow Olympus	Chemical Tanker	49,000	34,148	183	3 x 22m suction sails	2025	retrofit
+65	Atlantic Orchard	Fruit Juice Carrier	34,584	28,243	180	4 x 26m suction sails	2025	retrofit
+66	Buran	Chemical Tanker	18,500	12,118	150	1 x 20m + 1 x 24m rotor sails	2025	newbuild
+67	Vectis Progress	General Cargo	11,183	7,230	124	1 x 20m wing sail	2025	retrofit
+68	Wilson Eyde	General Cargo	4,815	3,621	90	2 x 16m suction wings	2025	retrofit
+69	Ostro 1	Chemical Tanker	18,653	11,952	150	1 x 20m + 1 x 24 m rotor sails	2025	newbuild
+70	Brands Hatch	Oil/Product Tanker	113,006	62,730	250	3 x 20m x 37.5m wing sails	2025	newbuild
+71	Launkalne	General Cargo	11,048	6,621	132	2 x 16m suction wings	2025	retrofit
+72	Jutlandia Swan	Chemical/Oil Products Tanker	12,479	7,217	124	4 x 16 suction wings	2025	retrofit
+73	Ilha de Tinhare	Offshore Supply Vessel	1,106	550	64	Container - 2 x 10m suction wings	2025	retrofit
+74	Bise	Chemical Tanker	18,500	12,118	150	1 x 20m + 1 x 24m rotor sails	2025	newbuild
+75	Zonda	Chemical Tanker	18,500	12,118	150	1 x 20m + 1 x 24m rotor sails	2025	newbuild
+76	Grand Pioneer	Bulk Carrier	324,963	173,721	340	4 x 35m rotor sails	2025	retrofit
+77	Neoliner Origin	Ro-Ro Cargo	6,300	13,278	136	2 x 76m solid sails	2025	newbuild
