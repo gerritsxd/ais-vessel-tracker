@@ -852,24 +852,29 @@
                 btn.classList.remove('active');
                 btn.innerHTML = '<span style="font-size: 20px;">💨</span><span>SHOW WIND DATA</span>';
             } else {
-                // Show wind layer - Using OpenWeatherMap (more reliable)
+                // Show wind layer - Using Windy API with proper endpoint
                 console.log('Showing wind layer');
                 
-                // OpenWeatherMap wind layer - free tier with visible overlay
-                const windTileUrl = 'https://tile.openweathermap.org/map/wind_new/{z}/{x}/{y}.png?appid=439d4b804bc8187953eb36d2a8c26a02';
+                // Windy.com API - wind particle overlay (no authentication needed for tiles)
+                // Using the public tile endpoint
+                const windTileUrl = 'https://ims.windy.com/v3.0/img/wind/{z}/{x}/{y}.jpg';
                 
                 console.log('Wind tile URL:', windTileUrl);
                 
                 windLayer = L.tileLayer(windTileUrl, {
-                    attribution: 'Wind data © OpenWeatherMap',
-                    opacity: 0.6,  // Semi-transparent so vessels show through
-                    maxZoom: 19,
+                    attribution: 'Wind data © Windy.com',
+                    opacity: 0.5,  // Semi-transparent so vessels show through
+                    maxZoom: 11,  // Windy tiles only go to zoom 11
+                    minZoom: 0,
                     zIndex: 1000  // Put it on top of vessels
                 });
                 
                 // Add error handler to see if tiles are loading
                 windLayer.on('tileerror', function(error, tile) {
-                    console.error('Wind tile failed to load:', error, 'Tile:', tile.src);
+                    console.error('Wind tile failed to load:', error);
+                    if (tile && tile.src) {
+                        console.error('Failed tile URL:', tile.src);
+                    }
                 });
                 
                 windLayer.on('tileload', function(e) {
