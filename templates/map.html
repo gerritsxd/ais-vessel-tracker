@@ -729,12 +729,16 @@
             .then(response => response.json())
             .then(types => {
                 const select = document.getElementById('filter-type');
-                types.forEach(type => {
-                    const option = document.createElement('option');
-                    option.value = type.name;
-                    option.textContent = `${type.name} (${type.count})`;
-                    select.appendChild(option);
-                });
+                if (Array.isArray(types) && types.length > 0) {
+                    types.forEach(type => {
+                        const option = document.createElement('option');
+                        option.value = type.name;
+                        option.textContent = `${type.name} (${type.count})`;
+                        select.appendChild(option);
+                    });
+                } else {
+                    console.log('No detailed ship types available yet - waiting for emissions matcher to sync data');
+                }
             })
             .catch(error => console.error('Error loading ship types:', error));
         

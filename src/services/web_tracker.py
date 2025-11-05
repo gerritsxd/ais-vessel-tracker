@@ -1379,6 +1379,14 @@ def get_detailed_ship_types():
         conn.execute('PRAGMA journal_mode=WAL')
         cursor = conn.cursor()
         
+        # Check if column exists first
+        cursor.execute("PRAGMA table_info(vessels_static)")
+        columns = [row[1] for row in cursor.fetchall()]
+        
+        if 'detailed_ship_type' not in columns:
+            print("Warning: detailed_ship_type column does not exist yet")
+            return jsonify([])  # Return empty array
+        
         # Get unique detailed ship types with counts
         cursor.execute('''
             SELECT detailed_ship_type, COUNT(*) as count
@@ -1397,7 +1405,8 @@ def get_detailed_ship_types():
         
         return jsonify(types)
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        print(f"Error in get_detailed_ship_types: {e}")
+        return jsonify([]), 200  # Return empty array instead of error
     finally:
         if conn:
             conn.close()
