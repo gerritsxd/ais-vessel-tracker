@@ -855,20 +855,30 @@
                 // Show wind layer - Windy.com tiles
                 console.log('Showing wind layer');
                 
-                // Windy.com wind overlay tiles (using Map Forecast API key)
-                windLayer = L.tileLayer('https://tiles.windy.com/tiles/v10.0/wind-surface/{z}/{x}/{y}.png?key=RQHDtQ6TkVpXFXP7KExY6IeBcLd8KPvm', {
+                // Try Windy.com tile endpoint - wind overlay
+                // Using tiles API with Map Forecast key
+                const windTileUrl = 'https://tiles.windy.com/tiles/v10.0/wind-surface/{z}/{x}/{y}.png?key=RQHDtQ6TkVpXFXP7KExY6IeBcLd8KPvm';
+                
+                console.log('Wind tile URL:', windTileUrl);
+                
+                windLayer = L.tileLayer(windTileUrl, {
                     attribution: 'Wind data © Windy.com',
-                    opacity: 0.7,
-                    maxZoom: 19
+                    opacity: 0.5,  // More transparent so vessels show through
+                    maxZoom: 19,
+                    zIndex: 1000  // Put it on top of vessels
                 });
                 
                 // Add error handler to see if tiles are loading
-                windLayer.on('tileerror', function(error) {
-                    console.error('Wind tile failed to load:', error);
+                windLayer.on('tileerror', function(error, tile) {
+                    console.error('Wind tile failed to load:', error, 'Tile:', tile.src);
                 });
                 
-                windLayer.on('tileload', function() {
-                    console.log('Wind tile loaded successfully!');
+                windLayer.on('tileload', function(e) {
+                    console.log('Wind tile loaded successfully!', e.tile.src);
+                });
+                
+                windLayer.on('loading', function() {
+                    console.log('Wind layer is loading tiles...');
                 });
                 
                 console.log('Wind layer created, adding to map');
