@@ -776,35 +776,53 @@
         // Refresh ship types every 30 seconds
         setInterval(loadShipTypes, 30000);
         
-        // Load initial data
-        fetch('/ships/api/vessels')
-            .then(response => response.json())
-            .then(vessels => {
-                allVessels = vessels;
-                document.getElementById('total-vessels').textContent = vessels.length;
-                
-                vessels.forEach(vessel => {
-                    if (vessel.lat && vessel.lon) {
-                        updateVessel(vessel.mmsi, vessel);
+        // Load vessel data from API
+        function loadVessels(fitBounds = false) {
+            fetch('/ships/api/vessels')
+                .then(response => response.json())
+                .then(vessels => {
+                    // Update allVessels array
+                    allVessels = vessels;
+                    document.getElementById('total-vessels').textContent = vessels.length;
+                    
+                    // Add/update vessels on map
+                    let newVesselsAdded = 0;
+                    vessels.forEach(vessel => {
+                        if (vessel.lat && vessel.lon) {
+                            const isNew = !markers[vessel.mmsi];
+                            updateVessel(vessel.mmsi, vessel);
+                            if (isNew) newVesselsAdded++;
+                        }
+                    });
+                    
+                    if (newVesselsAdded > 0) {
+                        console.log(`Added ${newVesselsAdded} new vessels to map`);
                     }
-                });
-                
-                // Check if MMSI is in URL to show specific route
-                const urlParams = new URLSearchParams(window.location.search);
-                const mmsi = urlParams.get('mmsi');
-                if (mmsi) {
-                    const vessel = vessels.find(v => v.mmsi == mmsi);
-                    if (vessel) {
-                        showVesselRoute(parseInt(mmsi), vessel.name);
+                    
+                    // Check if MMSI is in URL to show specific route
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const mmsi = urlParams.get('mmsi');
+                    if (mmsi) {
+                        const vessel = vessels.find(v => v.mmsi == mmsi);
+                        if (vessel) {
+                            showVesselRoute(parseInt(mmsi), vessel.name);
+                        }
+                    } else if (fitBounds) {
+                        // Fit map to show all vessels (only on initial load)
+                        if (Object.keys(markers).length > 0) {
+                            const group = L.featureGroup(Object.values(markers));
+                            map.fitBounds(group.getBounds().pad(0.1));
+                        }
                     }
-                } else {
-                    // Fit map to show all vessels
-                    if (Object.keys(markers).length > 0) {
-                        const group = L.featureGroup(Object.values(markers));
-                        map.fitBounds(group.getBounds().pad(0.1));
-                    }
-                }
-            });
+                })
+                .catch(error => console.error('Error loading vessels:', error));
+        }
+        
+        // Load initial data with bounds fitting
+        loadVessels(true);
+        
+        // Refresh vessel list every 15 seconds to catch new ships
+        setInterval(() => loadVessels(false), 15000);
         
         // Connect to WebSocket for live updates
         const socket = io({path: '/ships/socket.io'});
@@ -838,15 +856,6 @@
             currentFilters.size = e.target.value;
             applyFilters();
         });
-        
-        // Refresh stats every 5 seconds
-        setInterval(() => {
-            fetch('/ships/api/stats')
-                .then(response => response.json())
-                .then(stats => {
-                    document.getElementById('total-vessels').textContent = stats.total_vessels;
-                });
-        }, 5000);
     </script>
 </body>
 </html>
