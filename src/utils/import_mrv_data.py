@@ -119,6 +119,7 @@ def import_mrv_data(conn, mrv_file_path):
         'Ship_Unnamed: 2_level_1_Ship type': 'ship_type',
         'Ship_Unnamed: 3_level_1_Reporting Period': 'reporting_period',
         'Ship_Unnamed: 4_level_1_Technical efficiency': 'technical_efficiency',
+        'Ship_Unnamed: 5_level_1_Gross tonnage': 'gross_tonnage',
         'Company_Unnamed: 8_level_1_IMO Number': 'company_imo',
         'Company_Unnamed: 9_level_1_Name': 'company_name',
         'DoC_Unnamed: 10_level_1_Issuing Authority': 'doc_issuer',
