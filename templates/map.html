@@ -879,9 +879,9 @@
                 iframe.style.width = '100%';
                 iframe.style.height = '100%';
                 iframe.style.border = 'none';
-                iframe.style.pointerEvents = 'none';  // Click through to map below
-                iframe.style.opacity = '0.6';
-                iframe.style.zIndex = '1000';
+                iframe.style.pointerEvents = 'none';  // Click through to vessels above
+                iframe.style.opacity = '0.5';  // More transparent
+                iframe.style.zIndex = '400';  // Below vessels (which are at 600+)
                 
                 // Windy embed URL with wind overlay only
                 iframe.src = `https://embed.windy.com/embed2.html?lat=${center.lat}&lon=${center.lng}&zoom=${zoom}&level=surface&overlay=wind&product=ecmwf&menu=&message=&marker=&calendar=now&pressure=&type=map&location=coordinates&detail=&metricWind=default&metricTemp=default&radarRange=-1`;
