@@ -536,8 +536,8 @@
             const color = typeInfo.color;
             const isWindAssisted = vessel.wind_assisted === 1;
             
-            // Add wind propulsion indicator
-            const windIndicator = isWindAssisted ? `<div style="position: absolute; top: -8px; right: -8px; font-size: 14px; filter: drop-shadow(0 0 2px #000);">⛵</div>` : '';
+            // Add wind propulsion indicator (wind turbine icon)
+            const windIndicator = isWindAssisted ? `<div style="position: absolute; top: -8px; right: -8px; font-size: 16px; filter: drop-shadow(0 0 3px #000);">🌬️</div>` : '';
             
             return L.divIcon({
                 className: 'custom-marker',
@@ -563,7 +563,7 @@
                     </div>
                     <span class="ship-type-badge ${typeInfo.badge}">${typeInfo.name}</span>
                     ${vessel.detailed_ship_type ? `<br><span style="font-size: 12px; color: #666;">Type: ${vessel.detailed_ship_type}</span>` : ''}
-                    ${vessel.wind_assisted === 1 ? `<br><span style="font-size: 13px; color: #00ff00; font-weight: bold;">⛵ Wind-Assisted Propulsion</span>` : ''}
+                    ${vessel.wind_assisted === 1 ? `<br><span style="font-size: 13px; color: #00ff00; font-weight: bold;">🌬️ Wind-Assisted Propulsion</span>` : ''}
                     <table>
                         <tr><td>MMSI:</td><td>${mmsi}</td></tr>
                         <tr><td>Flag:</td><td>${vessel.flag_state || 'Unknown'}</td></tr>
