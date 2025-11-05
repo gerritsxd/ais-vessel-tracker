@@ -852,18 +852,17 @@
                 btn.classList.remove('active');
                 btn.innerHTML = '<span style="font-size: 20px;">💨</span><span>SHOW WIND DATA</span>';
             } else {
-                // Show wind layer - Windy.com tiles
+                // Show wind layer - Using OpenWeatherMap (more reliable)
                 console.log('Showing wind layer');
                 
-                // Try Windy.com tile endpoint - wind overlay
-                // Using tiles API with Map Forecast key
-                const windTileUrl = 'https://tiles.windy.com/tiles/v10.0/wind-surface/{z}/{x}/{y}.png?key=RQHDtQ6TkVpXFXP7KExY6IeBcLd8KPvm';
+                // OpenWeatherMap wind layer - free tier with visible overlay
+                const windTileUrl = 'https://tile.openweathermap.org/map/wind_new/{z}/{x}/{y}.png?appid=439d4b804bc8187953eb36d2a8c26a02';
                 
                 console.log('Wind tile URL:', windTileUrl);
                 
                 windLayer = L.tileLayer(windTileUrl, {
-                    attribution: 'Wind data © Windy.com',
-                    opacity: 0.5,  // More transparent so vessels show through
+                    attribution: 'Wind data © OpenWeatherMap',
+                    opacity: 0.6,  // Semi-transparent so vessels show through
                     maxZoom: 19,
                     zIndex: 1000  // Put it on top of vessels
                 });
