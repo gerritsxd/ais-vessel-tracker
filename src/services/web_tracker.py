@@ -158,26 +158,48 @@ def get_filtered_vessels():
         conn.execute('PRAGMA journal_mode=WAL')
         cursor = conn.cursor()
         
-        query = '''
-            SELECT v.mmsi, v.name, v.ship_type, v.detailed_ship_type, v.length, v.beam, v.imo, 
-                   v.call_sign, v.flag_state, v.signatory_company, v.wind_assisted, e.gross_tonnage
-            FROM vessels_static v
-            LEFT JOIN eu_mrv_emissions e ON v.imo = e.imo
-            WHERE v.mmsi IS NOT NULL
-              AND v.last_updated >= datetime('now', '-30 days')
-            ORDER BY v.last_updated DESC
-            LIMIT 2000
-        '''
-        
-        cursor.execute(query)
-        vessels = cursor.fetchall()
+        # Try query with gross_tonnage first
+        try:
+            query = '''
+                SELECT v.mmsi, v.name, v.ship_type, v.detailed_ship_type, v.length, v.beam, v.imo, 
+                       v.call_sign, v.flag_state, v.signatory_company, v.wind_assisted, e.gross_tonnage
+                FROM vessels_static v
+                LEFT JOIN eu_mrv_emissions e ON v.imo = e.imo
+                WHERE v.mmsi IS NOT NULL
+                  AND v.last_updated >= datetime('now', '-30 days')
+                ORDER BY v.last_updated DESC
+                LIMIT 2000
+            '''
+            cursor.execute(query)
+            vessels = cursor.fetchall()
+            has_gross_tonnage = True
+        except sqlite3.OperationalError:
+            # Fallback query without gross_tonnage if column doesn't exist
+            print("Warning: gross_tonnage column not found, using fallback query")
+            query = '''
+                SELECT v.mmsi, v.name, v.ship_type, v.detailed_ship_type, v.length, v.beam, v.imo, 
+                       v.call_sign, v.flag_state, v.signatory_company, v.wind_assisted
+                FROM vessels_static v
+                WHERE v.mmsi IS NOT NULL
+                  AND v.last_updated >= datetime('now', '-30 days')
+                ORDER BY v.last_updated DESC
+                LIMIT 2000
+            '''
+            cursor.execute(query)
+            vessels = cursor.fetchall()
+            has_gross_tonnage = False
     finally:
         if conn:
             conn.close()
     
     # Store static data
     for vessel in vessels:
-        mmsi, name, ship_type, detailed_ship_type, length, beam, imo, call_sign, flag_state, signatory_company, wind_assisted, gross_tonnage = vessel
+        if has_gross_tonnage:
+            mmsi, name, ship_type, detailed_ship_type, length, beam, imo, call_sign, flag_state, signatory_company, wind_assisted, gross_tonnage = vessel
+        else:
+            mmsi, name, ship_type, detailed_ship_type, length, beam, imo, call_sign, flag_state, signatory_company, wind_assisted = vessel
+            gross_tonnage = None
+            
         vessel_static_data[mmsi] = {
             'name': name or 'Unknown',
             'ship_type': ship_type,
