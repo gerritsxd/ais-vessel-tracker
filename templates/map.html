@@ -850,33 +850,40 @@
             if (windLayer) {
                 // Hide wind layer
                 console.log('Hiding wind layer');
-                map.removeLayer(windLayer);
+                if (windLayer.parentNode) {
+                    windLayer.parentNode.removeChild(windLayer);
+                }
                 windLayer = null;
                 btn.classList.remove('active');
                 btn.innerHTML = '<span style="font-size: 20px;">💨</span><span>SHOW WIND DATA</span>';
             } else {
-                // Show wind layer - Using Windy API
-                console.log('Showing wind layer with Windy API');
+                // Show wind layer - Simple iframe overlay approach
+                console.log('Showing wind layer with iframe');
                 
-                const options = {
-                    key: 'RQHDtQ6TkVpXFXP7KExY6IeBcLd8KPvm',
-                    verbose: true,
-                    lat: map.getCenter().lat,
-                    lon: map.getCenter().lng,
-                    zoom: map.getZoom()
-                };
+                const center = map.getCenter();
+                const zoom = map.getZoom();
                 
-                windyInit(options, windyAPI => {
-                    console.log('Windy API initialized');
-                    const { map: windyMap } = windyAPI;
-                    
-                    // Store reference
-                    windLayer = { windy: windyAPI, active: true };
-                    
-                    btn.classList.add('active');
-                    btn.innerHTML = '<span style="font-size: 20px;">💨</span><span>HIDE WIND DATA</span>';
-                    console.log('Wind layer added successfully');
-                });
+                // Create iframe container
+                const iframe = document.createElement('iframe');
+                iframe.style.position = 'absolute';
+                iframe.style.top = '0';
+                iframe.style.left = '0';
+                iframe.style.width = '100%';
+                iframe.style.height = '100%';
+                iframe.style.border = 'none';
+                iframe.style.pointerEvents = 'none';  // Click through to map below
+                iframe.style.opacity = '0.6';
+                iframe.style.zIndex = '1000';
+                
+                // Windy embed URL with wind overlay only
+                iframe.src = `https://embed.windy.com/embed2.html?lat=${center.lat}&lon=${center.lng}&zoom=${zoom}&level=surface&overlay=wind&product=ecmwf&menu=&message=&marker=&calendar=now&pressure=&type=map&location=coordinates&detail=&metricWind=default&metricTemp=default&radarRange=-1`;
+                
+                document.getElementById('map').appendChild(iframe);
+                windLayer = iframe;
+                
+                btn.classList.add('active');
+                btn.innerHTML = '<span style="font-size: 20px;">💨</span><span>HIDE WIND DATA</span>';
+                console.log('Wind layer iframe added');
             }
         }
         
