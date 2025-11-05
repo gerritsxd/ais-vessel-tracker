@@ -112,6 +112,12 @@ def import_mrv_data(conn, mrv_file_path):
     
     print(f"✓ Loaded {len(df)} records")
     
+    # Debug: Print all column names that start with "Ship" to find Gross tonnage
+    print("\nDEBUG: Ship columns in Excel file:")
+    ship_cols = [col for col in df.columns if col.startswith('Ship_')]
+    for i, col in enumerate(ship_cols[:10]):  # Print first 10 Ship columns
+        print(f"  [{i}] {col}")
+    
     # Map the complex column names to simpler ones
     column_mapping = {
         'Ship_Unnamed: 0_level_1_IMO Number': 'imo',
