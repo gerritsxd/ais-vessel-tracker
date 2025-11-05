@@ -426,7 +426,7 @@ def get_all_vessels():
         search = request.args.get('search', type=str)
         
         # Build query
-        query = 'SELECT mmsi, name, ship_type, length, beam, imo, call_sign, flag_state, destination, eta, draught, last_updated, signatory_company FROM vessels_static WHERE 1=1'
+        query = 'SELECT mmsi, name, ship_type, detailed_ship_type, length, beam, imo, call_sign, flag_state, destination, eta, draught, last_updated, signatory_company FROM vessels_static WHERE 1=1'
         params = []
         
         if min_length:
@@ -465,16 +465,17 @@ def get_all_vessels():
                 'mmsi': v[0],
                 'name': v[1],
                 'ship_type': v[2],
-                'length': v[3],
-                'beam': v[4],
-                'imo': v[5],
-                'call_sign': v[6],
-                'flag_state': v[7],
-                'destination': v[8],
-                'eta': v[9],
-                'draught': v[10],
-                'last_updated': v[11],
-                'signatory_company': v[12]
+                'detailed_ship_type': v[3],
+                'length': v[4],
+                'beam': v[5],
+                'imo': v[6],
+                'call_sign': v[7],
+                'flag_state': v[8],
+                'destination': v[9],
+                'eta': v[10],
+                'draught': v[11],
+                'last_updated': v[12],
+                'signatory_company': v[13]
             })
         
         return jsonify(results)
@@ -1287,6 +1288,77 @@ def get_match_statistics():
             'emissions_only': emissions_only,
             'recent_matches_24h': recent_matches,
             'potential_new_matches': ais_only  # Vessels that could potentially be matched
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if conn:
+            conn.close()
+
+
+@app.route('/ships/api/statistics/ship-types')
+def get_ship_type_statistics():
+    """Get statistics about ship types in the database."""
+    project_root = Path(__file__).parent.parent.parent
+    db_path = project_root / DB_NAME
+    
+    conn = None
+    try:
+        conn = sqlite3.connect(db_path, timeout=30)
+        conn.execute('PRAGMA journal_mode=WAL')
+        cursor = conn.cursor()
+        
+        # Get breakdown by AIS ship type
+        cursor.execute('''
+            SELECT ship_type, COUNT(*) as count
+            FROM vessels_static
+            WHERE ship_type IS NOT NULL
+            GROUP BY ship_type
+            ORDER BY count DESC
+        ''')
+        ais_types = cursor.fetchall()
+        
+        # Get breakdown by detailed ship type from EU MRV
+        cursor.execute('''
+            SELECT detailed_ship_type, COUNT(*) as count
+            FROM vessels_static
+            WHERE detailed_ship_type IS NOT NULL
+            GROUP BY detailed_ship_type
+            ORDER BY count DESC
+        ''')
+        detailed_types = cursor.fetchall()
+        
+        # Get vessels without detailed type but with IMO
+        cursor.execute('''
+            SELECT COUNT(*)
+            FROM vessels_static
+            WHERE imo IS NOT NULL AND imo > 0
+            AND detailed_ship_type IS NULL
+        ''')
+        missing_detailed = cursor.fetchone()[0]
+        
+        # Format AIS types with names
+        ais_breakdown = []
+        for ship_type, count in ais_types:
+            ais_breakdown.append({
+                'code': ship_type,
+                'name': get_ship_type_name(ship_type),
+                'count': count
+            })
+        
+        # Format detailed types
+        detailed_breakdown = []
+        for ship_type, count in detailed_types:
+            detailed_breakdown.append({
+                'type': ship_type,
+                'count': count
+            })
+        
+        return jsonify({
+            'ais_types': ais_breakdown,
+            'detailed_types': detailed_breakdown,
+            'vessels_missing_detailed_type': missing_detailed,
+            'total_vessels': sum(t['count'] for t in ais_breakdown)
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500

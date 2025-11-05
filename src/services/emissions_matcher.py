@@ -35,6 +35,45 @@ class EmissionsMatcher:
         conn.execute('PRAGMA journal_mode=WAL')
         return conn
     
+    def sync_detailed_ship_types(self):
+        """Sync detailed ship types from EU MRV emissions to vessels_static."""
+        conn = None
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+            
+            # Update detailed_ship_type for vessels that have a match in EU MRV
+            cursor.execute('''
+                UPDATE vessels_static
+                SET detailed_ship_type = (
+                    SELECT e.ship_type
+                    FROM eu_mrv_emissions e
+                    WHERE e.imo = vessels_static.imo
+                )
+                WHERE vessels_static.imo IN (
+                    SELECT imo FROM eu_mrv_emissions
+                )
+                AND (vessels_static.detailed_ship_type IS NULL 
+                     OR vessels_static.detailed_ship_type != (
+                         SELECT e.ship_type FROM eu_mrv_emissions e WHERE e.imo = vessels_static.imo
+                     ))
+            ''')
+            
+            updated_count = cursor.rowcount
+            conn.commit()
+            
+            if updated_count > 0:
+                print(f"  ✓ Updated detailed ship type for {updated_count} vessels")
+            
+            return updated_count
+            
+        except Exception as e:
+            print(f"Error syncing detailed ship types: {e}")
+            return 0
+        finally:
+            if conn:
+                conn.close()
+    
     def check_and_match_vessels(self):
         """Check for new vessels and match with emissions data."""
         conn = None
@@ -59,6 +98,8 @@ class EmissionsMatcher:
             
             if not unmatched_vessels:
                 print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] No new vessels to match")
+                # Still sync detailed ship types for existing matches
+                self.sync_detailed_ship_types()
                 return
             
             print(f"\n[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Found {len(unmatched_vessels)} vessels to check...")
@@ -68,7 +109,7 @@ class EmissionsMatcher:
                 
                 # Check if emissions data exists for this IMO
                 cursor.execute('''
-                    SELECT imo, vessel_name, company_name, total_co2_emissions
+                    SELECT imo, vessel_name, ship_type, company_name, total_co2_emissions
                     FROM eu_mrv_emissions
                     WHERE imo = ?
                 ''', (imo,))
@@ -77,8 +118,9 @@ class EmissionsMatcher:
                 
                 if emissions_data:
                     self.stats['new_matches'] += 1
-                    imo_num, mrv_name, company, co2 = emissions_data
+                    imo_num, mrv_name, detailed_type, company, co2 = emissions_data
                     print(f"  ✓ MATCH: {name} (IMO: {imo}) -> {co2:,.0f} tonnes CO2")
+                    print(f"    Detailed Type: {detailed_type}")
                     print(f"    Company: {company}")
                 else:
                     self.stats['no_emissions_data'] += 1
@@ -94,10 +136,17 @@ class EmissionsMatcher:
             
             unmatched_emissions = cursor.fetchone()[0]
             
+            conn.close()
+            
+            # Sync detailed ship types for matched vessels
+            updated = self.sync_detailed_ship_types()
+            
             print(f"\n  Summary:")
             print(f"    New matches: {self.stats['new_matches']}")
             print(f"    No emissions data: {self.stats['no_emissions_data']}")
             print(f"    Emissions waiting for AIS: {unmatched_emissions}")
+            if updated > 0:
+                print(f"    Detailed types synced: {updated}")
             
             self.stats['last_check'] = datetime.now().isoformat()
             
