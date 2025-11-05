@@ -787,12 +787,17 @@
             // Gross Tonnage filter (regulatory compliance thresholds)
             if (currentFilters.gt !== 'all') {
                 const gt = vessel.gross_tonnage;
-                if (!gt) return false; // Exclude vessels without GT data
-                
-                if (currentFilters.gt === 'under100' && gt > 100) return false;
-                if (currentFilters.gt === 'over100' && gt <= 100) return false;
-                if (currentFilters.gt === 'over1000' && gt <= 1000) return false; // IMO threshold
-                if (currentFilters.gt === 'over5000' && gt <= 5000) return false; // EU ETS threshold
+                // Only filter if vessel has GT data
+                if (gt) {
+                    if (currentFilters.gt === 'under100' && gt > 100) return false;
+                    if (currentFilters.gt === 'over100' && gt <= 100) return false;
+                    if (currentFilters.gt === 'over1000' && gt <= 1000) return false; // IMO threshold
+                    if (currentFilters.gt === 'over5000' && gt <= 5000) return false; // EU ETS threshold
+                }
+                // Vessels without GT data are excluded from GT filtering (don't show when GT filter active)
+                else {
+                    return false;
+                }
             }
             
             return true;
