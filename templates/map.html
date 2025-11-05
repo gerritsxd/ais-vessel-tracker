@@ -243,6 +243,39 @@
             justify-content: center;
             color: white;
             font-size: 48px;
+            position: relative;
+        }
+        
+        .photo-loading {
+            width: 100%;
+            height: 150px;
+            background: #2a2a3e;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #00d4ff;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .photo-loading-text {
+            color: #00d4ff;
+            font-size: 12px;
         }
         
         .vessel-popup table {
@@ -498,13 +531,15 @@
             const hasPosition = vessel.lat !== undefined;
             const typeInfo = getShipTypeInfo(vessel);
             
-            // Try to get ship photo from MarineTraffic (note: this is a placeholder, actual API requires key)
-            const photoUrl = `https://photos.marinetraffic.com/ais/showphoto.aspx?mmsi=${mmsi}`;
+            const popupId = `popup-${mmsi}`;
             
-            return `
-                <div class="vessel-popup">
+            const content = `
+                <div class="vessel-popup" id="${popupId}">
                     <h3>${vessel.name}</h3>
-                    <div class="vessel-photo-placeholder">🚢</div>
+                    <div class="photo-loading" id="photo-${mmsi}">
+                        <div class="spinner"></div>
+                        <div class="photo-loading-text">Loading photo...</div>
+                    </div>
                     <span class="ship-type-badge ${typeInfo.badge}">${typeInfo.name}</span>
                     ${vessel.detailed_ship_type ? `<br><span style="font-size: 12px; color: #666;">Type: ${vessel.detailed_ship_type}</span>` : ''}
                     <table>
@@ -523,6 +558,31 @@
                     </table>
                 </div>
             `;
+            
+            // Fetch photo asynchronously
+            setTimeout(() => {
+                fetch(`/ships/api/vessel/${mmsi}/photo`)
+                    .then(response => response.json())
+                    .then(data => {
+                        const photoContainer = document.getElementById(`photo-${mmsi}`);
+                        if (photoContainer) {
+                            if (data.photo_url) {
+                                photoContainer.innerHTML = `<img src="${data.photo_url}" class="vessel-photo" alt="${vessel.name}" onerror="this.parentElement.innerHTML='<div class=\\'vessel-photo-placeholder\\'>🚢</div>'">`;
+                            } else {
+                                photoContainer.innerHTML = '<div class="vessel-photo-placeholder">🚢</div>';
+                            }
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error loading photo:', error);
+                        const photoContainer = document.getElementById(`photo-${mmsi}`);
+                        if (photoContainer) {
+                            photoContainer.innerHTML = '<div class="vessel-photo-placeholder">🚢</div>';
+                        }
+                    });
+            }, 100);
+            
+            return content;
         }
         
         // Check if vessel passes filters
