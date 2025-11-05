@@ -476,6 +476,7 @@
             size: 'all'
         };
         let currentRoute = null; // Store current route polyline
+        let currentRouteMarkers = []; // Store route start/end markers
         const photoCache = {}; // Cache photo results to avoid repeated requests
         
         // Detailed ship type colors (based on EU MRV detailed_ship_type)
@@ -811,11 +812,17 @@
         
         // Show vessel route
         function showVesselRoute(mmsi, vesselName) {
-            // Remove existing route
+            // Remove existing route and markers
             if (currentRoute) {
                 map.removeLayer(currentRoute);
                 currentRoute = null;
             }
+            
+            // Remove existing route markers (start/end dots)
+            currentRouteMarkers.forEach(marker => {
+                map.removeLayer(marker);
+            });
+            currentRouteMarkers = [];
             
             // Fetch route data
             fetch(`/ships/api/vessel/${mmsi}/route?hours=24`)
@@ -853,6 +860,7 @@
                         🧭 Course: ${route[0].cog || 0}°<br>
                         🕐 ${new Date(route[0].timestamp).toLocaleString()}
                     `);
+                    currentRouteMarkers.push(startMarker);
                     
                     // Add end marker (red)
                     const endMarker = L.circleMarker([route[route.length-1].lat, route[route.length-1].lon], {
@@ -871,6 +879,7 @@
                         🧭 Course: ${route[route.length-1].cog || 0}°<br>
                         🕐 ${new Date(route[route.length-1].timestamp).toLocaleString()}
                     `);
+                    currentRouteMarkers.push(endMarker);
                     
                     // Add popup to route
                     const duration = new Date(route[route.length-1].timestamp) - new Date(route[0].timestamp);
