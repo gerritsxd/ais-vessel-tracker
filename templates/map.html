@@ -340,15 +340,55 @@
     </div>
     
     <div id="map">
-        <div class="legend">
-            <h3>Legend</h3>
+        <div class="legend" style="max-height: 500px; overflow-y: auto;">
+            <h3>🎨 Ship Type Colors</h3>
             <div class="legend-item">
-                <div class="legend-color" style="background: #00ff00;"></div>
-                <span>Cargo Ships (70-79)</span>
+                <div class="legend-color" style="background: #8B4513;"></div>
+                <span>Bulk carrier</span>
             </div>
             <div class="legend-item">
-                <div class="legend-color" style="background: #ff0000;"></div>
-                <span>Tankers (80-89)</span>
+                <div class="legend-color" style="background: #FF4500;"></div>
+                <span>Container ship</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #32CD32;"></div>
+                <span>General cargo</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #DC143C;"></div>
+                <span>Oil tanker</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #FF1493;"></div>
+                <span>Chemical tanker</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #9370DB;"></div>
+                <span>LNG carrier</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #BA55D3;"></div>
+                <span>Gas carrier</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #FFD700;"></div>
+                <span>Vehicle carrier</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #FFA500;"></div>
+                <span>Ro-ro ship</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #00CED1;"></div>
+                <span>Refrigerated cargo</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #1E90FF;"></div>
+                <span>Passenger ship</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #808080;"></div>
+                <span>Other types</span>
             </div>
             <div class="legend-size">
                 <strong>Size:</strong><br>
@@ -389,22 +429,60 @@
         };
         let currentRoute = null; // Store current route polyline
         
-        // Ship type colors and names (only cargo and tankers)
-        const shipTypeInfo = {
-            70: { color: '#00ff00', name: 'Cargo', badge: 'type-cargo' },
-            80: { color: '#ff0000', name: 'Tanker', badge: 'type-tanker' }
+        // Detailed ship type colors (based on EU MRV detailed_ship_type)
+        const detailedShipTypeColors = {
+            'Bulk carrier': '#8B4513',              // Brown
+            'Container ship': '#FF4500',            // Orange-Red
+            'Container/ro-ro cargo ship': '#FF6347', // Tomato
+            'General cargo ship': '#32CD32',        // Lime Green
+            'Oil tanker': '#DC143C',                // Crimson
+            'Chemical tanker': '#FF1493',           // Deep Pink
+            'LNG carrier': '#9370DB',               // Medium Purple
+            'Gas carrier': '#BA55D3',               // Medium Orchid
+            'Vehicle carrier': '#FFD700',           // Gold
+            'Ro-ro ship': '#FFA500',                // Orange
+            'Ro-pax ship': '#FF8C00',               // Dark Orange
+            'Refrigerated cargo carrier': '#00CED1', // Dark Turquoise
+            'Passenger ship': '#1E90FF',            // Dodger Blue
+            'Passenger ship (Cruise Passenger ship)': '#4169E1', // Royal Blue
+            'Combination carrier': '#20B2AA',       // Light Sea Green
+            'Other ship types': '#808080',          // Gray
+            'Other ship types (Offshore)': '#696969' // Dim Gray
         };
         
-        function getShipTypeInfo(shipType) {
-            if (shipType >= 70 && shipType < 80) return shipTypeInfo[70];
-            if (shipType >= 80 && shipType < 90) return shipTypeInfo[80];
-            return shipTypeInfo[70]; // Default to cargo color
+        // Fallback colors for AIS ship type codes (if no detailed_ship_type)
+        const aisShipTypeColors = {
+            70: '#00ff00', // Cargo - Green
+            80: '#ff0000'  // Tanker - Red
+        };
+        
+        function getShipTypeInfo(vessel) {
+            // Prefer detailed_ship_type from emissions data
+            if (vessel.detailed_ship_type && detailedShipTypeColors[vessel.detailed_ship_type]) {
+                return {
+                    color: detailedShipTypeColors[vessel.detailed_ship_type],
+                    name: vessel.detailed_ship_type,
+                    badge: 'type-detailed'
+                };
+            }
+            
+            // Fallback to AIS ship_type
+            const shipType = vessel.ship_type;
+            if (shipType >= 70 && shipType < 80) {
+                return { color: aisShipTypeColors[70], name: 'Cargo', badge: 'type-cargo' };
+            }
+            if (shipType >= 80 && shipType < 90) {
+                return { color: aisShipTypeColors[80], name: 'Tanker', badge: 'type-tanker' };
+            }
+            
+            // Default
+            return { color: '#00ff00', name: 'Cargo', badge: 'type-cargo' };
         }
         
         // Create custom icon
         function createVesselIcon(vessel) {
             const isLarge = vessel.length >= 200;
-            const typeInfo = getShipTypeInfo(vessel.ship_type);
+            const typeInfo = getShipTypeInfo(vessel);
             const color = typeInfo.color;
             
             return L.divIcon({
@@ -418,7 +496,7 @@
         // Create enhanced popup content with ship photo
         function createPopupContent(mmsi, vessel) {
             const hasPosition = vessel.lat !== undefined;
-            const typeInfo = getShipTypeInfo(vessel.ship_type);
+            const typeInfo = getShipTypeInfo(vessel);
             
             // Try to get ship photo from MarineTraffic (note: this is a placeholder, actual API requires key)
             const photoUrl = `https://photos.marinetraffic.com/ais/showphoto.aspx?mmsi=${mmsi}`;
@@ -531,7 +609,7 @@
             
             title.textContent = vessel.name || 'Unknown Vessel';
             
-            const typeInfo = getShipTypeInfo(vessel.ship_type);
+            const typeInfo = getShipTypeInfo(vessel);
             const hasPosition = vessel.lat !== undefined;
             
             content.innerHTML = `
