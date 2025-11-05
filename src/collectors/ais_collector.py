@@ -407,17 +407,18 @@ def on_open(ws):
     #     {"MinLat": -90, "MaxLat": 90, "MinLon": -180, "MaxLon": 180}
     # ]
     
-    # Subscribe with a bounding box to ensure we get data
-    # Using a smaller area (North Sea / English Channel) which has high vessel traffic
+    # Subscribe with a bounding box covering Europe and Atlantic
+    # Extended coverage to include major Atlantic shipping routes
     subscribe_message = {
         "APIKey": API_KEY,
         "BoundingBoxes": [
             [
-                [35.0, -10.0],   # Southwest corner (Gibraltar, Portugal)
-                [72.0, 30.0]     # Northeast corner (Norway, Baltic Sea)
+                [30.0, -50.0],   # Southwest corner (Extended Atlantic, West Africa)
+                [75.0, 35.0]     # Northeast corner (Arctic Norway, Baltic Sea)
             ]
         ]
-        # Covers: Atlantic Coast, North Sea, Baltic Sea, Mediterranean
+        # Covers: North Atlantic, European Atlantic Coast, North Sea, Baltic Sea, Mediterranean
+        # Includes major routes: US-Europe, Gibraltar Strait, English Channel, Suez approach
     }
     
     print(f"Sending subscription: {json.dumps(subscribe_message, indent=2)}")

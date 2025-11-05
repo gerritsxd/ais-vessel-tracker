@@ -371,8 +371,8 @@
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     
     <script>
-        // Initialize map
-        const map = L.map('map').setView([51.5, 2], 7);
+        // Initialize map - centered to show Europe and Atlantic routes
+        const map = L.map('map').setView([48.0, -10.0], 5);
         
         // Add OpenStreetMap tiles
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -724,23 +724,57 @@
                 });
         }
         
-        // Load detailed ship types for filter dropdown
-        fetch('/ships/api/detailed-ship-types')
-            .then(response => response.json())
-            .then(types => {
-                const select = document.getElementById('filter-type');
-                if (Array.isArray(types) && types.length > 0) {
-                    types.forEach(type => {
-                        const option = document.createElement('option');
-                        option.value = type.name;
-                        option.textContent = `${type.name} (${type.count})`;
-                        select.appendChild(option);
-                    });
-                } else {
-                    console.log('No detailed ship types available yet - waiting for emissions matcher to sync data');
-                }
-            })
-            .catch(error => console.error('Error loading ship types:', error));
+        // Load and refresh detailed ship types for filter dropdown
+        let currentShipTypes = [];
+        
+        function loadShipTypes() {
+            fetch('/ships/api/detailed-ship-types')
+                .then(response => response.json())
+                .then(types => {
+                    if (Array.isArray(types) && types.length > 0) {
+                        // Check if types have changed
+                        const typesChanged = JSON.stringify(types) !== JSON.stringify(currentShipTypes);
+                        
+                        if (typesChanged) {
+                            currentShipTypes = types;
+                            const select = document.getElementById('filter-type');
+                            const currentValue = select.value;
+                            
+                            // Clear options except "All Types"
+                            while (select.options.length > 1) {
+                                select.remove(1);
+                            }
+                            
+                            // Add updated types
+                            types.forEach(type => {
+                                const option = document.createElement('option');
+                                option.value = type.name;
+                                option.textContent = `${type.name} (${type.count})`;
+                                select.appendChild(option);
+                            });
+                            
+                            // Restore selected value if it still exists
+                            if (currentValue !== 'all') {
+                                const exists = types.some(t => t.name === currentValue);
+                                if (exists) {
+                                    select.value = currentValue;
+                                }
+                            }
+                            
+                            console.log(`Ship types updated: ${types.length} types available`);
+                        }
+                    } else {
+                        console.log('No detailed ship types available yet - waiting for emissions matcher to sync data');
+                    }
+                })
+                .catch(error => console.error('Error loading ship types:', error));
+        }
+        
+        // Load initially
+        loadShipTypes();
+        
+        // Refresh ship types every 30 seconds
+        setInterval(loadShipTypes, 30000);
         
         // Load initial data
         fetch('/ships/api/vessels')
