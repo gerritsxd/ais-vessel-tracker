@@ -852,12 +852,24 @@
                 btn.classList.remove('active');
                 btn.innerHTML = '<span style="font-size: 20px;">💨</span><span>SHOW WIND DATA</span>';
             } else {
-                // Show wind layer - OpenWeatherMap wind overlay
+                // Show wind layer - Windy.com tiles
                 console.log('Showing wind layer');
-                windLayer = L.tileLayer('https://tile.openweathermap.org/map/wind_new/{z}/{x}/{y}.png?appid=q5yckYXxXSL9yobDZrFUA01P1Bqki3mJ', {
-                    attribution: 'Wind data © OpenWeatherMap',
-                    opacity: 0.6,
+                
+                // Windy.com wind overlay tiles (using your API key)
+                const timestamp = Date.now();
+                windLayer = L.tileLayer('https://tiles.windy.com/tiles/v10.0/wind-surface/{z}/{x}/{y}.png?key=PnNQpkWdt8woNsLfjWzWrmDgSjByTulU', {
+                    attribution: 'Wind data &copy; Windy.com',
+                    opacity: 0.7,
                     maxZoom: 19
+                });
+                
+                // Add error handler to see if tiles are loading
+                windLayer.on('tileerror', function(error) {
+                    console.error('Wind tile failed to load:', error);
+                });
+                
+                windLayer.on('tileload', function() {
+                    console.log('Wind tile loaded successfully!');
                 });
                 
                 console.log('Wind layer created, adding to map');
