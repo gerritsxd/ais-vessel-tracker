@@ -850,6 +850,14 @@
             if (windLayer) {
                 // Hide wind layer
                 console.log('Hiding wind layer');
+                
+                // Remove event listeners
+                if (windLayer._updateFunction) {
+                    map.off('moveend', windLayer._updateFunction);
+                    map.off('zoomend', windLayer._updateFunction);
+                }
+                
+                // Remove iframe
                 if (windLayer.parentNode) {
                     windLayer.parentNode.removeChild(windLayer);
                 }
@@ -881,9 +889,23 @@
                 document.getElementById('map').appendChild(iframe);
                 windLayer = iframe;
                 
+                // Sync Windy iframe with Leaflet map movements
+                const updateWindyPosition = () => {
+                    const newCenter = map.getCenter();
+                    const newZoom = map.getZoom();
+                    iframe.src = `https://embed.windy.com/embed2.html?lat=${newCenter.lat}&lon=${newCenter.lng}&zoom=${newZoom}&level=surface&overlay=wind&product=ecmwf&menu=&message=&marker=&calendar=now&pressure=&type=map&location=coordinates&detail=&metricWind=default&metricTemp=default&radarRange=-1`;
+                };
+                
+                // Listen for map movements
+                map.on('moveend', updateWindyPosition);
+                map.on('zoomend', updateWindyPosition);
+                
+                // Store listeners so we can remove them later
+                windLayer._updateFunction = updateWindyPosition;
+                
                 btn.classList.add('active');
                 btn.innerHTML = '<span style="font-size: 20px;">💨</span><span>HIDE WIND DATA</span>';
-                console.log('Wind layer iframe added');
+                console.log('Wind layer iframe added with sync');
             }
         }
         
