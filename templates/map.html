@@ -840,26 +840,31 @@
         
         // Toggle Wind Layer
         function toggleWindLayer() {
+            console.log('toggleWindLayer called');
             const btn = document.getElementById('wind-toggle-btn');
+            console.log('Button found:', btn);
             
             if (windLayer) {
                 // Hide wind layer
+                console.log('Hiding wind layer');
                 map.removeLayer(windLayer);
                 windLayer = null;
                 btn.classList.remove('active');
                 btn.innerHTML = '<span style="font-size: 20px;">💨</span><span>SHOW WIND DATA</span>';
             } else {
                 // Show wind layer - OpenWeatherMap wind overlay
-                // Using free tier - shows wind speed visualization
+                console.log('Showing wind layer');
                 windLayer = L.tileLayer('https://tile.openweathermap.org/map/wind_new/{z}/{x}/{y}.png?appid=q5yckYXxXSL9yobDZrFUA01P1Bqki3mJ', {
                     attribution: 'Wind data © OpenWeatherMap',
                     opacity: 0.6,
                     maxZoom: 19
                 });
                 
+                console.log('Wind layer created, adding to map');
                 windLayer.addTo(map);
                 btn.classList.add('active');
                 btn.innerHTML = '<span style="font-size: 20px;">💨</span><span>HIDE WIND DATA</span>';
+                console.log('Wind layer added successfully');
             }
         }
         
