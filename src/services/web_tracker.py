@@ -161,11 +161,10 @@ def get_filtered_vessels():
         query = '''
             SELECT mmsi, name, ship_type, length, beam, imo, call_sign, flag_state, signatory_company
             FROM vessels_static
-            WHERE length >= 100
-              AND mmsi IS NOT NULL
-              AND length IS NOT NULL
+            WHERE mmsi IS NOT NULL
               AND ship_type >= 70
               AND ship_type < 90
+              AND (length IS NULL OR length >= 100)
               AND last_updated >= datetime('now', '-30 days')
             ORDER BY last_updated DESC
             LIMIT 2000

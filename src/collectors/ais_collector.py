@@ -357,6 +357,30 @@ def on_message(ws, message):
                     print(f"✗ Skipped (length {length}m < 100m)")
             else:
                 print("Warning: Received StaticDataReport without MMSI, skipping database save")
+        
+        # ALSO process PositionReport messages to catch ships already in Atlantic
+        elif "MessageType" in data and data["MessageType"] == "PositionReport":
+            metadata = data.get("MetaData", {})
+            
+            mmsi = metadata.get("MMSI")
+            vessel_name = metadata.get("ShipName", "").strip() or None
+            vessel_type = metadata.get("ShipType")
+            
+            # Only save if we don't already have this vessel in DB
+            # This allows us to catch ships already in the Atlantic
+            if mmsi and vessel_type and (70 <= vessel_type <= 79 or 80 <= vessel_type <= 89):
+                # Check if vessel exists in database
+                try:
+                    cursor = db_conn.cursor()
+                    cursor.execute('SELECT mmsi FROM vessels_static WHERE mmsi = ?', (mmsi,))
+                    exists = cursor.fetchone()
+                    
+                    if not exists:
+                        # Save basic info - will be enriched when we get static data
+                        save_vessel_data(mmsi, vessel_name, vessel_type, None, None, None, None)
+                        print(f"✓ Added from PositionReport: {mmsi} - {vessel_name or 'Unknown'} (type {vessel_type})")
+                except Exception as e:
+                    print(f"Error checking vessel existence: {e}")
 
     except json.JSONDecodeError:
         print(f"Received non-JSON message: {message}")
