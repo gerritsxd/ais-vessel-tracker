@@ -443,6 +443,229 @@
         #dark-mode-btn.active:hover {
             box-shadow: 0 0 30px rgba(0, 212, 255, 0.8);
         }
+        
+        /* Advanced Filter Panel */
+        #filter-panel {
+            position: fixed;
+            top: 120px;
+            right: -420px;
+            width: 400px;
+            height: calc(100vh - 140px);
+            background: rgba(22, 33, 62, 0.98);
+            box-shadow: -5px 0 20px rgba(0,0,0,0.5);
+            z-index: 2000;
+            transition: right 0.3s ease;
+            overflow-y: auto;
+            border-left: 3px solid #00d4ff;
+        }
+        
+        #filter-panel.open {
+            right: 0;
+        }
+        
+        #filter-panel-toggle {
+            position: fixed;
+            top: 200px;
+            right: 0;
+            background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
+            color: #000;
+            border: none;
+            border-radius: 8px 0 0 8px;
+            padding: 15px 10px;
+            cursor: pointer;
+            z-index: 2001;
+            font-size: 20px;
+            font-weight: bold;
+            box-shadow: -3px 0 10px rgba(0,0,0,0.3);
+            transition: all 0.3s;
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+        }
+        
+        #filter-panel-toggle:hover {
+            background: linear-gradient(135deg, #00ff00 0%, #00cc00 100%);
+            box-shadow: -5px 0 20px rgba(0,255,0,0.5);
+        }
+        
+        #filter-panel-toggle.open {
+            right: 400px;
+        }
+        
+        .filter-panel-header {
+            background: #0f3460;
+            padding: 20px;
+            border-bottom: 2px solid #00d4ff;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        
+        .filter-panel-header h2 {
+            color: #00d4ff;
+            font-size: 20px;
+            margin: 0 0 10px 0;
+        }
+        
+        .filter-panel-content {
+            padding: 20px;
+        }
+        
+        .filter-section {
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #0f3460;
+        }
+        
+        .filter-section:last-child {
+            border-bottom: none;
+        }
+        
+        .filter-section h3 {
+            color: #00d4ff;
+            font-size: 14px;
+            margin: 0 0 15px 0;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .slider-container {
+            margin-bottom: 20px;
+        }
+        
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+        
+        .slider-label-text {
+            color: #aaa;
+        }
+        
+        .slider-value {
+            color: #00d4ff;
+            font-weight: bold;
+        }
+        
+        .slider-input {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: #0f3460;
+            outline: none;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+        
+        .slider-input::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #00d4ff;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
+        }
+        
+        .slider-input::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #00d4ff;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
+        }
+        
+        .slider-input:hover::-webkit-slider-thumb {
+            background: #00ff00;
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.7);
+        }
+        
+        .slider-input:hover::-moz-range-thumb {
+            background: #00ff00;
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.7);
+        }
+        
+        .range-slider-container {
+            margin-bottom: 20px;
+        }
+        
+        .range-values {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 5px;
+            font-size: 11px;
+            color: #666;
+        }
+        
+        .filter-reset-btn {
+            width: 100%;
+            background: #ff6600;
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 10px;
+        }
+        
+        .filter-reset-btn:hover {
+            background: #ff8800;
+            box-shadow: 0 0 15px rgba(255, 102, 0, 0.5);
+        }
+        
+        .filter-stats {
+            background: #0f3460;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 15px;
+        }
+        
+        .filter-stats-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+        
+        .filter-stats-row:last-child {
+            margin-bottom: 0;
+        }
+        
+        .filter-stats-label {
+            color: #aaa;
+        }
+        
+        .filter-stats-value {
+            color: #00ff00;
+            font-weight: bold;
+        }
+        
+        .checkbox-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+            cursor: pointer;
+        }
+        
+        .checkbox-container input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+        
+        .checkbox-container label {
+            color: #eee;
+            font-size: 13px;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
@@ -599,6 +822,119 @@
         <div id="sidebar-content"></div>
     </div>
     
+    <!-- Advanced Filter Panel -->
+    <button id="filter-panel-toggle" onclick="toggleFilterPanel()">⚙️ FILTERS</button>
+    
+    <div id="filter-panel">
+        <div class="filter-panel-header">
+            <h2>🎛️ Advanced Filters</h2>
+            <p style="color: #aaa; font-size: 12px; margin: 0;">Fine-tune vessel display with sliders</p>
+        </div>
+        
+        <div class="filter-panel-content">
+            <!-- Vessel Dimensions -->
+            <div class="filter-section">
+                <h3>📏 Vessel Dimensions</h3>
+                
+                <div class="slider-container">
+                    <div class="slider-label">
+                        <span class="slider-label-text">Length (m)</span>
+                        <span class="slider-value"><span id="length-min-value">100</span> - <span id="length-max-value">500</span>m</span>
+                    </div>
+                    <input type="range" id="length-min-slider" class="slider-input" min="50" max="500" value="100" oninput="updateLengthFilter()">
+                    <input type="range" id="length-max-slider" class="slider-input" min="50" max="500" value="500" oninput="updateLengthFilter()">
+                    <div class="range-values">
+                        <span>50m</span>
+                        <span>500m</span>
+                    </div>
+                </div>
+                
+                <div class="slider-container">
+                    <div class="slider-label">
+                        <span class="slider-label-text">Beam / Width (m)</span>
+                        <span class="slider-value"><span id="beam-min-value">0</span> - <span id="beam-max-value">100</span>m</span>
+                    </div>
+                    <input type="range" id="beam-min-slider" class="slider-input" min="0" max="100" value="0" oninput="updateBeamFilter()">
+                    <input type="range" id="beam-max-slider" class="slider-input" min="0" max="100" value="100" oninput="updateBeamFilter()">
+                    <div class="range-values">
+                        <span>0m</span>
+                        <span>100m</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Gross Tonnage -->
+            <div class="filter-section">
+                <h3>⚖️ Gross Tonnage (GT)</h3>
+                
+                <div class="slider-container">
+                    <div class="slider-label">
+                        <span class="slider-label-text">GT Range</span>
+                        <span class="slider-value"><span id="gt-min-value">0</span> - <span id="gt-max-value">200,000</span> GT</span>
+                    </div>
+                    <input type="range" id="gt-min-slider" class="slider-input" min="0" max="200000" step="1000" value="0" oninput="updateGTFilter()">
+                    <input type="range" id="gt-max-slider" class="slider-input" min="0" max="200000" step="1000" value="200000" oninput="updateGTFilter()">
+                    <div class="range-values">
+                        <span>0 GT</span>
+                        <span>200k GT</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Speed -->
+            <div class="filter-section">
+                <h3>🚀 Speed Over Ground (SOG)</h3>
+                
+                <div class="slider-container">
+                    <div class="slider-label">
+                        <span class="slider-label-text">Speed (knots)</span>
+                        <span class="slider-value"><span id="speed-min-value">0</span> - <span id="speed-max-value">30</span> kn</span>
+                    </div>
+                    <input type="range" id="speed-min-slider" class="slider-input" min="0" max="30" step="0.5" value="0" oninput="updateSpeedFilter()">
+                    <input type="range" id="speed-max-slider" class="slider-input" min="0" max="30" step="0.5" value="30" oninput="updateSpeedFilter()">
+                    <div class="range-values">
+                        <span>0 kn</span>
+                        <span>30 kn</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Data Availability -->
+            <div class="filter-section">
+                <h3>📊 Data Availability</h3>
+                
+                <div class="checkbox-container">
+                    <input type="checkbox" id="has-imo-checkbox" onchange="updateDataFilters()">
+                    <label for="has-imo-checkbox">Only vessels with IMO number</label>
+                </div>
+                
+                <div class="checkbox-container">
+                    <input type="checkbox" id="has-gt-checkbox" onchange="updateDataFilters()">
+                    <label for="has-gt-checkbox">Only vessels with GT data</label>
+                </div>
+            </div>
+            
+            <!-- Filter Stats -->
+            <div class="filter-stats">
+                <div class="filter-stats-row">
+                    <span class="filter-stats-label">Vessels Shown:</span>
+                    <span class="filter-stats-value" id="filter-stats-shown">0</span>
+                </div>
+                <div class="filter-stats-row">
+                    <span class="filter-stats-label">Total Available:</span>
+                    <span class="filter-stats-value" id="filter-stats-total">0</span>
+                </div>
+                <div class="filter-stats-row">
+                    <span class="filter-stats-label">Filtered Out:</span>
+                    <span class="filter-stats-value" id="filter-stats-filtered" style="color: #ff6600;">0</span>
+                </div>
+            </div>
+            
+            <!-- Reset Button -->
+            <button class="filter-reset-btn" onclick="resetFilters()">🔄 Reset All Filters</button>
+        </div>
+    </div>
+    
     <!-- Leaflet JS - Version 1.4.0 for Windy compatibility -->
     <script src="https://unpkg.com/leaflet@1.4.0/dist/leaflet.js"></script>
     
@@ -634,7 +970,20 @@
             type: 'all',
             size: 'all',
             gt: 'all',
-            waspOnly: false
+            waspOnly: false,
+            // Range filters
+            lengthMin: 100,
+            lengthMax: 500,
+            beamMin: 0,
+            beamMax: 100,
+            gtMin: 0,
+            gtMax: 200000,
+            speedMin: 0,
+            speedMax: 30,
+            // Checkbox filters
+            hasIMO: false,
+            hasEmissions: false,
+            hasGT: false
         };
         let currentRoute = null; // Store current route polyline
         let currentRouteMarkers = []; // Store route start/end markers
@@ -871,6 +1220,32 @@
                 else {
                     return false;
                 }
+            }
+            
+            // Range filters
+            if (vessel.length && (vessel.length < currentFilters.lengthMin || vessel.length > currentFilters.lengthMax)) {
+                return false;
+            }
+            
+            if (vessel.beam && (vessel.beam < currentFilters.beamMin || vessel.beam > currentFilters.beamMax)) {
+                return false;
+            }
+            
+            if (vessel.gross_tonnage && (vessel.gross_tonnage < currentFilters.gtMin || vessel.gross_tonnage > currentFilters.gtMax)) {
+                return false;
+            }
+            
+            if (vessel.sog !== undefined && (vessel.sog < currentFilters.speedMin || vessel.sog > currentFilters.speedMax)) {
+                return false;
+            }
+            
+            // Checkbox filters
+            if (currentFilters.hasIMO && (!vessel.imo || vessel.imo === 0)) {
+                return false;
+            }
+            
+            if (currentFilters.hasGT && (!vessel.gross_tonnage || vessel.gross_tonnage === 0)) {
+                return false;
             }
             
             return true;
@@ -1441,6 +1816,181 @@
             currentFilters.gt = e.target.value;
             applyFilters();
         });
+        
+        // ========== ADVANCED FILTER PANEL FUNCTIONS ==========
+        
+        // Toggle filter panel
+        function toggleFilterPanel() {
+            const panel = document.getElementById('filter-panel');
+            const toggle = document.getElementById('filter-panel-toggle');
+            panel.classList.toggle('open');
+            toggle.classList.toggle('open');
+        }
+        
+        // Update length filter
+        function updateLengthFilter() {
+            const minSlider = document.getElementById('length-min-slider');
+            const maxSlider = document.getElementById('length-max-slider');
+            let minVal = parseInt(minSlider.value);
+            let maxVal = parseInt(maxSlider.value);
+            
+            // Ensure min doesn't exceed max
+            if (minVal > maxVal) {
+                minVal = maxVal;
+                minSlider.value = minVal;
+            }
+            
+            currentFilters.lengthMin = minVal;
+            currentFilters.lengthMax = maxVal;
+            
+            document.getElementById('length-min-value').textContent = minVal;
+            document.getElementById('length-max-value').textContent = maxVal;
+            
+            applyFilters();
+        }
+        
+        // Update beam filter
+        function updateBeamFilter() {
+            const minSlider = document.getElementById('beam-min-slider');
+            const maxSlider = document.getElementById('beam-max-slider');
+            let minVal = parseInt(minSlider.value);
+            let maxVal = parseInt(maxSlider.value);
+            
+            if (minVal > maxVal) {
+                minVal = maxVal;
+                minSlider.value = minVal;
+            }
+            
+            currentFilters.beamMin = minVal;
+            currentFilters.beamMax = maxVal;
+            
+            document.getElementById('beam-min-value').textContent = minVal;
+            document.getElementById('beam-max-value').textContent = maxVal;
+            
+            applyFilters();
+        }
+        
+        // Update GT filter
+        function updateGTFilter() {
+            const minSlider = document.getElementById('gt-min-slider');
+            const maxSlider = document.getElementById('gt-max-slider');
+            let minVal = parseInt(minSlider.value);
+            let maxVal = parseInt(maxSlider.value);
+            
+            if (minVal > maxVal) {
+                minVal = maxVal;
+                minSlider.value = minVal;
+            }
+            
+            currentFilters.gtMin = minVal;
+            currentFilters.gtMax = maxVal;
+            
+            document.getElementById('gt-min-value').textContent = minVal.toLocaleString();
+            document.getElementById('gt-max-value').textContent = maxVal.toLocaleString();
+            
+            applyFilters();
+        }
+        
+        // Update speed filter
+        function updateSpeedFilter() {
+            const minSlider = document.getElementById('speed-min-slider');
+            const maxSlider = document.getElementById('speed-max-slider');
+            let minVal = parseFloat(minSlider.value);
+            let maxVal = parseFloat(maxSlider.value);
+            
+            if (minVal > maxVal) {
+                minVal = maxVal;
+                minSlider.value = minVal;
+            }
+            
+            currentFilters.speedMin = minVal;
+            currentFilters.speedMax = maxVal;
+            
+            document.getElementById('speed-min-value').textContent = minVal.toFixed(1);
+            document.getElementById('speed-max-value').textContent = maxVal.toFixed(1);
+            
+            applyFilters();
+        }
+        
+        // Update data availability filters
+        function updateDataFilters() {
+            currentFilters.hasIMO = document.getElementById('has-imo-checkbox').checked;
+            currentFilters.hasGT = document.getElementById('has-gt-checkbox').checked;
+            applyFilters();
+        }
+        
+        // Reset all filters
+        function resetFilters() {
+            // Reset range filters
+            currentFilters.lengthMin = 100;
+            currentFilters.lengthMax = 500;
+            currentFilters.beamMin = 0;
+            currentFilters.beamMax = 100;
+            currentFilters.gtMin = 0;
+            currentFilters.gtMax = 200000;
+            currentFilters.speedMin = 0;
+            currentFilters.speedMax = 30;
+            
+            // Reset checkbox filters
+            currentFilters.hasIMO = false;
+            currentFilters.hasGT = false;
+            
+            // Reset UI elements
+            document.getElementById('length-min-slider').value = 100;
+            document.getElementById('length-max-slider').value = 500;
+            document.getElementById('beam-min-slider').value = 0;
+            document.getElementById('beam-max-slider').value = 100;
+            document.getElementById('gt-min-slider').value = 0;
+            document.getElementById('gt-max-slider').value = 200000;
+            document.getElementById('speed-min-slider').value = 0;
+            document.getElementById('speed-max-slider').value = 30;
+            
+            document.getElementById('has-imo-checkbox').checked = false;
+            document.getElementById('has-gt-checkbox').checked = false;
+            
+            // Update displays
+            document.getElementById('length-min-value').textContent = '100';
+            document.getElementById('length-max-value').textContent = '500';
+            document.getElementById('beam-min-value').textContent = '0';
+            document.getElementById('beam-max-value').textContent = '100';
+            document.getElementById('gt-min-value').textContent = '0';
+            document.getElementById('gt-max-value').textContent = '200,000';
+            document.getElementById('speed-min-value').textContent = '0.0';
+            document.getElementById('speed-max-value').textContent = '30.0';
+            
+            // Reset dropdown filters
+            document.getElementById('filter-type').value = 'all';
+            document.getElementById('filter-size').value = 'all';
+            document.getElementById('filter-gt').value = 'all';
+            currentFilters.type = 'all';
+            currentFilters.size = 'all';
+            currentFilters.gt = 'all';
+            
+            // Reset WASP filter
+            if (currentFilters.waspOnly) {
+                toggleWaspFilter();
+            }
+            
+            applyFilters();
+        }
+        
+        // Update filter statistics
+        function updateFilterStats() {
+            const shown = Object.keys(markers).length;
+            const total = allVessels.length;
+            const filtered = total - shown;
+            
+            document.getElementById('filter-stats-shown').textContent = shown.toLocaleString();
+            document.getElementById('filter-stats-total').textContent = total.toLocaleString();
+            document.getElementById('filter-stats-filtered').textContent = filtered.toLocaleString();
+        }
+        
+        // Override applyFilters to include stats update
+        const originalApplyFilters = applyFilters;
+        applyFilters = function() {
+            originalApplyFilters();
+            updateFilterStats();
+        };
     </script>
 </body>
 </html>

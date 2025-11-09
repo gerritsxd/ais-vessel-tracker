@@ -98,6 +98,14 @@ def ensure_econowind_column(conn):
         )
         conn.commit()
         print("✓ Added econowind_fit_score column to eu_mrv_emissions")
+    
+    # Also ensure gross_tonnage column exists (for older databases)
+    if 'gross_tonnage' not in columns:
+        cursor.execute(
+            'ALTER TABLE eu_mrv_emissions ADD COLUMN gross_tonnage REAL'
+        )
+        conn.commit()
+        print("✓ Added gross_tonnage column to eu_mrv_emissions")
 
 
 def import_mrv_data(conn, mrv_file_path):
