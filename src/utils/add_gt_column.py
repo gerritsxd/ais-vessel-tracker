@@ -12,7 +12,7 @@ DB_NAME = "vessel_static_data.db"
 def add_gt_column():
     """Add gross_tonnage column to eu_mrv_emissions table."""
     project_root = Path(__file__).parent.parent.parent
-    db_path = project_root / "data" / DB_NAME
+    db_path = project_root / DB_NAME
     
     if not db_path.exists():
         print(f"❌ Error: Database not found: {db_path}")
