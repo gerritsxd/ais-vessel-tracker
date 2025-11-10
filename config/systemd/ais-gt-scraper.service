@@ -6,7 +6,7 @@ After=network.target
 Type=simple
 User=erik
 WorkingDirectory=/var/www/apihub
-ExecStart=/var/www/apihub/venv/bin/python /var/www/apihub/src/services/gt_scraper.py
+ExecStart=/var/www/apihub/venv/bin/python -u /var/www/apihub/src/services/gt_scraper.py
 Restart=always
 RestartSec=300
 
