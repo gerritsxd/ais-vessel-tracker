@@ -21,7 +21,7 @@ DELAY_BETWEEN_REQUESTS = 60 / REQUESTS_PER_MINUTE  # 6 seconds
 REQUEST_TIMEOUT = 15  # 15 second timeout per request
 
 # Cache file to track scraping attempts
-CACHE_FILE = "data/gt_scraper_cache.json"
+CACHE_FILE = "gt_scraper_cache.json"
 
 
 class GTScraper:
@@ -370,7 +370,7 @@ class GTScraper:
 def main():
     """Main entry point."""
     project_root = Path(__file__).parent.parent.parent
-    db_path = project_root / "data" / DB_NAME
+    db_path = project_root / DB_NAME
     
     if not db_path.exists():
         print(f"Error: Database not found: {db_path}")
