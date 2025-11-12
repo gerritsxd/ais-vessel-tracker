@@ -1,0 +1,20 @@
+[Unit]
+Description=GT Search Scraper Service
+After=network.target
+
+[Service]
+Type=simple
+User=erik
+WorkingDirectory=/var/www/apihub
+Environment="PATH=/var/www/apihub/venv/bin"
+ExecStart=/var/www/apihub/venv/bin/python /var/www/apihub/src/services/gt_search_scraper.py
+Restart=always
+RestartSec=10
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=gt-search-scraper
+
+[Install]
+WantedBy=multi-user.target
