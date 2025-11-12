@@ -44,3 +44,13 @@ config/api.txt
 # VPS specific
 *.pid
 *.sock
+
+# CRITICAL: Specific database files - NEVER COMMIT
+vessel_static_data.db
+vessel_static_data.db-shm
+vessel_static_data.db-wal
+data/vessel_static_data.db
+data/*.db
+data/*.json
+*.db-shm
+*.db-wal
