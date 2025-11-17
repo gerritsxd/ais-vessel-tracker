@@ -1517,6 +1517,172 @@ def get_vessel_wind_tech(mmsi):
             conn.close()
 
 
+# ==================== INTELLIGENCE DASHBOARD ROUTES ====================
+
+# Global scraper state
+intelligence_scraper_status = {
+    'running': False,
+    'current_company': None,
+    'companies_processed': 0,
+    'total_companies': 0,
+    'findings_count': 0,
+    'start_time': None,
+    'progress': 0
+}
+
+@app.route('/ships/intelligence')
+def intelligence_dashboard():
+    """Render Intelligence Dashboard."""
+    return render_template('intelligence.html')
+
+
+@app.route('/ships/api/intelligence/datasets')
+def list_intelligence_datasets():
+    """List all available intelligence datasets."""
+    try:
+        project_root = Path(__file__).parent.parent.parent
+        data_dir = project_root / 'data'
+        
+        datasets = []
+        
+        # Find all intelligence JSON files
+        for file_path in data_dir.glob('company_intelligence*.json'):
+            try:
+                stat = file_path.stat()
+                
+                # Load file to get stats
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    companies_count = data.get('total', 0)
+                    
+                    # Count findings
+                    findings_count = 0
+                    if 'companies' in data:
+                        for company in data['companies'].values():
+                            if 'intelligence' in company:
+                                for category in company['intelligence'].values():
+                                    findings_count += category.get('results_count', 0)
+                
+                datasets.append({
+                    'filename': file_path.name,
+                    'size': stat.st_size,
+                    'size_mb': round(stat.st_size / (1024*1024), 2),
+                    'modified': datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                    'companies': companies_count,
+                    'findings': findings_count,
+                    'download_url': f'/ships/api/intelligence/download/{file_path.name}'
+                })
+            except Exception as e:
+                print(f"Error reading dataset {file_path}: {e}")
+                continue
+        
+        # Sort by modified date (newest first)
+        datasets.sort(key=lambda x: x['modified'], reverse=True)
+        
+        return jsonify({
+            'datasets': datasets,
+            'count': len(datasets)
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/ships/api/intelligence/download/<filename>')
+def download_intelligence_dataset(filename):
+    """Download a specific intelligence dataset."""
+    try:
+        # Security: only allow intelligence files
+        if not filename.startswith('company_intelligence') or not filename.endswith('.json'):
+            return jsonify({'error': 'Invalid filename'}), 403
+        
+        project_root = Path(__file__).parent.parent.parent
+        file_path = project_root / 'data' / filename
+        
+        if not file_path.exists():
+            return jsonify({'error': 'File not found'}), 404
+        
+        from flask import send_file
+        return send_file(file_path, as_attachment=True, download_name=filename)
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/ships/api/intelligence/status')
+def get_intelligence_status():
+    """Get current scraper status."""
+    return jsonify(intelligence_scraper_status)
+
+
+@app.route('/ships/api/intelligence/stats')
+def get_intelligence_stats():
+    """Get aggregate intelligence statistics."""
+    try:
+        project_root = Path(__file__).parent.parent.parent
+        data_dir = project_root / 'data'
+        
+        # Find most recent intelligence file
+        files = sorted(data_dir.glob('company_intelligence_v2_*.json'), reverse=True)
+        
+        if not files:
+            return jsonify({
+                'total_companies': 0,
+                'total_findings': 0,
+                'categories': {},
+                'top_companies': []
+            })
+        
+        latest_file = files[0]
+        
+        with open(latest_file, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        total_companies = len(data.get('companies', {}))
+        category_stats = {
+            'grants_subsidies': 0,
+            'legal_violations': 0,
+            'sustainability_news': 0,
+            'reputation': 0,
+            'financial_pressure': 0
+        }
+        
+        top_companies = []
+        
+        for company_name, company_data in data.get('companies', {}).items():
+            company_findings = 0
+            
+            for category_name, category_data in company_data.get('intelligence', {}).items():
+                count = category_data.get('results_count', 0)
+                category_stats[category_name] += count
+                company_findings += count
+            
+            if company_findings > 0:
+                top_companies.append({
+                    'name': company_name,
+                    'findings': company_findings,
+                    'fleet_size': company_data.get('metadata', {}).get('vessel_count', 0)
+                })
+        
+        # Sort by findings
+        top_companies.sort(key=lambda x: x['findings'], reverse=True)
+        
+        total_findings = sum(category_stats.values())
+        
+        return jsonify({
+            'total_companies': total_companies,
+            'total_findings': total_findings,
+            'avg_findings_per_company': round(total_findings / total_companies, 1) if total_companies > 0 else 0,
+            'categories': category_stats,
+            'top_companies': top_companies[:10],
+            'latest_file': latest_file.name,
+            'timestamp': data.get('timestamp')
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 if __name__ == '__main__':
     # Start tracking in background
     tracking_thread = threading.Thread(target=start_tracking, daemon=True)
