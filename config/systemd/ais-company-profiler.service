@@ -1,0 +1,19 @@
+[Unit]
+Description=Company Profiler Service
+After=network.target
+
+[Service]
+Type=simple
+User=erik
+WorkingDirectory=/var/www/apihub
+ExecStart=/var/www/apihub/venv/bin/python -u /var/www/apihub/src/services/company_profiler_service.py
+Restart=on-failure
+RestartSec=30
+StandardOutput=append:/var/www/apihub/logs/company_profiler.log
+StandardError=append:/var/www/apihub/logs/company_profiler_error.log
+
+# Environment
+Environment="PYTHONUNBUFFERED=1"
+
+[Install]
+WantedBy=multi-user.target

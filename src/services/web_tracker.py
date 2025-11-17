@@ -1519,7 +1519,7 @@ def get_vessel_wind_tech(mmsi):
 
 # ==================== INTELLIGENCE DASHBOARD ROUTES ====================
 
-# Global scraper state
+# Global scraper states
 intelligence_scraper_status = {
     'running': False,
     'current_company': None,
@@ -1527,7 +1527,19 @@ intelligence_scraper_status = {
     'total_companies': 0,
     'findings_count': 0,
     'start_time': None,
-    'progress': 0
+    'progress': 0,
+    'type': 'intelligence'
+}
+
+profiler_scraper_status = {
+    'running': False,
+    'current_company': None,
+    'companies_processed': 0,
+    'total_companies': 0,
+    'profiles_count': 0,
+    'start_time': None,
+    'progress': 0,
+    'type': 'profiler'
 }
 
 @app.route('/ships/intelligence')
@@ -1565,11 +1577,49 @@ def list_intelligence_datasets():
                 
                 datasets.append({
                     'filename': file_path.name,
+                    'type': 'intelligence',
                     'size': stat.st_size,
                     'size_mb': round(stat.st_size / (1024*1024), 2),
                     'modified': datetime.fromtimestamp(stat.st_mtime).isoformat(),
                     'companies': companies_count,
                     'findings': findings_count,
+                    'download_url': f'/ships/api/intelligence/download/{file_path.name}'
+                })
+            except Exception as e:
+                print(f"Error reading dataset {file_path}: {e}")
+                continue
+        
+        # Find all profiler JSON files
+        for file_path in data_dir.glob('company_profiles_v3*.json'):
+            try:
+                stat = file_path.stat()
+                
+                # Load file to get stats
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    companies_count = data.get('total', 0)
+                    
+                    # Count profiles (profilers count wiki + website pages as "findings")
+                    profiles_count = 0
+                    if 'companies' in data:
+                        for company in data['companies'].values():
+                            if 'text_data' in company:
+                                # Count Wikipedia + website pages
+                                wiki = company['text_data'].get('wikipedia', {})
+                                website = company['text_data'].get('website', {})
+                                if wiki.get('summary'):
+                                    profiles_count += 1
+                                if website.get('pages'):
+                                    profiles_count += len(website['pages'])
+                
+                datasets.append({
+                    'filename': file_path.name,
+                    'type': 'profiler',
+                    'size': stat.st_size,
+                    'size_mb': round(stat.st_size / (1024*1024), 2),
+                    'modified': datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                    'companies': companies_count,
+                    'findings': profiles_count,  # Use profile count instead
                     'download_url': f'/ships/api/intelligence/download/{file_path.name}'
                 })
             except Exception as e:
@@ -1590,10 +1640,11 @@ def list_intelligence_datasets():
 
 @app.route('/ships/api/intelligence/download/<filename>')
 def download_intelligence_dataset(filename):
-    """Download a specific intelligence dataset."""
+    """Download a specific intelligence or profiler dataset."""
     try:
-        # Security: only allow intelligence files
-        if not filename.startswith('company_intelligence') or not filename.endswith('.json'):
+        # Security: only allow intelligence and profiler files
+        allowed_prefixes = ['company_intelligence', 'company_profiles_v3']
+        if not any(filename.startswith(prefix) for prefix in allowed_prefixes) or not filename.endswith('.json'):
             return jsonify({'error': 'Invalid filename'}), 403
         
         project_root = Path(__file__).parent.parent.parent
@@ -1611,8 +1662,23 @@ def download_intelligence_dataset(filename):
 
 @app.route('/ships/api/intelligence/status')
 def get_intelligence_status():
-    """Get current scraper status."""
+    """Get current intelligence scraper status."""
     return jsonify(intelligence_scraper_status)
+
+
+@app.route('/ships/api/profiler/status')
+def get_profiler_status():
+    """Get current profiler scraper status."""
+    return jsonify(profiler_scraper_status)
+
+
+@app.route('/ships/api/scrapers/status')
+def get_all_scrapers_status():
+    """Get status of both scrapers."""
+    return jsonify({
+        'intelligence': intelligence_scraper_status,
+        'profiler': profiler_scraper_status
+    })
 
 
 @app.route('/ships/api/intelligence/stats')

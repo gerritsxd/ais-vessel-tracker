@@ -275,6 +275,79 @@
             40% { content: '..'; }
             60%, 100% { content: '...'; }
         }
+        
+        .scraper-box {
+            background: #1a1a2e;
+            border: 1px solid #0f3460;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        
+        .scraper-header {
+            background: #16213e;
+            padding: 12px 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #0f3460;
+        }
+        
+        .scraper-header h3 {
+            font-size: 16px;
+            color: #00d4ff;
+        }
+        
+        .scraper-status {
+            font-size: 20px;
+        }
+        
+        .scraper-status.running {
+            color: #00ff00;
+            animation: pulse 2s infinite;
+        }
+        
+        .scraper-status.idle {
+            color: #888;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .scraper-body {
+            padding: 15px;
+        }
+        
+        .scraper-info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+        
+        .scraper-info span:first-child {
+            color: #888;
+        }
+        
+        .scraper-info span:last-child {
+            color: #fff;
+            font-weight: bold;
+        }
+        
+        .progress-bar {
+            background: #0f3460;
+            height: 8px;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        
+        .progress-fill {
+            background: linear-gradient(90deg, #00d4ff, #00ffee);
+            height: 100%;
+            transition: width 0.5s ease;
+        }
     </style>
 </head>
 <body>
@@ -313,6 +386,68 @@
                 <h3>Available Datasets</h3>
                 <div class="stat-value" id="stat-datasets">-</div>
                 <div class="stat-label">Ready to download</div>
+            </div>
+        </div>
+        
+        <!-- Live Scraper Status -->
+        <div class="section">
+            <div class="section-title">🚀 Live Scraper Status</div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); gap: 20px;">
+                <!-- Intelligence Scraper -->
+                <div class="scraper-box" id="intelligence-scraper">
+                    <div class="scraper-header">
+                        <h3>🕵️ Intelligence Scraper</h3>
+                        <span class="scraper-status" id="intel-status">●</span>
+                    </div>
+                    <div class="scraper-body">
+                        <div class="scraper-info">
+                            <span>Current Company:</span>
+                            <span id="intel-company">-</span>
+                        </div>
+                        <div class="scraper-info">
+                            <span>Progress:</span>
+                            <span id="intel-progress">0 / 0</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="intel-progress-bar" style="width: 0%"></div>
+                        </div>
+                        <div class="scraper-info">
+                            <span>Findings:</span>
+                            <span id="intel-findings">0</span>
+                        </div>
+                        <div class="scraper-info" style="font-size: 12px; color: #888;">
+                            <span>Categories: Grants, Lawsuits, News, Reputation, Finance</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Company Profiler -->
+                <div class="scraper-box" id="profiler-scraper">
+                    <div class="scraper-header">
+                        <h3>📊 Company Profiler</h3>
+                        <span class="scraper-status" id="profiler-status">●</span>
+                    </div>
+                    <div class="scraper-body">
+                        <div class="scraper-info">
+                            <span>Current Company:</span>
+                            <span id="profiler-company">-</span>
+                        </div>
+                        <div class="scraper-info">
+                            <span>Progress:</span>
+                            <span id="profiler-progress">0 / 0</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="profiler-progress-bar" style="width: 0%"></div>
+                        </div>
+                        <div class="scraper-info">
+                            <span>Profiles:</span>
+                            <span id="profiler-profiles">0</span>
+                        </div>
+                        <div class="scraper-info" style="font-size: 12px; color: #888;">
+                            <span>Sources: Wikipedia, Company Websites, Fleet Data</span>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
         
@@ -468,18 +603,52 @@
             window.location.href = `/ships/api/intelligence/download/${filename}`;
         }
         
+        async function loadScraperStatus() {
+            try {
+                const response = await fetch('/ships/api/scrapers/status');
+                const data = await response.json();
+                
+                // Update Intelligence Scraper
+                const intel = data.intelligence;
+                document.getElementById('intel-company').textContent = intel.current_company || '-';
+                document.getElementById('intel-progress').textContent = `${intel.companies_processed} / ${intel.total_companies || 'N/A'}`;
+                document.getElementById('intel-findings').textContent = intel.findings_count || 0;
+                document.getElementById('intel-progress-bar').style.width = `${intel.progress || 0}%`;
+                
+                const intelStatus = document.getElementById('intel-status');
+                intelStatus.className = 'scraper-status ' + (intel.running ? 'running' : 'idle');
+                
+                // Update Company Profiler
+                const profiler = data.profiler;
+                document.getElementById('profiler-company').textContent = profiler.current_company || '-';
+                document.getElementById('profiler-progress').textContent = `${profiler.companies_processed} / ${profiler.total_companies || 'N/A'}`;
+                document.getElementById('profiler-profiles').textContent = profiler.profiles_count || 0;
+                document.getElementById('profiler-progress-bar').style.width = `${profiler.progress || 0}%`;
+                
+                const profilerStatus = document.getElementById('profiler-status');
+                profilerStatus.className = 'scraper-status ' + (profiler.running ? 'running' : 'idle');
+                
+            } catch (error) {
+                console.error('Error loading scraper status:', error);
+            }
+        }
+        
         async function loadData() {
             await Promise.all([
                 loadStats(),
-                loadDatasets()
+                loadDatasets(),
+                loadScraperStatus()
             ]);
         }
         
         // Load data on page load
         loadData();
         
-        // Refresh every 30 seconds
+        // Refresh stats every 30 seconds
         setInterval(loadData, 30000);
+        
+        // Refresh scraper status every 5 seconds (more frequent for live updates)
+        setInterval(loadScraperStatus, 5000);
     </script>
 </body>
 </html>
