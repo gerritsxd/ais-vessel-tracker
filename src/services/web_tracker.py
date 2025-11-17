@@ -1674,10 +1674,89 @@ def get_profiler_status():
 
 @app.route('/ships/api/scrapers/status')
 def get_all_scrapers_status():
-    """Get status of both scrapers."""
+    """Get status of both scrapers by reading progress files."""
+    project_root = Path(__file__).parent.parent.parent
+    data_dir = project_root / 'data'
+    
+    # Intelligence Scraper Status
+    intel_status = {
+        'running': False,
+        'current_company': None,
+        'companies_processed': 0,
+        'total_companies': 30,  # Default batch size
+        'findings_count': 0,
+        'progress': 0
+    }
+    
+    try:
+        # Check Gemini progress file
+        gemini_progress = data_dir / 'company_intelligence_gemini_progress.json'
+        if gemini_progress.exists():
+            # Check if file was modified in last 5 minutes (scraper is running)
+            import time
+            file_age = time.time() - gemini_progress.stat().st_mtime
+            intel_status['running'] = file_age < 300  # 5 minutes
+            
+            with open(gemini_progress, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                companies = data.get('companies', {})
+                intel_status['companies_processed'] = len(companies)
+                intel_status['total_companies'] = data.get('total', 30)
+                
+                # Count total findings
+                total_findings = 0
+                last_company = None
+                for company_name, company_data in companies.items():
+                    last_company = company_name
+                    for category in company_data.get('intelligence', {}).values():
+                        total_findings += category.get('results_count', 0)
+                
+                intel_status['findings_count'] = total_findings
+                intel_status['current_company'] = last_company if intel_status['running'] else None
+                intel_status['progress'] = int((intel_status['companies_processed'] / intel_status['total_companies']) * 100) if intel_status['total_companies'] > 0 else 0
+    except Exception as e:
+        print(f"Error reading intelligence status: {e}")
+    
+    # Company Profiler Status
+    profiler_status = {
+        'running': False,
+        'current_company': None,
+        'companies_processed': 0,
+        'total_companies': 25,  # Default batch size
+        'profiles_count': 0,
+        'progress': 0
+    }
+    
+    try:
+        # Check for most recent V3 structured file
+        v3_files = sorted(data_dir.glob('company_profiles_v3_structured_*.json'), reverse=True)
+        if v3_files:
+            latest_file = v3_files[0]
+            
+            # Check if file was modified in last 5 minutes
+            import time
+            file_age = time.time() - latest_file.stat().st_mtime
+            profiler_status['running'] = file_age < 300  # 5 minutes
+            
+            with open(latest_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                companies = data.get('companies', {})
+                profiler_status['companies_processed'] = len(companies)
+                profiler_status['profiles_count'] = len(companies)
+                profiler_status['total_companies'] = data.get('total', 25)
+                
+                # Get last company name
+                if companies:
+                    last_company = list(companies.keys())[-1]
+                    profiler_status['current_company'] = last_company if profiler_status['running'] else None
+                
+                profiler_status['progress'] = int((profiler_status['companies_processed'] / profiler_status['total_companies']) * 100) if profiler_status['total_companies'] > 0 else 0
+    except Exception as e:
+        print(f"Error reading profiler status: {e}")
+    
     return jsonify({
-        'intelligence': intelligence_scraper_status,
-        'profiler': profiler_scraper_status
+        'intelligence': intel_status,
+        'profiler': profiler_status
     })
 
 
