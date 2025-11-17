@@ -1,0 +1,23 @@
+[Unit]
+Description=AIS Browser-based Gross Tonnage Scraper
+After=network.target
+
+[Service]
+Type=simple
+User=erik
+WorkingDirectory=/var/www/apihub
+ExecStart=/var/www/apihub/venv/bin/python -u /var/www/apihub/src/services/gt_scraper_browser.py
+Restart=always
+RestartSec=300
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ais-gt-browser-scraper
+
+# Environment variables for browser
+Environment=DISPLAY=:99
+Environment=PLAYWRIGHT_BROWSERS_PATH=/var/www/apihub/.playwright
+
+[Install]
+WantedBy=multi-user.target
