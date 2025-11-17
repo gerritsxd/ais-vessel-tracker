@@ -1,0 +1,21 @@
+[Unit]
+Description=AIS Company Intelligence Scraper (Gemini-Powered)
+After=network.target
+
+[Service]
+Type=simple
+User=erik
+WorkingDirectory=/var/www/apihub
+Environment="PATH=/var/www/apihub/venv/bin:/usr/bin"
+ExecStart=/var/www/apihub/venv/bin/python3 src/services/intelligence_scraper_service_gemini.py
+
+# Logging
+StandardOutput=append:/var/www/apihub/logs/intelligence_scraper_gemini.log
+StandardError=append:/var/www/apihub/logs/intelligence_scraper_gemini.log
+
+# Auto-restart on failure
+Restart=on-failure
+RestartSec=60
+
+[Install]
+WantedBy=multi-user.target
