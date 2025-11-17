@@ -1,0 +1,23 @@
+[Unit]
+Description=Company Intelligence Scraper Service
+After=network.target
+
+[Service]
+Type=simple
+User=erik
+WorkingDirectory=/var/www/apihub
+Environment="PYTHONUNBUFFERED=1"
+
+# Run scraper service (batches of 50 companies every 24 hours)
+ExecStart=/usr/bin/python3 -u /var/www/apihub/src/services/intelligence_scraper_service.py
+
+# Auto-restart if crashes
+Restart=always
+RestartSec=300
+
+# Logging
+StandardOutput=append:/var/www/apihub/logs/intelligence_scraper.log
+StandardError=append:/var/www/apihub/logs/intelligence_scraper_error.log
+
+[Install]
+WantedBy=multi-user.target
