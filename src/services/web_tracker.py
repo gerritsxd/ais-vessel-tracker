@@ -1688,13 +1688,18 @@ def get_intelligence_stats():
         project_root = Path(__file__).parent.parent.parent
         data_dir = project_root / 'data'
         
-        # Find most recent intelligence file
-        files = sorted(data_dir.glob('company_intelligence_v2_*.json'), reverse=True)
+        # Find most recent intelligence file (prioritize Gemini over v2)
+        gemini_files = sorted(data_dir.glob('company_intelligence_gemini_*.json'), reverse=True)
+        v2_files = sorted(data_dir.glob('company_intelligence_v2_*.json'), reverse=True)
+        
+        # Use Gemini if available, otherwise fall back to v2
+        files = gemini_files if gemini_files else v2_files
         
         if not files:
             return jsonify({
                 'total_companies': 0,
                 'total_findings': 0,
+                'avg_findings_per_company': 0,
                 'categories': {},
                 'top_companies': []
             })
