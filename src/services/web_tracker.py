@@ -393,9 +393,99 @@ def database_viewer():
     return render_template('database_enhanced.html')
 
 
+def haversine_distance(lat1, lon1, lat2, lon2):
+    """Calculate distance between two points in kilometers using Haversine formula."""
+    from math import radians, sin, cos, sqrt, atan2
+    
+    R = 6371  # Earth's radius in kilometers
+    
+    lat1_rad, lon1_rad = radians(lat1), radians(lon1)
+    lat2_rad, lon2_rad = radians(lat2), radians(lon2)
+    
+    dlat = lat2_rad - lat1_rad
+    dlon = lon2_rad - lon1_rad
+    
+    a = sin(dlat / 2)**2 + cos(lat1_rad) * cos(lat2_rad) * sin(dlon / 2)**2
+    c = 2 * atan2(sqrt(a), sqrt(1 - a))
+    
+    return R * c
+
+
+def filter_route_outliers(positions, max_speed_knots=60, max_jump_km=500):
+    """
+    Remove outlier positions from route based on realistic ship movement.
+    
+    Args:
+        positions: List of position dicts with lat, lon, timestamp
+        max_speed_knots: Maximum realistic speed (default 60 knots for fast vessels)
+        max_jump_km: Maximum distance jump allowed (default 500km)
+    
+    Returns:
+        Filtered list of positions
+    """
+    if len(positions) <= 1:
+        return positions
+    
+    filtered = [positions[0]]  # Always keep first position
+    
+    for i in range(1, len(positions)):
+        current = positions[i]
+        previous = filtered[-1]  # Compare to last valid position
+        
+        try:
+            # Calculate distance between points
+            distance_km = haversine_distance(
+                previous['lat'], previous['lon'],
+                current['lat'], current['lon']
+            )
+            
+            # Parse timestamps
+            from datetime import datetime
+            t1 = datetime.fromisoformat(previous['timestamp'].replace('Z', '+00:00'))
+            t2 = datetime.fromisoformat(current['timestamp'].replace('Z', '+00:00'))
+            time_diff_hours = abs((t2 - t1).total_seconds()) / 3600
+            
+            # Avoid division by zero
+            if time_diff_hours < 0.001:  # Less than ~3 seconds
+                # Points are too close in time, skip duplicate
+                continue
+            
+            # Calculate implied speed
+            implied_speed_kmh = distance_km / time_diff_hours
+            implied_speed_knots = implied_speed_kmh / 1.852  # Convert to knots
+            
+            # Check for outliers
+            is_outlier = False
+            
+            # Check 1: Unrealistic speed
+            if implied_speed_knots > max_speed_knots:
+                print(f"[Route Filter] Outlier detected: {implied_speed_knots:.1f} knots (max: {max_speed_knots})")
+                is_outlier = True
+            
+            # Check 2: Sudden huge jump
+            if distance_km > max_jump_km:
+                print(f"[Route Filter] Outlier detected: {distance_km:.1f} km jump (max: {max_jump_km})")
+                is_outlier = True
+            
+            # Keep the point if it's not an outlier
+            if not is_outlier:
+                filtered.append(current)
+            
+        except Exception as e:
+            print(f"[Route Filter] Error processing point: {e}")
+            # On error, keep the point to avoid data loss
+            filtered.append(current)
+    
+    removed_count = len(positions) - len(filtered)
+    if removed_count > 0:
+        print(f"[Route Filter] Removed {removed_count} outlier points from {len(positions)} total")
+    
+    return filtered
+
+
 @app.route('/ships/api/vessel/<int:mmsi>/route')
 def get_vessel_route(mmsi):
-    """Get position history for a specific vessel."""
+    """Get position history for a specific vessel with outlier filtering."""
     hours = request.args.get('hours', default=24, type=int)
     
     project_root = Path(__file__).parent.parent.parent
@@ -417,6 +507,7 @@ def get_vessel_route(mmsi):
         
         positions = cursor.fetchall()
         
+        # Build raw route
         route = []
         for p in positions:
             route.append({
@@ -427,7 +518,10 @@ def get_vessel_route(mmsi):
                 'timestamp': p[4]
             })
         
-        return jsonify(route)
+        # Apply intelligent outlier filtering
+        filtered_route = filter_route_outliers(route)
+        
+        return jsonify(filtered_route)
     finally:
         if conn:
             conn.close()
