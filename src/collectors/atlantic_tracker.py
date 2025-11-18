@@ -123,13 +123,14 @@ def scan_atlantic_zone(api_key, zone):
 
 
 def save_vessels_to_db(vessels):
-    """Save vessel data to database."""
+    """Save vessel data to database - only Cargo (70-79) and Tankers (80-89)."""
     if not vessels:
         return 0
     
     conn = get_db_connection()
     cursor = conn.cursor()
     saved_count = 0
+    skipped_count = 0
     
     try:
         for vessel in vessels:
@@ -143,9 +144,22 @@ def save_vessels_to_db(vessels):
             # Extract vessel data
             name = vessel.get('name', 'Unknown')
             imo = vessel.get('imo')
-            ship_type = vessel.get('type')
+            ship_type_str = vessel.get('type')  # Datalastic returns string: "Cargo", "Tanker", etc.
             detailed_type = vessel.get('type_specific')
             length = vessel.get('length')
+            
+            # FILTER: Only save Cargo and Tankers (like AIS collector does with codes 70-89)
+            if ship_type_str not in ['Cargo', 'Tanker']:
+                skipped_count += 1
+                continue
+            
+            # Map Datalastic type string to AIS code (for database consistency)
+            if ship_type_str == 'Cargo':
+                ship_type = 70  # Cargo type code
+            elif ship_type_str == 'Tanker':
+                ship_type = 80  # Tanker type code
+            else:
+                ship_type = None
             beam = vessel.get('beam')
             call_sign = vessel.get('callsign')
             flag = vessel.get('country_iso')
@@ -193,6 +207,9 @@ def save_vessels_to_db(vessels):
             saved_count += 1
         
         conn.commit()
+        
+        if skipped_count > 0:
+            print(f"   ℹ️  Skipped {skipped_count} non-Cargo/Tanker vessels")
         
     except Exception as e:
         print(f"   ❌ Database error: {e}")
