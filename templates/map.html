@@ -2038,14 +2038,50 @@
                         return;
                     }
                     
-                    // Create polyline from route points
-                    const latLngs = route.map(p => [p.lat, p.lon]);
-                    currentRoute = L.polyline(latLngs, {
-                        color: '#ffff00',  // Bright yellow for visibility
-                        weight: 4,
-                        opacity: 0.9,
-                        dashArray: '10, 5'
-                    }).addTo(map);
+                    // Split route into segments based on segment_break flags
+                    const segments = [];
+                    let currentSegment = [];
+                    
+                    for (let i = 0; i < route.length; i++) {
+                        const point = route[i];
+                        
+                        // If this is a segment break and we have points in current segment, save it
+                        if (point.segment_break && currentSegment.length > 0) {
+                            segments.push(currentSegment);
+                            currentSegment = [point];  // Start new segment with this point
+                        } else {
+                            currentSegment.push(point);
+                        }
+                    }
+                    
+                    // Add the last segment
+                    if (currentSegment.length > 0) {
+                        segments.push(currentSegment);
+                    }
+                    
+                    // Create polylines for each segment
+                    const routeGroup = L.featureGroup();
+                    let segmentCount = 0;
+                    
+                    segments.forEach((segment, idx) => {
+                        if (segment.length < 2) return;  // Skip segments with only 1 point
+                        
+                        const latLngs = segment.map(p => [p.lat, p.lon]);
+                        const polyline = L.polyline(latLngs, {
+                            color: '#ffff00',  // Bright yellow for visibility
+                            weight: 4,
+                            opacity: 0.9,
+                            dashArray: '10, 5'
+                        });
+                        
+                        routeGroup.addLayer(polyline);
+                        segmentCount++;
+                    });
+                    
+                    routeGroup.addTo(map);
+                    currentRoute = routeGroup;  // Store as feature group
+                    
+                    console.log(`Route rendered: ${segments.length} segment(s), ${route.length} total positions`);
                     
                     // Add start marker (green)
                     const startMarker = L.circleMarker([route[0].lat, route[0].lon], {
@@ -2085,16 +2121,18 @@
                     `);
                     currentRouteMarkers.push(endMarker);
                     
-                    // Add popup to route
+                    // Add popup to route segments
                     const duration = new Date(route[route.length-1].timestamp) - new Date(route[0].timestamp);
                     const actualHours = Math.floor(duration / (1000 * 60 * 60));
                     const actualDays = Math.floor(actualHours / 24);
                     const displayTime = actualDays > 0 ? `${actualDays}d ${actualHours % 24}h` : `${actualHours}h`;
                     
+                    const segmentInfo = segments.length > 1 ? `<br>🔗 ${segments.length} segments (gaps removed)` : '';
+                    
                     currentRoute.bindPopup(`
                         <b>${vesselName}</b><br>
                         <b>Route (${timeRangeText})</b><br>
-                        📍 ${route.length} positions<br>
+                        📍 ${route.length} positions${segmentInfo}<br>
                         ⏱️ ${displayTime} tracked<br>
                         <span style="color: #00ff00;">●</span> Green = Start<br>
                         <span style="color: #ff0000;">●</span> Red = Current

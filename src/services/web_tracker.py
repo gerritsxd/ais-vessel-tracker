@@ -411,17 +411,18 @@ def haversine_distance(lat1, lon1, lat2, lon2):
     return R * c
 
 
-def filter_route_outliers(positions, max_speed_knots=60, max_jump_km=500):
+def filter_route_outliers(positions, max_speed_knots=60, max_jump_km=500, max_time_gap_hours=2):
     """
-    Remove outlier positions from route based on realistic ship movement.
+    Remove outlier positions and mark segment breaks from route based on realistic ship movement.
     
     Args:
         positions: List of position dicts with lat, lon, timestamp
         max_speed_knots: Maximum realistic speed (default 60 knots for fast vessels)
         max_jump_km: Maximum distance jump allowed (default 500km)
+        max_time_gap_hours: Maximum time gap before breaking segment (default 2 hours)
     
     Returns:
-        Filtered list of positions
+        Filtered list of positions with 'segment_break' flag added
     """
     if len(positions) <= 1:
         return positions
@@ -429,7 +430,7 @@ def filter_route_outliers(positions, max_speed_knots=60, max_jump_km=500):
     filtered = [positions[0]]  # Always keep first position
     
     for i in range(1, len(positions)):
-        current = positions[i]
+        current = positions[i].copy()  # Create a copy to add segment_break flag
         previous = filtered[-1]  # Compare to last valid position
         
         try:
@@ -449,6 +450,13 @@ def filter_route_outliers(positions, max_speed_knots=60, max_jump_km=500):
             if time_diff_hours < 0.001:  # Less than ~3 seconds
                 # Points are too close in time, skip duplicate
                 continue
+            
+            # Check for large time gap (tracking stopped and resumed)
+            if time_diff_hours > max_time_gap_hours:
+                print(f"[Route Filter] Time gap detected: {time_diff_hours:.1f} hours between points")
+                current['segment_break'] = True  # Mark as start of new segment
+                filtered.append(current)
+                continue  # Don't check speed for time gaps
             
             # Calculate implied speed
             implied_speed_kmh = distance_km / time_diff_hours
@@ -477,8 +485,12 @@ def filter_route_outliers(positions, max_speed_knots=60, max_jump_km=500):
             filtered.append(current)
     
     removed_count = len(positions) - len(filtered)
+    segment_breaks = sum(1 for p in filtered if p.get('segment_break', False))
+    
     if removed_count > 0:
         print(f"[Route Filter] Removed {removed_count} outlier points from {len(positions)} total")
+    if segment_breaks > 0:
+        print(f"[Route Filter] Found {segment_breaks} segment breaks (time gaps > {max_time_gap_hours}h)")
     
     return filtered
 
