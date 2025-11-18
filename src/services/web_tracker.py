@@ -354,8 +354,11 @@ def index():
 
 @app.route('/ships/api/vessels')
 def get_vessels():
-    """Get all tracked vessels and their current positions."""
+    """Get all tracked vessels including Atlantic (database) vessels with recent positions."""
     vessels = []
+    seen_mmsi = set()
+    
+    # First: Add real-time AIS vessels (in-memory)
     for mmsi, static in vessel_static_data.items():
         vessel_info = {
             'mmsi': mmsi,
@@ -363,9 +366,9 @@ def get_vessels():
             'length': static['length'],
             'flag_state': static['flag_state'],
             'ship_type': static['ship_type'],
-            'detailed_ship_type': static.get('detailed_ship_type'),  # From CO2 emissions dataset
-            'wind_assisted': static.get('wind_assisted', 0),  # Wind propulsion flag
-            'gross_tonnage': static.get('gross_tonnage')  # From EU MRV emissions
+            'detailed_ship_type': static.get('detailed_ship_type'),
+            'wind_assisted': static.get('wind_assisted', 0),
+            'gross_tonnage': static.get('gross_tonnage')
         }
         
         # Add position if available
@@ -373,6 +376,67 @@ def get_vessels():
             vessel_info.update(vessel_positions[mmsi])
         
         vessels.append(vessel_info)
+        seen_mmsi.add(mmsi)
+    
+    # Second: Add recent database vessels (Atlantic, etc.) with last known positions
+    project_root = Path(__file__).parent.parent.parent
+    db_path = project_root / DB_NAME
+    
+    conn = None
+    try:
+        conn = sqlite3.connect(db_path, timeout=30)
+        conn.execute('PRAGMA journal_mode=WAL')
+        cursor = conn.cursor()
+        
+        # Get vessels with positions from last 24 hours
+        cursor.execute('''
+            SELECT 
+                v.mmsi, v.name, v.ship_type, v.detailed_ship_type, v.length, v.beam,
+                v.imo, v.call_sign, v.flag_state, v.wind_assisted,
+                p.latitude, p.longitude, p.sog, p.cog, p.timestamp,
+                e.gross_tonnage
+            FROM vessels_static v
+            INNER JOIN (
+                SELECT mmsi, latitude, longitude, sog, cog, timestamp,
+                       ROW_NUMBER() OVER (PARTITION BY mmsi ORDER BY timestamp DESC) as rn
+                FROM vessel_positions
+                WHERE timestamp >= datetime('now', '-24 hours')
+            ) p ON v.mmsi = p.mmsi AND p.rn = 1
+            LEFT JOIN eu_mrv_emissions e ON v.imo = e.imo
+            WHERE v.mmsi NOT IN ({})
+            ORDER BY p.timestamp DESC
+            LIMIT 500
+        '''.format(','.join(map(str, seen_mmsi)) if seen_mmsi else '0'))
+        
+        db_vessels = cursor.fetchall()
+        
+        for vessel in db_vessels:
+            mmsi, name, ship_type, detailed_type, length, beam, imo, call_sign, flag, wind_assisted, lat, lon, sog, cog, timestamp, gt = vessel
+            
+            vessels.append({
+                'mmsi': mmsi,
+                'name': name or 'Unknown',
+                'ship_type': ship_type,
+                'detailed_ship_type': detailed_type,
+                'length': length,
+                'beam': beam,
+                'imo': imo,
+                'call_sign': call_sign,
+                'flag_state': flag or 'Unknown',
+                'wind_assisted': wind_assisted or 0,
+                'gross_tonnage': gt,
+                'lat': lat,
+                'lon': lon,
+                'sog': sog,
+                'cog': cog,
+                'timestamp': timestamp
+            })
+            
+    except Exception as e:
+        print(f"Error loading database vessels: {e}")
+    finally:
+        if conn:
+            conn.close()
     
     return jsonify(vessels)
 
