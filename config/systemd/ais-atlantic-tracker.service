@@ -1,0 +1,20 @@
+[Unit]
+Description=Datalastic Atlantic Coverage Tracker
+After=network.target
+
+[Service]
+Type=simple
+User=erik
+WorkingDirectory=/var/www/apihub
+ExecStart=/usr/bin/python3 src/collectors/atlantic_tracker.py
+Restart=always
+RestartSec=30
+StandardOutput=append:/var/www/apihub/logs/atlantic_tracker.log
+StandardError=append:/var/www/apihub/logs/atlantic_tracker.log
+
+# Resource limits
+MemoryMax=200M
+CPUQuota=10%
+
+[Install]
+WantedBy=multi-user.target
