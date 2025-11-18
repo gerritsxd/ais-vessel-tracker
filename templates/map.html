@@ -2012,18 +2012,6 @@
         
         // Show vessel route
         function showVesselRoute(mmsi, vesselName) {
-            // Remove existing route and markers
-            if (currentRoute) {
-                map.removeLayer(currentRoute);
-                currentRoute = null;
-            }
-            
-            // Remove existing route markers (start/end dots)
-            currentRouteMarkers.forEach(marker => {
-                map.removeLayer(marker);
-            });
-            currentRouteMarkers = [];
-            
             // Get selected time range
             const hours = routeHours;
             const timeRangeText = document.getElementById('route-hours-select').options[document.getElementById('route-hours-select').selectedIndex].text.replace('Last ', '');
@@ -2032,6 +2020,26 @@
             fetch(`/ships/api/vessel/${mmsi}/route?hours=${hours}`)
                 .then(response => response.json())
                 .then(route => {
+                    // Clean up old route FIRST (inside callback to ensure it happens right before adding new route)
+                    if (currentRoute) {
+                        try {
+                            map.removeLayer(currentRoute);
+                        } catch (e) {
+                            console.warn('Error removing route:', e);
+                        }
+                        currentRoute = null;
+                    }
+                    
+                    // Remove existing route markers (start/end dots)
+                    currentRouteMarkers.forEach(marker => {
+                        try {
+                            map.removeLayer(marker);
+                        } catch (e) {
+                            console.warn('Error removing marker:', e);
+                        }
+                    });
+                    currentRouteMarkers = [];
+                    
                     if (route.length === 0) {
                         alert(`No route data available for ${vesselName}.\n\nThis vessel may not have been tracked yet, or has no position history in the selected time range (${timeRangeText}).`);
                         console.log('No route data available for this vessel');
