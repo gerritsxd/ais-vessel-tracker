@@ -94,10 +94,19 @@ def scan_atlantic_zone(api_key, zone):
         if response.status_code == 200:
             data = response.json()
             
+            # Debug: Print response structure
+            print(f"   🔍 API response keys: {list(data.keys())}")
+            
             # Extract vessel data
             vessels = data.get('data', [])
             meta = data.get('meta', {})
             credits_used = meta.get('total', len(vessels))
+            
+            # Debug: Check vessel type
+            if vessels and len(vessels) > 0:
+                print(f"   🔍 First vessel type: {type(vessels[0])}")
+                if isinstance(vessels[0], dict):
+                    print(f"   🔍 First vessel keys: {list(vessels[0].keys())[:10]}")
             
             print(f"   ✓ Found {len(vessels)} vessels (used {credits_used} credits)")
             
@@ -130,6 +139,11 @@ def save_vessels_to_db(vessels):
     
     try:
         for vessel in vessels:
+            # Debug: Check if vessel is actually a dict
+            if not isinstance(vessel, dict):
+                print(f"   ⚠️  Skipping non-dict vessel: {type(vessel)}")
+                continue
+            
             mmsi = vessel.get('mmsi')
             if not mmsi:
                 continue
