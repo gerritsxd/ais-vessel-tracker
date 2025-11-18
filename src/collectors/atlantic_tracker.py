@@ -94,24 +94,13 @@ def scan_atlantic_zone(api_key, zone):
         if response.status_code == 200:
             data = response.json()
             
-            # Debug: Print response structure
-            print(f"   🔍 API response keys: {list(data.keys())}")
-            
-            # Extract vessel data
-            vessels = data.get('data', [])
+            # Extract vessel data - correct structure: data.data.vessels
+            data_dict = data.get('data', {})
+            vessels = data_dict.get('vessels', []) if isinstance(data_dict, dict) else []
+            total_found = data_dict.get('total', 0) if isinstance(data_dict, dict) else 0
             meta = data.get('meta', {})
             
-            # Debug: Print raw data
-            print(f"   🔍 vessels type: {type(vessels)}, value: {vessels}")
-            print(f"   🔍 meta type: {type(meta)}, value: {meta}")
-            
-            credits_used = meta.get('total', len(vessels)) if isinstance(meta, dict) else 0
-            
-            # Debug: Check vessel type
-            if vessels and isinstance(vessels, list) and len(vessels) > 0:
-                print(f"   🔍 First vessel type: {type(vessels[0])}")
-                if isinstance(vessels[0], dict):
-                    print(f"   🔍 First vessel keys: {list(vessels[0].keys())[:10]}")
+            credits_used = total_found  # Use API's total count for credits
             
             print(f"   ✓ Found {len(vessels)} vessels (used {credits_used} credits)")
             
@@ -144,9 +133,7 @@ def save_vessels_to_db(vessels):
     
     try:
         for vessel in vessels:
-            # Debug: Check if vessel is actually a dict
             if not isinstance(vessel, dict):
-                print(f"   ⚠️  Skipping non-dict vessel: {type(vessel)}")
                 continue
             
             mmsi = vessel.get('mmsi')
