@@ -100,10 +100,15 @@ def scan_atlantic_zone(api_key, zone):
             # Extract vessel data
             vessels = data.get('data', [])
             meta = data.get('meta', {})
-            credits_used = meta.get('total', len(vessels))
+            
+            # Debug: Print raw data
+            print(f"   🔍 vessels type: {type(vessels)}, value: {vessels}")
+            print(f"   🔍 meta type: {type(meta)}, value: {meta}")
+            
+            credits_used = meta.get('total', len(vessels)) if isinstance(meta, dict) else 0
             
             # Debug: Check vessel type
-            if vessels and len(vessels) > 0:
+            if vessels and isinstance(vessels, list) and len(vessels) > 0:
                 print(f"   🔍 First vessel type: {type(vessels[0])}")
                 if isinstance(vessels[0], dict):
                     print(f"   🔍 First vessel keys: {list(vessels[0].keys())[:10]}")
