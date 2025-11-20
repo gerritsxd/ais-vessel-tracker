@@ -1,0 +1,42 @@
+# ============================================================================
+# AIS Vessel Tracker - Development Dependencies
+# ============================================================================
+# Additional tools for development, testing, and code quality.
+# Includes all production dependencies plus dev tools.
+# ============================================================================
+
+# Install production dependencies first
+-r requirements.txt
+
+# Code Quality & Linting
+# ----------------------------------------------------------------------------
+flake8==7.3.0                   # Style checker
+pycodestyle==2.14.0             # PEP 8 checker
+pyflakes==3.4.0                 # Static analysis
+mccabe==0.7.0                   # Complexity checker
+black==25.1.0                   # Code formatter (if you want to add it)
+isort==6.0.0                    # Import sorter (if you want to add it)
+mypy==1.15.0                    # Static type checker (if you want to add it)
+
+# Testing & Coverage
+# ----------------------------------------------------------------------------
+pytest==9.0.1                   # Test framework
+pytest-cov==6.0.0               # Coverage reporting
+pytest-mock==3.14.0             # Mocking utilities
+coverage==8.0.3                 # Code coverage measurement
+
+# Documentation
+# ----------------------------------------------------------------------------
+Sphinx==8.3.0                   # Documentation generator (if needed)
+sphinx-rtd-theme==4.1.1         # ReadTheDocs theme (if needed)
+
+# Debugging & Profiling
+# ----------------------------------------------------------------------------
+ipython==9.6.0                  # Enhanced Python shell
+ipdb==0.13.13                   # IPython debugger
+memory-profiler==0.62.0         # Memory profiling
+
+# ============================================================================
+# Installation:
+#   pip install -r config/requirements-dev.txt
+# ============================================================================

@@ -7,17 +7,18 @@ from AISStream WebSocket messages.
 
 import pytest
 import json
+from typing import Dict, Any, Optional
 
 
-def parse_static_data_message(message_json):
+def parse_static_data_message(message_json: str) -> Dict[str, Optional[Any]]:
     """
     Parse a ShipStaticData message and extract vessel attributes.
     
     Args:
-        message_json (str): Raw JSON message from AISStream
+        message_json: Raw JSON message from AISStream
         
     Returns:
-        dict: Parsed vessel data with keys: mmsi, name, ship_type, length, beam, imo
+        Parsed vessel data with keys: mmsi, name, ship_type, length, beam, imo
     """
     data = json.loads(message_json)
     
@@ -55,15 +56,15 @@ def parse_static_data_message(message_json):
     }
 
 
-def parse_position_message(message_json):
+def parse_position_message(message_json: str) -> Dict[str, Optional[Any]]:
     """
     Parse a position update message and extract navigation data.
     
     Args:
-        message_json (str): Raw JSON message with position data
+        message_json: Raw JSON message with position data
         
     Returns:
-        dict: Parsed position data with keys: mmsi, lat, lon, speed, course
+        Parsed position data with keys: mmsi, lat, lon, speed, course
     """
     data = json.loads(message_json)
     

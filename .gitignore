@@ -43,7 +43,10 @@ exports/
 *.xlsx
 *.json
 
-# API Keys (IMPORTANT - never commit!)
+# API Keys & Environment (CRITICAL - never commit!)
+.env
+.env.local
+.env.*.local
 api.txt
 config/api.txt
 config/gemini_api_key.txt
