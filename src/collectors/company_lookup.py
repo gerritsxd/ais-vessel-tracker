@@ -3,13 +3,14 @@ from bs4 import BeautifulSoup
 import pandas as pd
 import time
 from tqdm import tqdm
+from typing import Optional
 
 BASE_SEARCH_URL = "https://lookup.itfglobal.org/search-vessels?FreeText="
 BASE_VESSEL_URL = "https://lookup.itfglobal.org/vessel/"
 HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; EconowindBot/1.0; +https://econowind.nl)"}
 
 
-def get_vessel_uuid(vessel_name: str):
+def get_vessel_uuid(vessel_name: str) -> Optional[str]:
     """Search ITF Lookup by vessel name and return the first vessel UUID."""
     try:
         search_url = BASE_SEARCH_URL + requests.utils.quote(vessel_name)
@@ -28,7 +29,7 @@ def get_vessel_uuid(vessel_name: str):
         return None
 
 
-def get_signatory_company(vessel_name: str):
+def get_signatory_company(vessel_name: str) -> Optional[str]:
     """Return the signatory company name for a vessel (if found)."""
     uuid = get_vessel_uuid(vessel_name)
     if not uuid:
@@ -53,7 +54,7 @@ def get_signatory_company(vessel_name: str):
     return None
 
 
-def enrich_dataframe(csv_path: str, out_path: str = "vessel_with_company.csv"):
+def enrich_dataframe(csv_path: str, out_path: str = "vessel_with_company.csv") -> None:
     """Read a CSV with a 'name' column, look up companies, and export results."""
     df = pd.read_csv(csv_path)
     if "name" not in df.columns:

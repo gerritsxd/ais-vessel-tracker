@@ -53,7 +53,7 @@ Real-time maritime tracking system using hybrid AIS data sources (WebSocket stre
 ## 🛠️ Tech Stack
 
 **Backend**
-- Python 3.13, Flask, Flask-SocketIO
+- Python 3.13 (with type hints), Flask, Flask-SocketIO
 - SQLite3 (WAL mode for concurrency)
 - websocket-client, requests, BeautifulSoup4
 - PyTest (unit testing)
