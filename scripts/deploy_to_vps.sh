@@ -22,7 +22,7 @@ fi
 cd /var/www/apihub
 
 echo -e "${YELLOW}Step 1: Pulling latest changes from repository...${NC}"
-git pull origin main
+git pull origin master
 if [ $? -ne 0 ]; then
     echo -e "${RED}Git pull failed! Please check manually.${NC}"
     exit 1
