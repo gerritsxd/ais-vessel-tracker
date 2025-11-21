@@ -87,19 +87,42 @@ export default function VesselDatabase() {
   }, [searchTerm, filters, vessels, loading]);
 
 
-  const fetchVessels = async () => {
-    try {
-      const response = await fetch(`${API_BASE}/ships/api/vessels/combined?limit=1000`);
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+const fetchVessels = async () => {
+  try {
+    const limit = 1000;
+    let offset = 0;
+    let allResults = [];
+    let hasMore = true;
+
+    while (hasMore) {
+      const response = await fetch(
+        `${API_BASE}/ships/api/vessels/combined?limit=${limit}&offset=${offset}`
+      );
+
+      if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
+
       const data = await response.json();
-      setVessels(data);
-      setFilteredVessels(data);
-      setLoading(false);
-    } catch (error) {
-      console.error('Error:', error);
-      setLoading(false);
+
+      if (data.length === 0) {
+        hasMore = false;
+      } else {
+        allResults = [...allResults, ...data];
+        offset += limit;
+
+        // Optional: update UI progressively to avoid user staring at blank page
+        setVessels([...allResults]);
+      }
     }
-  };
+
+    setVessels(allResults);
+    setFilteredVessels(allResults);
+  } catch (error) {
+    console.error("Error loading vessels:", error);
+  } finally {
+    setLoading(false);
+  }
+};
+
 
 
   const fetchStats = async () => {
