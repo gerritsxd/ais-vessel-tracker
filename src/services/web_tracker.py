@@ -425,7 +425,7 @@ def get_vessels():
             LEFT JOIN eu_mrv_emissions e ON v.imo = e.imo
             WHERE v.mmsi NOT IN ({})
             ORDER BY p.timestamp DESC
-            LIMIT 500
+            LIMIT 2000
         '''.format(','.join(map(str, seen_mmsi)) if seen_mmsi else '0'))
         
         db_vessels = cursor.fetchall()
@@ -900,13 +900,18 @@ def start_tracking():
     global tracking_active, API_KEY
     
     try:
-        print("Loading API keys...")
-        api_keys = load_api_keys()
-        
         print("Loading vessels from database...")
         mmsi_list = get_filtered_vessels()
         print(f"Loaded {len(mmsi_list)} vessels for tracking")
         
+        print("Loading API keys...")
+        try:
+            api_keys = load_api_keys()
+        except Exception as e:
+            print(f"WARNING: Could not load API keys: {e}")
+            print("Real-time tracking will be DISABLED. Showing database positions only.")
+            return
+
         # Create batches
         batches = []
         for i in range(0, len(mmsi_list), MAX_MMSI_PER_CONNECTION):
