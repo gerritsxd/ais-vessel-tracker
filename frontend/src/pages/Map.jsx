@@ -143,30 +143,40 @@ export default function VesselMap() {
     return { color: '#06b6d4', name: 'Other', icon: '⛵', accent: '#22d3ee' };
 };
 
+  // CACHE for vessel icons to prevent re-render lag
+  const iconCache = useRef({});
 
   // Create custom animated marker icon
   const createVesselIcon = useCallback((vessel, isSelected) => {
+    const cacheKey = vessel.mmsi + "_" + isSelected;
+
+    if (iconCache.current[cacheKey]) {
+      return iconCache.current[cacheKey];   // <-- return cached
+    }
+
     const typeInfo = getShipTypeInfo(vessel);
     const isWindAssisted = vessel.wind_assisted === 1;
-    
-    return L.divIcon({
-      className: 'custom-vessel-marker',
+
+    const icon = L.divIcon({
+      className: "custom-vessel-marker",
       html: `
         <div class="vessel-marker-container ${isSelected ? 'selected' : ''}">
           <div class="vessel-marker-dot" style="
             background: ${typeInfo.color};
             border: ${isWindAssisted ? '3px solid #00ff00' : '2px solid rgba(255,255,255,0.8)'};
-            box-shadow: 0 0 5px ${typeInfo.color};
           ">
             <span class="vessel-icon">${typeInfo.icon}</span>
           </div>
-          ${isWindAssisted ? `<div class="wind-indicator">🌬️</div>` : ''}
         </div>
       `,
       iconSize: [14, 14],
-      iconAnchor: [7, 7]
+      iconAnchor: [7, 7],
     });
-  }, []);
+
+    iconCache.current[cacheKey] = icon;  // <-- store in cache
+    return icon;
+}, []);
+
 
   useEffect(() => {
   const urlParams = new URLSearchParams(window.location.search);
@@ -345,6 +355,9 @@ export default function VesselMap() {
 
 
   // ---- WEBSOCKET CONNECTION (LIVE UPDATES) ----
+
+  const lastUpdateRef = useRef(0);
+
 useEffect(() => {
   try {
     // --- DIRECT SOCKET INITIALIZATION (no fetch!) ---
@@ -1026,10 +1039,12 @@ function WindyEmbed({ opacity }) {
             );
           })}
 
+          {!selectedVessel && (
           <MapBounds
-          markers={filteredVessels}
-          disabled={routeData && routeData.length > 1}
+            markers={filteredVessels}
+            disabled={routeData && routeData.length > 1}
           />
+        )}
 
 
                   {/* Route History Line */}
@@ -1079,6 +1094,10 @@ function WindyEmbed({ opacity }) {
         }}
         darkMode={darkMode}
       />
+        eventHandlers={{
+        click: () => handleVesselClick(vessel),
+        mouseover: L.DomEvent.stopPropagation
+      }}
 
         {/* Hover Info Card */}
         <AnimatePresence>
