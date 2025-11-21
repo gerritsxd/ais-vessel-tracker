@@ -155,7 +155,19 @@ test_endpoint() {
     fi
 }
 
-test_endpoint "/ships/" "Main page"
+if ! test_endpoint "/ships/" "Main page"; then
+    echo ""
+    echo -e "${RED}deployment failed validation! Debugging...${NC}"
+    echo "Running debug script..."
+    source venv/bin/activate
+    python scripts/debug_deployment.py
+    
+    echo ""
+    echo "Service Logs (last 50 lines):"
+    sudo journalctl -u ais-web-tracker -n 50 --no-pager
+    exit 1
+fi
+
 test_endpoint "/ships/database" "Database page"
 test_endpoint "/ships/api/stats" "Stats endpoint"
 test_endpoint "/ships/api/vessels/combined?limit=10" "Combined vessels"
