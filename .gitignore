@@ -42,6 +42,8 @@ exports/
 *.db-shm
 *.xlsx
 *.json
+!package.json
+!package-lock.json
 
 # API Keys & Environment (CRITICAL - never commit!)
 .env
