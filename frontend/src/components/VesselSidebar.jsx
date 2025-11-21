@@ -56,13 +56,10 @@ function VesselSidebar({ vessel, onClose, darkMode, getShipTypeInfo }) {
         {/* Photo */}
         <div style={{ marginTop: "15px" }}>
           <img
+            loading="lazy"
             src={`/ships/api/vessel/${vessel.mmsi}/photo`}
             alt="Vessel"
-            style={{
-              width: "100%",
-              borderRadius: "10px",
-              border: darkMode ? "1px solid #444" : "1px solid #ccc"
-            }}
+            className="vessel-photo"
             onError={(e) => {
               e.target.src = "/static/placeholder_ship.png";
             }}

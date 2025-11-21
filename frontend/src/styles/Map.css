@@ -52,16 +52,10 @@
   opacity: 0.15;
 }
 
+/* Disable expensive animations for performance */
 @keyframes wave-animation {
-  0% {
-    transform: translateX(0) translateY(0);
-  }
-  50% {
-    transform: translateX(-25%) translateY(-10px);
-  }
-  100% {
-    transform: translateX(-50%) translateY(0);
-  }
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
 }
 
 /* Header */
@@ -333,24 +327,7 @@
 }
 
 .vessel-marker-pulse {
-  position: absolute;
-  border-radius: 50%;
-  animation: pulse-animation 2s ease-out infinite;
-}
-
-@keyframes pulse-animation {
-  0% {
-    transform: scale(0.8);
-    opacity: 0.8;
-  }
-  50% {
-    transform: scale(1.5);
-    opacity: 0.3;
-  }
-  100% {
-    transform: scale(2);
-    opacity: 0;
-  }
+  display: none !important;
 }
 
 .vessel-marker-dot {
@@ -362,31 +339,10 @@
   justify-content: center;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   z-index: 2;
-  animation: float-animation 3s ease-in-out infinite;
+  box-shadow: 0 0 5px currentColor;
+  will-change: transform;
 }
 
-@keyframes float-animation {
-  0%, 100% {
-    transform: translateY(0) rotate(0deg);
-  }
-  50% {
-    transform: translateY(-3px) rotate(5deg);
-  }
-}
-
-.vessel-marker-container.selected .vessel-marker-dot {
-  transform: scale(1.3);
-  animation: selected-bounce 0.5s ease-out;
-}
-
-@keyframes selected-bounce {
-  0%, 100% {
-    transform: scale(1.3);
-  }
-  50% {
-    transform: scale(1.5);
-  }
-}
 
 .vessel-icon {
   font-size: 10px;
@@ -581,6 +537,50 @@
   height: 1px;
   background: linear-gradient(90deg, transparent, rgba(0, 180, 216, 0.3), transparent);
   margin: 0.5rem 0;
+}
+
+/* Vessel Sidebar Optimizations */
+.vessel-photo {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid #ccc;
+  will-change: transform;
+}
+
+.dark-mode .vessel-photo {
+  border-color: #444;
+}
+
+/* Performance Optimizations */
+.wave {
+  animation: none !important;
+}
+
+.vessel-marker-container, .vessel-hover-card, .stat-card {
+  will-change: transform, opacity;
+}
+
+/* Reduce animation complexity */
+@keyframes ripple-pulse {
+  0% { transform: scale(1); opacity: 0.7; }
+  100% { transform: scale(1.2); opacity: 0; }
+}
+
+/* Disable animations for reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
+/* Optimize background animations */
+.map-bg-waves {
+  animation: none !important;
+}
+
+.wave {
+  animation: none !important;
 }
 
 /* Responsive Design */

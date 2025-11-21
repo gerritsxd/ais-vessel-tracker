@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap, Circle, Polyline } from 'react-leaflet';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSpring, animated } from '@react-spring/web';
@@ -52,29 +52,36 @@ export default function VesselMap() {
   const [darkMode, setDarkMode] = useState(false);
   const [filteredVessels, setFilteredVessels] = useState([]);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const memoizedStats = useMemo(() => ({
+    total: vessels.length,
+    active: filteredVessels.length,
+    withGT: vessels.filter(v => v.gross_tonnage > 0).length,
+    wasp: vessels.filter(v => v.wind_assisted === 1).length
+  }), [vessels, filteredVessels]);
+
   const [stats, setStats] = useState({
-  total: 0,
-  active: 0,
-  withGT: 0,
-  wasp: 0
+    total: 0,
+    active: 0,
+    withGT: 0,
+    wasp: 0
   });
 
   const [filters, setFilters] = useState({
-  type: 'all',
-  detailedType: 'all',
-  size: 'all',
-  gtCategory: 'all',
-  lengthMin: 0,
-  lengthMax: 400,
-  beamMin: 0,
-  beamMax: 100,
-  gtMin: 0,
-  gtMax: 300000,
-  speedMin: 0,
-  speedMax: 40,
-  hasIMO: false,
-  hasGT: false
-});
+    type: 'all',
+    detailedType: 'all',
+    size: 'all',
+    gtCategory: 'all',
+    lengthMin: 0,
+    lengthMax: 400,
+    beamMin: 0,
+    beamMax: 100,
+    gtMin: 0,
+    gtMax: 300000,
+    speedMin: 0,
+    speedMax: 40,
+    hasIMO: false,
+    hasGT: false
+  });
   const [selectedVessel, setSelectedVessel] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
   const [showRipples, setShowRipples] = useState(true);
@@ -90,6 +97,7 @@ export default function VesselMap() {
   // ---- REFS ----
   const socketRef = useRef(null);
   const hoverTimeoutRef = useRef(null);
+  const routeFetchTimeout = useRef(null);
 
   // Ship type configuration with ocean colors
   const detailedShipTypeColors = {
@@ -137,48 +145,28 @@ export default function VesselMap() {
 
 
   // Create custom animated marker icon
-  const createVesselIcon = (vessel, isSelected) => {
-    const isLarge = vessel.length >= 200;
+  const createVesselIcon = useCallback((vessel, isSelected) => {
     const typeInfo = getShipTypeInfo(vessel);
-    const size = isLarge ? 18 : 14;
-    const pulseSize = isSelected ? size + 6 : size;
     const isWindAssisted = vessel.wind_assisted === 1;
-
+    
     return L.divIcon({
       className: 'custom-vessel-marker',
       html: `
         <div class="vessel-marker-container ${isSelected ? 'selected' : ''}">
-          <div class="vessel-marker-pulse" style="
-            width: ${pulseSize}px;
-            height: ${pulseSize}px;
-            background: ${typeInfo.color};
-            opacity: 0.3;
-          "></div>
           <div class="vessel-marker-dot" style="
             background: ${typeInfo.color};
-            width: ${size}px;
-            height: ${size}px;
             border: ${isWindAssisted ? '3px solid #00ff00' : '2px solid rgba(255,255,255,0.8)'};
-            box-shadow: 0 0 ${isLarge ? 20 : 15}px ${typeInfo.color},
-                        0 0 ${isLarge ? 40 : 30}px ${typeInfo.accent};
+            box-shadow: 0 0 5px ${typeInfo.color};
           ">
             <span class="vessel-icon">${typeInfo.icon}</span>
           </div>
-          ${isWindAssisted ? `
-            <div style="
-              position: absolute;
-              top: -8px;
-              right: -8px;
-              font-size: 16px;
-              filter: drop-shadow(0 0 3px #000);
-            ">🌬️</div>
-          ` : ''}
+          ${isWindAssisted ? `<div class="wind-indicator">🌬️</div>` : ''}
         </div>
       `,
-      iconSize: [size, size],
-      iconAnchor: [size / 2, size / 2]
+      iconSize: [14, 14],
+      iconAnchor: [7, 7]
     });
-  };
+  }, []);
 
   useEffect(() => {
   const urlParams = new URLSearchParams(window.location.search);
@@ -197,15 +185,11 @@ export default function VesselMap() {
 }, [vessels]);
 
   // ---- FILTERING ----
-  const applyFilters = (vesselList) => {
+  const applyFilters = useCallback((vesselList) => {
     return vesselList.filter(vessel => {
-      // Must have a position to be drawn on the map
+      // Fast-fail checks first
       if (!vessel.lat || !vessel.lon) return false;
-
-      // WASP filter - show only wind-assisted vessels
-      if (waspFilterActive && vessel.wind_assisted !== 1) {
-        return false;
-      }
+      if (waspFilterActive && vessel.wind_assisted !== 1) return false;
 
       // Type filter
       if (filters.type !== 'all') {
@@ -225,7 +209,6 @@ export default function VesselMap() {
           return false;
         }
       }
-
 
       // Size filter
       if (filters.size !== 'all') {
@@ -257,7 +240,6 @@ export default function VesselMap() {
       if (filters.hasIMO && !vessel.imo) return false;
       if (filters.hasGT && !vessel.gross_tonnage) return false;
 
-
       // GT category filter
       if (filters.gtCategory !== 'all') {
         const gt = vessel.gross_tonnage || 0;
@@ -285,40 +267,81 @@ export default function VesselMap() {
       }
       return true;
     });
-  };
+  }, [waspFilterActive, filters]);
 
+  // ---- MEMOIZED VALUES ----
+  const memoizedFilteredVessels = useMemo(() => applyFilters(vessels), [vessels, applyFilters]);
+  
+  // Update filtered vessels state when memoized value changes
+  useEffect(() => {
+    setFilteredVessels(memoizedFilteredVessels);
+  }, [memoizedFilteredVessels]);
+  
+  // ---- EVENT HANDLERS ----
+  const handleVesselClick = useCallback((vessel) => {
+    setSelectedVessel(vessel.mmsi);
+    setRouteLoading(true);
+    setRouteData(null);
+    
+    // Clear any pending request
+    if (routeFetchTimeout.current) clearTimeout(routeFetchTimeout.current);
+    
+    // Throttle requests
+    routeFetchTimeout.current = setTimeout(() => {
+      fetch(`/ships/api/vessel/${vessel.mmsi}/route?hours=${routeHours}`)
+        .then(res => res.json())
+        .then(data => {
+          setRouteLoading(false);
+          if (data?.length > 1) {
+            setRouteData(data);
+            // auto-fit route
+            if (mapRef.current) {
+              const bounds = L.latLngBounds(data.map(p => [p.lat, p.lon]));
+              mapRef.current.fitBounds(bounds, { padding: [50, 50] });
+            }
+          } else {
+            setRouteData([]);
+          }
+        })
+        .catch(() => {
+          setRouteLoading(false);
+          setRouteData([]);
+        });
+    }, 300); // 300ms delay
+  }, [routeHours]);
+  
+  const handleVesselHover = useCallback((vessel) => {
+    if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+    hoverTimeoutRef.current = setTimeout(() => {
+      setHoveredVessel(vessel);
+    }, 200);
+  }, []);
+  
+  const handleVesselHoverEnd = useCallback(() => {
+    if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+    hoverTimeoutRef.current = setTimeout(() => {
+      setHoveredVessel(null);
+    }, 200);
+  }, []);
+  
   // ---- INITIAL LOAD ----
   useEffect(() => {
     fetch('/ships/api/vessels')
       .then(res => res.json())
       .then(data => {
         setVessels(data);
-        setStats(prev => ({
-          ...prev,
-          total: data.length,
-          withGT: data.filter(v => v.gross_tonnage > 0).length,
-          wasp: data.filter(v => v.wind_assisted === 1).length
-        }));
       });
-  }, []);  // <-- THIS was missing
+  }, []);
 
 
 
   // ---- APPLY FILTERS WHEN VESSELS OR FILTERS CHANGE ----
   useEffect(() => {
-  const filtered = applyFilters(vessels);
-  const gtCount = vessels.filter(v => v.gross_tonnage > 0).length;
-  const waspCount = vessels.filter(v => v.wind_assisted === 1).length;
-
-  setFilteredVessels(filtered);
-  setStats(prev => ({
-    ...prev,
-    active: filtered.length,
-    withGT: gtCount,
-    wasp: waspCount
-  }));
-
-  }, [vessels, filters, waspFilterActive]);
+    setStats(prev => ({
+      ...prev,
+      active: filteredVessels.length
+    }));
+  }, [filteredVessels]);
 
 
   // ---- WEBSOCKET CONNECTION (LIVE UPDATES) ----
@@ -354,19 +377,16 @@ useEffect(() => {
 
     socketRef.current.on('vessel_update', (data) => {
       const { mmsi, position } = data;
-
+      
       setVessels(prev => {
         const index = prev.findIndex(v => v.mmsi === mmsi);
-
         if (index >= 0) {
+          // Create new array reference only for updated vessel
           const updated = [...prev];
-          const oldVessel = updated[index];
-          updated[index] = { ...oldVessel, ...position };
-
-
+          updated[index] = { ...prev[index], ...position };
           return updated;
         } else {
-          // New vessel received live
+          // New vessel - add to end
           return [...prev, { mmsi, ...position }];
         }
       });
@@ -413,14 +433,12 @@ function WindyEmbed({ opacity }) {
     const interval = setInterval(() => {
       fetch('/ships/api/stats')
         .then(res => res.json())
-    .then(data => setStats(prev => ({
-    ...prev,
-    total: data.total_vessels,
-  withGT: vessels.filter(v => v.gross_tonnage > 0).length
-})))
-
+        .then(data => setStats(prev => ({
+          ...prev,
+          total: data.total_vessels
+        })))
         .catch(err => console.error('Error loading stats:', err));
-    }, 5000);
+    }, 10000); // Increased to 10 seconds
     return () => clearInterval(interval);
   }, []);
 
@@ -995,46 +1013,9 @@ function WindyEmbed({ opacity }) {
                   position={[vessel.lat, vessel.lon]}
                   icon={createVesselIcon(vessel, selectedVessel === vessel.mmsi)}
                   eventHandlers={{
-                  click: () => {
-                    setSelectedVessel(vessel.mmsi);
-                    setRouteLoading(true);
-                    setRouteData(null);
-
-                    fetch(`/ships/api/vessel/${vessel.mmsi}/route?hours=${routeHours}`)
-                      .then(res => res.json())
-                      .then(data => {
-                        setRouteLoading(false);
-
-                        if (data && data.length > 1) {
-                          setRouteData(data);
-
-                          // auto-fit route
-                          if (mapRef.current) {
-                            const bounds = L.latLngBounds(data.map(p => [p.lat, p.lon]));
-                            mapRef.current.fitBounds(bounds, { padding: [50, 50] });
-                          }
-                        } else {
-                          setRouteData([]);
-                        }
-                      })
-                      .catch(() => {
-                        setRouteLoading(false);
-                        setRouteData([]);
-                      });
-                  },
-
-                    mouseover: () => {
-                      if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
-                      hoverTimeoutRef.current = setTimeout(() => {
-                        setHoveredVessel(vessel);
-                      }, 200);
-                    },
-                    mouseout: () => {
-                      if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
-                      hoverTimeoutRef.current = setTimeout(() => {
-                        setHoveredVessel(null);
-                      }, 200);
-                    }
+                    click: () => handleVesselClick(vessel),
+                    mouseover: () => handleVesselHover(vessel),
+                    mouseout: handleVesselHoverEnd
                   }}
                 >
                   <Popup>
