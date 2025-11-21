@@ -347,16 +347,23 @@ class VesselTrackerWebSocket:
 
 
 # Flask routes
-@app.route('/ships/assets/<path:path>')
-def serve_assets(path):
-    return send_from_directory(str(frontend_dist / 'assets'), path)
-
 @app.route('/ships/')
-@app.route('/ships/map')
-@app.route('/ships/about')
-@app.route('/ships/intelligence')
-def serve_react_app():
-    """Serve the React frontend."""
+def serve_index():
+    """Serve the React frontend entry point."""
+    return send_from_directory(str(frontend_dist), 'index.html')
+
+@app.route('/ships/<path:path>')
+def serve_frontend(path):
+    """Serve static files or React frontend for SPA routing."""
+    # Allow API routes to pass through (handled by other routes or return 404)
+    if path.startswith('api/'):
+        return jsonify({'error': 'API endpoint not found'}), 404
+        
+    # Try to serve static file if it exists in dist
+    if (frontend_dist / path).exists():
+        return send_from_directory(str(frontend_dist), path)
+        
+    # Otherwise serve index.html for client-side routing
     return send_from_directory(str(frontend_dist), 'index.html')
 
 # @app.route('/ships/')
@@ -469,10 +476,10 @@ def get_stats():
 #     """Serve the enhanced database viewer page with emissions data."""
 #     return render_template('database_enhanced.html')
 
-@app.route('/ships/database')
-def serve_react_database():
-    """Serve the React frontend for database route."""
-    return send_from_directory(str(frontend_dist), 'index.html')
+# @app.route('/ships/database')
+# def serve_react_database():
+#    """Serve the React frontend for database route."""
+#    return send_from_directory(str(frontend_dist), 'index.html')
 
 
 def haversine_distance(lat1, lon1, lat2, lon2):
