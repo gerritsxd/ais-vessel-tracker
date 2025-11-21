@@ -47,8 +47,12 @@ exports/
 .env
 .env.local
 .env.*.local
+
+# Legacy (deprecated - use config/aisstream_keys instead)
 api.txt
-config/api.txt
+
+# Config directory secrets
+config/aisstream_keys
 config/gemini_api_key.txt
 config/datalastic_api_key.txt
 

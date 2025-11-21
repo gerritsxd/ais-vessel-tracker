@@ -3,7 +3,7 @@
 ## Prerequisites
 - Python 3.7+
 - Virtual environment activated (`.\hub\Scripts\activate`)
-- AISStream API key in `api.txt`
+- AISStream API keys in `config/aisstream_keys`
 
 ## Step 1: Collect Vessel Data
 
@@ -76,8 +76,9 @@ python query_vessels.py
 ## 🔧 Troubleshooting
 
 ### API Key Error
-- Check that `api.txt` contains your valid API key
-- Get a new key from: https://aisstream.io/apikeys
+- Check that `config/aisstream_keys` exists and contains valid keys
+- Copy from template: `cp config/aisstream_keys.example config/aisstream_keys`
+- Get new keys from: https://aisstream.io/apikeys
 
 ### Database Locked
 - Make sure only one instance of `ais_collector.py` is running
@@ -102,8 +103,10 @@ apihub/
 ├── export_to_csv.py              # CSV export utility
 ├── check_data.py                 # Data quality checker
 ├── check_big_ships.py            # List ships >100m
-├── api.txt                       # Your API key
-├── vessel_static_data.db         # SQLite database (auto-created)
+├── config/
+│   └── aisstream_keys            # Your API keys (gitignored)
+├── data/
+│   └── vessel_static_data.db     # SQLite database (auto-created)
 ├── requirements.txt              # Python dependencies
 ├── ship_type_reference.txt       # Ship type codes
 ├── README.md                     # Full documentation

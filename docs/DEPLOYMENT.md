@@ -23,12 +23,13 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-## Step 3: Configure API Key
+## Step 3: Configure API Keys
 
-Create `api.txt` with your AISStream API key:
+Create config file from template:
 ```bash
-echo "YOUR_AISSTREAM_API_KEY" > api.txt
-chmod 600 api.txt  # Secure the file
+cp config/aisstream_keys.example config/aisstream_keys
+nano config/aisstream_keys  # Edit with your actual keys
+chmod 600 config/aisstream_keys  # Secure the file
 ```
 
 ## Step 4: Test Locally
@@ -230,10 +231,11 @@ sudo supervisorctl restart ais-web-tracker
 
 ## Security Best Practices
 
-1. **Never commit api.txt** - It's in .gitignore
+1. **Never commit config/aisstream_keys** - It's in .gitignore
 2. **Use SSL** - Set up Let's Encrypt
 3. **Restrict database access** - `chmod 600 vessel_static_data.db`
-4. **Regular backups** - Set up cron job for database backups
+4. **Secure config files** - `chmod 600 config/*_api_key.txt`
+5. **Regular backups** - Set up cron job for database backups
 5. **Monitor logs** - Check for errors regularly
 6. **Update dependencies** - Keep packages up to date
 

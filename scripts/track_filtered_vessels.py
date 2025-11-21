@@ -14,7 +14,7 @@ from datetime import datetime
 
 # Configuration
 DB_NAME = "vessel_static_data.db"
-API_KEY_FILE = "api.txt"
+API_KEY_FILE = "config/aisstream_keys"
 WEBSOCKET_URL = "wss://stream.aisstream.io/v0/stream"
 MAX_MMSI_PER_CONNECTION = 50  # AISStream limit
 
@@ -23,21 +23,24 @@ API_KEY = None
 
 
 def load_api_key():
-    """Load the API key from api.txt file."""
+    """Load the API key from config/aisstream_keys file."""
     try:
-        script_dir = Path(__file__).parent
-        api_file_path = script_dir / API_KEY_FILE
+        project_root = Path(__file__).parent.parent
+        api_file_path = project_root / API_KEY_FILE
         
         with open(api_file_path, 'r') as f:
             lines = f.readlines()
             for line in reversed(lines):
                 line = line.strip()
-                if line:
+                if line and not line.startswith('#'):
                     return line
         
-        raise ValueError("No API key found in api.txt")
+        raise ValueError("No API key found in config/aisstream_keys")
     except FileNotFoundError:
-        raise FileNotFoundError(f"API key file '{API_KEY_FILE}' not found.")
+        raise FileNotFoundError(
+            f"API key file '{API_KEY_FILE}' not found. "
+            "Copy config/aisstream_keys.example to config/aisstream_keys"
+        )
     except Exception as e:
         raise Exception(f"Error loading API key: {e}")
 

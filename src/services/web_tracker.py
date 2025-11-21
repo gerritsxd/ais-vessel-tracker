@@ -3,7 +3,7 @@ Real-time Web-Based Vessel Tracker with Map Visualization
 Displays tracked vessels on an interactive map with live updates.
 """
 
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, render_template, jsonify, request, send_from_directory
 from flask_socketio import SocketIO, emit
 import websocket
 import json
@@ -33,7 +33,7 @@ def ensure_econowind_column(conn):
         pass
 
 
-API_KEY_FILE = "api.txt"
+API_KEY_FILE = "config/aisstream_keys"
 WEBSOCKET_URL = "wss://stream.aisstream.io/v0/stream"
 MAX_MMSI_PER_CONNECTION = 50
 
@@ -46,6 +46,7 @@ import sys
 project_root = Path(__file__).parent.parent.parent
 template_dir = project_root / 'templates'
 static_dir = project_root / 'static'
+frontend_dist = project_root / 'frontend' / 'dist'
 
 app = Flask(__name__, 
             template_folder=str(template_dir),
@@ -346,10 +347,22 @@ class VesselTrackerWebSocket:
 
 
 # Flask routes
+@app.route('/ships/assets/<path:path>')
+def serve_assets(path):
+    return send_from_directory(str(frontend_dist / 'assets'), path)
+
 @app.route('/ships/')
-def index():
-    """Serve the main map page."""
-    return render_template('map.html')
+@app.route('/ships/map')
+@app.route('/ships/about')
+@app.route('/ships/intelligence')
+def serve_react_app():
+    """Serve the React frontend."""
+    return send_from_directory(str(frontend_dist), 'index.html')
+
+# @app.route('/ships/')
+# def index():
+#     """Serve the main map page."""
+#     return render_template('map.html')
 
 
 @app.route('/ships/api/vessels')
@@ -451,10 +464,15 @@ def get_stats():
     })
 
 
+# @app.route('/ships/database')
+# def database_viewer():
+#     """Serve the enhanced database viewer page with emissions data."""
+#     return render_template('database_enhanced.html')
+
 @app.route('/ships/database')
-def database_viewer():
-    """Serve the enhanced database viewer page with emissions data."""
-    return render_template('database_enhanced.html')
+def serve_react_database():
+    """Serve the React frontend for database route."""
+    return send_from_directory(str(frontend_dist), 'index.html')
 
 
 def haversine_distance(lat1, lon1, lat2, lon2):
@@ -1712,10 +1730,10 @@ profiler_scraper_status = {
     'type': 'profiler'
 }
 
-@app.route('/ships/intelligence')
-def intelligence_dashboard():
-    """Render Intelligence Dashboard."""
-    return render_template('intelligence.html')
+# @app.route('/ships/intelligence')
+# def intelligence_dashboard():
+#     """Render Intelligence Dashboard."""
+#     return render_template('intelligence.html')
 
 
 @app.route('/ships/api/intelligence/datasets')

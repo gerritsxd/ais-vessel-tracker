@@ -53,11 +53,11 @@ mkdir data
 Create your API key files:
 
 ```bash
-# AISStream keys (legacy method)
-echo "your_aisstream_key_1" >> api.txt
-echo "your_aisstream_key_2" >> api.txt
+# AISStream keys (recommended method)
+cp config/aisstream_keys.example config/aisstream_keys
+# Edit config/aisstream_keys with your actual keys (one per line)
 
-# Or use .env (recommended)
+# Or use .env (alternative)
 # AIS_API_KEY_1=your_key_1
 # AIS_API_KEY_2=your_key_2
 # DATALASTIC_API_KEY=your_datalastic_key
@@ -712,7 +712,9 @@ Project Root: /var/www/apihub (VPS) or c:\Users\gerrit\Desktop\apihub (local)
 │   ├── systemd/                   # Service files
 │   └── env_loader.py              # Config loader
 ├── .env                           # Environment variables (gitignored)
-└── api.txt                        # Legacy API keys (gitignored)
+└── config/
+    ├── aisstream_keys             # AISStream API keys (gitignored)
+    └── *_api_key.txt              # Other API keys (gitignored)
 ```
 
 ---

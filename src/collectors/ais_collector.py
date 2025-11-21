@@ -59,14 +59,14 @@ def load_api_key() -> str:
     
     Priority:
         1. AIS_API_KEY environment variable
-        2. Last non-empty line in api.txt file
+        2. Last non-empty line in config/aisstream_keys file
     
     Returns:
         API key string
         
     Raises:
-        FileNotFoundError: If api.txt not found
-        ValueError: If api.txt is empty
+        FileNotFoundError: If config/aisstream_keys not found
+        ValueError: If config/aisstream_keys is empty
     """
     env_key = os.environ.get('AIS_API_KEY')
     if env_key:
@@ -79,11 +79,11 @@ def load_api_key() -> str:
     if not api_file_path.exists():
         raise FileNotFoundError(
             f"API key file '{API_KEY_FILENAME}' not found. "
-            "Please create it with your AISStream API key."
+            "Copy config/aisstream_keys.example to config/aisstream_keys and add your keys."
         )
     
     with open(api_file_path, 'r') as f:
-        lines = [line.strip() for line in f if line.strip()]
+        lines = [line.strip() for line in f if line.strip() and not line.startswith('#')]
         if not lines:
             raise ValueError(f"No API key found in {API_KEY_FILENAME}")
         return lines[-1]  # Return last non-empty line

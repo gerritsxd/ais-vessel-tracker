@@ -30,6 +30,29 @@ fi
 echo -e "${GREEN}✓ Code updated${NC}"
 echo ""
 
+echo -e "${YELLOW}Step 1.5: Building frontend...${NC}"
+if ! command -v npm &> /dev/null; then
+    echo -e "${RED}Error: npm could not be found. Please install Node.js/npm.${NC}"
+    echo "sudo apt install nodejs npm"
+    exit 1
+fi
+
+cd frontend
+npm install
+if [ $? -ne 0 ]; then
+    echo -e "${RED}npm install failed!${NC}"
+    exit 1
+fi
+
+npm run build
+if [ $? -ne 0 ]; then
+    echo -e "${RED}npm run build failed!${NC}"
+    exit 1
+fi
+cd ..
+echo -e "${GREEN}✓ Frontend built successfully${NC}"
+echo ""
+
 echo -e "${YELLOW}Step 2: Checking database structure...${NC}"
 if [ ! -f "vessel_static_data.db" ]; then
     echo -e "${RED}Error: vessel_static_data.db not found!${NC}"

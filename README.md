@@ -88,16 +88,21 @@ pip install -r config/requirements.txt
 
 ### 2. Configure API Keys
 ```bash
-# AISStream keys (one per line)
-echo "YOUR_KEY_1" >> api.txt
-echo "YOUR_KEY_2" >> api.txt
+# Copy config templates and add your keys
+cp config/aisstream_keys.example config/aisstream_keys
+# Edit config/aisstream_keys with your AISStream API keys (one per line)
 
-# Datalastic key (optional, for Atlantic coverage)
+# Optional: Datalastic key (for Atlantic coverage)
 echo "YOUR_DATALASTIC_KEY" > config/datalastic_api_key.txt
 
-# Gemini key (optional, for company intelligence)
+# Optional: Gemini key (for company intelligence)
 echo "YOUR_GEMINI_KEY" > config/gemini_api_key.txt
 ```
+
+**Get API keys:**
+- AISStream: https://aisstream.io/ (free tier: 3 keys recommended)
+- Datalastic: https://www.datalastic.com/ (optional, for mid-ocean coverage)
+- Google Gemini: https://makersuite.google.com/app/apikey (optional, for AI analysis)
 
 ### 3. Start Services
 ```bash

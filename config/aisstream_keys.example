@@ -1,0 +1,19 @@
+# AISStream API Keys
+# Get your free API keys at: https://aisstream.io/
+#
+# Instructions:
+# 1. Copy this file: cp config/aisstream_keys.example config/aisstream_keys
+# 2. Replace the placeholders below with your actual API keys (one per line)
+# 3. You can add multiple keys to distribute load across connections
+#
+# Format: One key per line (no quotes needed)
+# Lines starting with # are ignored
+
+YOUR_AISSTREAM_API_KEY_1
+YOUR_AISSTREAM_API_KEY_2
+YOUR_AISSTREAM_API_KEY_3
+
+# Add more keys as needed (recommended: 3-6 keys for 900 vessel tracking)
+# Each key supports ~3 concurrent WebSocket connections
+# Each connection tracks up to 50 vessels
+# Total capacity: 50 vessels × 3 connections × N keys

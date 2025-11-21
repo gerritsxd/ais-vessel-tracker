@@ -7,7 +7,7 @@ and improve maintainability.
 
 # Database configuration
 DATABASE_NAME = "vessel_static_data.db"
-API_KEY_FILENAME = "api.txt"
+API_KEY_FILENAME = "config/aisstream_keys"
 
 # AISStream WebSocket endpoint
 WEBSOCKET_URL = "wss://stream.aisstream.io/v0/stream"
