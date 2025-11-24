@@ -144,35 +144,23 @@ export default function VesselMap() {
   const iconCache = useRef({});
 
   // Create custom animated marker icon
-  const createVesselIcon = useCallback((vessel, isSelected) => {
-    const cacheKey = vessel.mmsi + "_" + isSelected;
+  const createVesselIcon = useCallback((vessel) => {
+  const type = getShipTypeInfo(vessel);
+  const color = type.color || "#00aaff";
 
-    if (iconCache.current[cacheKey]) {
-      return iconCache.current[cacheKey];   // <-- return cached
-    }
+  return L.divIcon({
+    className: "",
+    html: `<div style="
+      width:6px;
+      height:6px;
+      border-radius:50%;
+      background:${color};
+    "></div>`,
+    iconSize: [6, 6],
+    iconAnchor: [3, 3],
+  });
+}, [getShipTypeInfo]);
 
-    const typeInfo = getShipTypeInfo(vessel);
-    const isWindAssisted = vessel.wind_assisted === 1;
-
-    const icon = L.divIcon({
-      className: "custom-vessel-marker",
-      html: `
-        <div class="vessel-marker-container ${isSelected ? 'selected' : ''}">
-          <div class="vessel-marker-dot" style="
-            background: ${typeInfo.color};
-            border: ${isWindAssisted ? '3px solid #00ff00' : '2px solid rgba(255,255,255,0.8)'};
-          ">
-            <span class="vessel-icon">${typeInfo.icon}</span>
-          </div>
-        </div>
-      `,
-      iconSize: [14, 14],
-      iconAnchor: [7, 7],
-    });
-
-    iconCache.current[cacheKey] = icon;  // <-- store in cache
-    return icon;
-}, []);
 
 
   useEffect(() => {
@@ -183,10 +171,6 @@ export default function VesselMap() {
     const target = vessels.find(v => v.mmsi == mmsiParam);
     if (target) {
       setSelectedVessel(target.mmsi);
-      // Fit to vessel
-      if (mapRef.current) {
-        mapRef.current.flyTo([target.lat, target.lon], 12);
-      }
     }
   }
 }, [vessels]);
@@ -997,12 +981,7 @@ function WindyEmbed({ opacity }) {
             />
           ))}
 
-          {!selectedVessel && (
-          <MapBounds
-            markers={memoizedFilteredVessels}
-            disabled={routeData && routeData.length > 1}
-          />
-        )}
+        
 
         </MapContainer>
 
@@ -1214,7 +1193,7 @@ const VesselMarker = React.memo(({
   return (
     <Marker
       position={[vessel.lat, vessel.lon]}
-      icon={createIcon(vessel, isSelected)}
+      icon={lightIcon(getShipTypeInfo(vessel).color)}
       eventHandlers={{
         click: handleClick,
         mouseover: handleHover,
