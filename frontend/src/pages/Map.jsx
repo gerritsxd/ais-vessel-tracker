@@ -52,19 +52,14 @@ export default function VesselMap() {
   const [darkMode, setDarkMode] = useState(false);
   const [filteredVessels, setFilteredVessels] = useState([]);
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const memoizedStats = useMemo(() => ({
+
+  // Memoize stats calculation
+  const stats = useMemo(() => ({
     total: vessels.length,
-    active: filteredVessels.length,
+    active: memoizedFilteredVessels.length,
     withGT: vessels.filter(v => v.gross_tonnage > 0).length,
     wasp: vessels.filter(v => v.wind_assisted === 1).length
-  }), [vessels, filteredVessels]);
-
-  const [stats, setStats] = useState({
-    total: 0,
-    active: 0,
-    withGT: 0,
-    wasp: 0
-  });
+  }), [vessels.length, memoizedFilteredVessels.length]);
 
   const [filters, setFilters] = useState({
     type: 'all',
@@ -98,6 +93,7 @@ export default function VesselMap() {
   const socketRef = useRef(null);
   const hoverTimeoutRef = useRef(null);
   const routeFetchTimeout = useRef(null);
+  const mapRef = useRef(null);
 
   // Ship type configuration with ocean colors
   const detailedShipTypeColors = {
@@ -120,7 +116,8 @@ export default function VesselMap() {
     'Other ship types (Offshore)': { color: '#696969', icon: '🏗️' }
   };
 
-  const getShipTypeInfo = (vessel) => {
+  // Memoize getShipTypeInfo to prevent recalculation
+  const getShipTypeInfo = useCallback((vessel) => {
     // Prefer detailed EU MRV ship type
     if (vessel.detailed_ship_type && detailedShipTypeColors[vessel.detailed_ship_type]) {
       const entry = detailedShipTypeColors[vessel.detailed_ship_type];
@@ -141,7 +138,7 @@ export default function VesselMap() {
 
     // Default fallback
     return { color: '#06b6d4', name: 'Other', icon: '⛵', accent: '#22d3ee' };
-};
+  }, []);
 
   // CACHE for vessel icons to prevent re-render lag
   const iconCache = useRef({});
@@ -280,7 +277,11 @@ export default function VesselMap() {
   }, [waspFilterActive, filters]);
 
   // ---- MEMOIZED VALUES ----
-  const memoizedFilteredVessels = useMemo(() => applyFilters(vessels), [vessels, applyFilters]);
+  const memoizedFilteredVessels = useMemo(() => {
+    const filtered = applyFilters(vessels);
+    // Limit to 2000 vessels max for performance
+    return filtered.slice(0, 2000);
+  }, [vessels, applyFilters]);
   
   // Update filtered vessels state when memoized value changes
   useEffect(() => {
@@ -345,13 +346,6 @@ export default function VesselMap() {
 
 
 
-  // ---- APPLY FILTERS WHEN VESSELS OR FILTERS CHANGE ----
-  useEffect(() => {
-    setStats(prev => ({
-      ...prev,
-      active: filteredVessels.length
-    }));
-  }, [filteredVessels]);
 
 
   // ---- WEBSOCKET CONNECTION (LIVE UPDATES) ----
@@ -391,12 +385,22 @@ useEffect(() => {
     socketRef.current.on('vessel_update', (data) => {
       const { mmsi, position } = data;
       
+      // Throttle updates to prevent excessive re-renders
+      const now = Date.now();
+      if (now - lastUpdateRef.current < 100) return; // Max 10 updates/second
+      lastUpdateRef.current = now;
+      
       setVessels(prev => {
         const index = prev.findIndex(v => v.mmsi === mmsi);
         if (index >= 0) {
+          // Only update if position actually changed
+          const existing = prev[index];
+          if (existing.lat === position.lat && existing.lon === position.lon) {
+            return prev; // No change, return same reference
+          }
           // Create new array reference only for updated vessel
           const updated = [...prev];
-          updated[index] = { ...prev[index], ...position };
+          updated[index] = { ...existing, ...position };
           return updated;
         } else {
           // New vessel - add to end
@@ -957,6 +961,7 @@ function WindyEmbed({ opacity }) {
           zoom={7}
           className="leaflet-map"
           zoomControl={true}
+          ref={mapRef}
         >
         {darkMode ? (
           <TileLayer
@@ -969,116 +974,34 @@ function WindyEmbed({ opacity }) {
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
         )}
-        {/* ========================  
-            ROUTE HISTORY RENDERING  
-          ======================== */}
+        {/* Route History Rendering - Memoized */}
         {routeData && routeData.length > 1 && (
-          <>
-            <Polyline
-              positions={routeData.map(p => [p.lat, p.lon])}
-              pathOptions={{
-                color: "#00eaff",
-                weight: 4,
-                opacity: 0.9,
-                dashArray: "4 6",
-              }}
-            />
-
-            {/* Start Marker */}
-            <Marker
-              position={[routeData[0].lat, routeData[0].lon]}
-              icon={L.divIcon({
-                className: "route-start-icon",
-                html: `<div class="route-marker route-start"></div>`,
-                iconSize: [18, 18],
-                iconAnchor: [9, 9],
-              })}
-            />
-
-            {/* End Marker */}
-            <Marker
-              position={[
-                routeData[routeData.length - 1].lat,
-                routeData[routeData.length - 1].lon
-              ]}
-              icon={L.divIcon({
-                className: "route-end-icon",
-                html: `<div class="route-marker route-end"></div>`,
-                iconSize: [18, 18],
-                iconAnchor: [9, 9],
-              })}
-            />
-          </>
+          <RouteDisplay routeData={routeData} />
         )}
 
 
 
 
 
-          {filteredVessels.map(vessel => {
-            const typeInfo = getShipTypeInfo(vessel);
-
-            return (
-              <React.Fragment key={vessel.mmsi}>
-                
-                {/* Vessel Marker */}
-                <Marker
-                  position={[vessel.lat, vessel.lon]}
-                  icon={createVesselIcon(vessel, selectedVessel === vessel.mmsi)}
-                  eventHandlers={{
-                    click: () => handleVesselClick(vessel),
-                    mouseover: () => handleVesselHover(vessel),
-                    mouseout: handleVesselHoverEnd
-                  }}
-                >
-                  <Popup>
-                    <VesselPopup vessel={vessel} getShipTypeInfo={getShipTypeInfo} />
-                  </Popup>
-                </Marker>
-              </React.Fragment>
-            );
-          })}
+          {/* Render markers - limited to visible viewport for performance */}
+          {memoizedFilteredVessels.map(vessel => (
+            <VesselMarker
+              key={vessel.mmsi}
+              vessel={vessel}
+              isSelected={selectedVessel === vessel.mmsi}
+              onClick={handleVesselClick}
+              onHover={handleVesselHover}
+              onHoverEnd={handleVesselHoverEnd}
+              getShipTypeInfo={getShipTypeInfo}
+              createIcon={createVesselIcon}
+            />
+          ))}
 
           {!selectedVessel && (
           <MapBounds
-            markers={filteredVessels}
+            markers={memoizedFilteredVessels}
             disabled={routeData && routeData.length > 1}
           />
-        )}
-
-
-                  {/* Route History Line */}
-        {routeData && routeData.length > 1 && (
-          <>
-            <Polyline
-              positions={routeData.map(p => [p.lat, p.lon])}
-              pathOptions={{
-                color: "#00eaff",
-                weight: 3,
-                opacity: 0.8,
-              }}
-            />
-            
-            {/* Start Marker (oldest point) */}
-            <Marker
-              position={[routeData[0].lat, routeData[0].lon]}
-              icon={L.divIcon({
-                className: "route-start",
-                html: `<div class="route-marker route-start"></div>`,
-                iconSize: [16, 16]
-              })}
-            />
-
-            {/* End Marker (latest point) */}
-            <Marker
-              position={[routeData[routeData.length - 1].lat, routeData[routeData.length - 1].lon]}
-              icon={L.divIcon({
-                className: "route-end",
-                html: `<div class="route-marker route-end"></div>`,
-                iconSize: [16, 16]
-              })}
-            />
-          </>
         )}
 
         </MapContainer>
@@ -1086,18 +1009,14 @@ function WindyEmbed({ opacity }) {
         {/* Windy Overlay on Top */}
         {showWindLayer && <WindyEmbed opacity={windOpacity} />}
         <VesselSidebar
-        vessel={vessels.find(v => v.mmsi === selectedVessel)}
-        getShipTypeInfo={getShipTypeInfo}   // <-- add this line
-        onClose={() => {
-          setSelectedVessel(null);
-          setRouteData(null);
-        }}
-        darkMode={darkMode}
-      />
-        eventHandlers={{
-        click: () => handleVesselClick(vessel),
-        mouseover: L.DomEvent.stopPropagation
-      }}
+          vessel={vessels.find(v => v.mmsi === selectedVessel)}
+          getShipTypeInfo={getShipTypeInfo}
+          onClose={() => {
+            setSelectedVessel(null);
+            setRouteData(null);
+          }}
+          darkMode={darkMode}
+        />
 
         {/* Hover Info Card */}
         <AnimatePresence>
@@ -1239,8 +1158,86 @@ function WindyEmbed({ opacity }) {
   );
 }
 
-// Enhanced Vessel Popup
-function VesselPopup({ vessel, getShipTypeInfo }) {
+// Memoized Route Display Component
+const RouteDisplay = React.memo(({ routeData }) => {
+  const routePositions = useMemo(
+    () => routeData.map(p => [p.lat, p.lon]),
+    [routeData]
+  );
+
+  return (
+    <>
+      <Polyline
+        positions={routePositions}
+        pathOptions={{
+          color: "#00eaff",
+          weight: 4,
+          opacity: 0.9,
+          dashArray: "4 6",
+        }}
+      />
+      <Marker
+        position={[routeData[0].lat, routeData[0].lon]}
+        icon={L.divIcon({
+          className: "route-start-icon",
+          html: `<div class="route-marker route-start"></div>`,
+          iconSize: [18, 18],
+          iconAnchor: [9, 9],
+        })}
+      />
+      <Marker
+        position={[routeData[routeData.length - 1].lat, routeData[routeData.length - 1].lon]}
+        icon={L.divIcon({
+          className: "route-end-icon",
+          html: `<div class="route-marker route-end"></div>`,
+          iconSize: [18, 18],
+          iconAnchor: [9, 9],
+        })}
+      />
+    </>
+  );
+});
+
+// Memoized Vessel Marker Component
+const VesselMarker = React.memo(({ 
+  vessel, 
+  isSelected, 
+  onClick, 
+  onHover, 
+  onHoverEnd, 
+  getShipTypeInfo, 
+  createIcon 
+}) => {
+  const handleClick = useCallback(() => onClick(vessel), [onClick, vessel]);
+  const handleHover = useCallback(() => onHover(vessel), [onHover, vessel]);
+
+  return (
+    <Marker
+      position={[vessel.lat, vessel.lon]}
+      icon={createIcon(vessel, isSelected)}
+      eventHandlers={{
+        click: handleClick,
+        mouseover: handleHover,
+        mouseout: onHoverEnd
+      }}
+    >
+      <Popup>
+        <VesselPopup vessel={vessel} getShipTypeInfo={getShipTypeInfo} />
+      </Popup>
+    </Marker>
+  );
+}, (prevProps, nextProps) => {
+  // Custom comparison to prevent unnecessary re-renders
+  return (
+    prevProps.vessel.mmsi === nextProps.vessel.mmsi &&
+    prevProps.vessel.lat === nextProps.vessel.lat &&
+    prevProps.vessel.lon === nextProps.vessel.lon &&
+    prevProps.isSelected === nextProps.isSelected
+  );
+});
+
+// Enhanced Vessel Popup - Memoized
+const VesselPopup = React.memo(({ vessel, getShipTypeInfo }) => {
   const info = getShipTypeInfo(vessel);
   const [windTechDetails, setWindTechDetails] = useState(null);
 
@@ -1381,9 +1378,7 @@ function VesselPopup({ vessel, getShipTypeInfo }) {
         )}
       </div>
     </motion.div>
-    
   );
-
-}
+});
 
 
