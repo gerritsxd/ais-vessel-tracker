@@ -53,14 +53,6 @@ export default function VesselMap() {
   const [filteredVessels, setFilteredVessels] = useState([]);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
-  // Memoize stats calculation
-  const stats = useMemo(() => ({
-    total: vessels.length,
-    active: memoizedFilteredVessels.length,
-    withGT: vessels.filter(v => v.gross_tonnage > 0).length,
-    wasp: vessels.filter(v => v.wind_assisted === 1).length
-  }), [vessels.length, memoizedFilteredVessels.length]);
-
   const [filters, setFilters] = useState({
     type: 'all',
     detailedType: 'all',
@@ -266,6 +258,14 @@ export default function VesselMap() {
     // Limit to 2000 vessels max for performance
     return filtered.slice(0, 2000);
   }, [vessels, applyFilters]);
+  
+  // Memoize stats calculation (moved here after memoizedFilteredVessels is defined)
+  const stats = useMemo(() => ({
+    total: vessels.length,
+    active: memoizedFilteredVessels.length,
+    withGT: vessels.filter(v => v.gross_tonnage > 0).length,
+    wasp: vessels.filter(v => v.wind_assisted === 1).length
+  }), [vessels.length, memoizedFilteredVessels.length]);
   
   // Update filtered vessels state when memoized value changes
   useEffect(() => {
@@ -1190,10 +1190,12 @@ const VesselMarker = React.memo(({
   const handleClick = useCallback(() => onClick(vessel), [onClick, vessel]);
   const handleHover = useCallback(() => onHover(vessel), [onHover, vessel]);
 
+  if (!vessel || !vessel.lat || !vessel.lon) return null;
+
   return (
     <Marker
       position={[vessel.lat, vessel.lon]}
-      icon={lightIcon(getShipTypeInfo(vessel).color)}
+      icon={createIcon(vessel, isSelected)}
       eventHandlers={{
         click: handleClick,
         mouseover: handleHover,
