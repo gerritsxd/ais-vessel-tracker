@@ -2284,6 +2284,112 @@ def get_ml_stats():
         return jsonify({'error': str(e)}), 500
 
 
+# ==================== ML DATA ENDPOINTS (for PC ML Service) ====================
+
+@app.route('/ships/api/ml/data/intelligence')
+def get_ml_intelligence_data():
+    """Serve intelligence data for PC ML service."""
+    try:
+        project_root = Path(__file__).parent.parent.parent
+        data_dir = project_root / 'data'
+        
+        # Find latest Gemini intelligence file
+        intel_files = sorted(
+            data_dir.glob("company_intelligence_gemini_*.json"),
+            reverse=True
+        )
+        
+        if not intel_files:
+            return jsonify({'error': 'No intelligence data found', 'companies': {}}), 404
+        
+        with open(intel_files[0], 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        return jsonify(data)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/ships/api/ml/data/profiles')
+def get_ml_profile_data():
+    """Serve profile data for PC ML service."""
+    try:
+        project_root = Path(__file__).parent.parent.parent
+        data_dir = project_root / 'data'
+        
+        # Find latest V3 structured profile file
+        profile_files = sorted(
+            data_dir.glob("company_profiles_v3_structured_*.json"),
+            reverse=True
+        )
+        
+        if not profile_files:
+            return jsonify({'error': 'No profile data found', 'companies': {}}), 404
+        
+        with open(profile_files[0], 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        return jsonify(data)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/ships/api/ml/data/wasp')
+def get_ml_wasp_data():
+    """Serve WASP adopters data for PC ML service."""
+    try:
+        project_root = Path(__file__).parent.parent.parent
+        db_path = project_root / 'data' / 'vessel_static_data.db'
+        
+        if not db_path.exists():
+            return jsonify({'error': 'Database not found', 'wasp_companies': {}}), 404
+        
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        
+        wasp_companies = {}
+        
+        # Check if required tables exist
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='eu_mrv_emissions'")
+        has_emissions = cursor.fetchone() is not None
+        
+        if has_emissions:
+            # Get companies with wind-assisted vessels
+            try:
+                cursor.execute('''
+                    SELECT DISTINCT e.company_name
+                    FROM eu_mrv_emissions e
+                    INNER JOIN vessels_static v ON e.imo = v.imo
+                    WHERE v.wind_assisted = 1
+                    AND e.company_name IS NOT NULL
+                ''')
+                wasp_companies = {row[0]: True for row in cursor.fetchall()}
+            except Exception:
+                pass
+            
+            # Also check wind_propulsion table
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='wind_propulsion'")
+            has_wind = cursor.fetchone() is not None
+            
+            if has_wind:
+                try:
+                    cursor.execute('''
+                        SELECT DISTINCT e.company_name
+                        FROM eu_mrv_emissions e
+                        INNER JOIN wind_propulsion w ON UPPER(TRIM(e.vessel_name)) = UPPER(TRIM(w.vessel_name))
+                        WHERE e.company_name IS NOT NULL
+                    ''')
+                    for row in cursor.fetchall():
+                        wasp_companies[row[0]] = True
+                except Exception:
+                    pass
+        
+        conn.close()
+        return jsonify({'wasp_companies': wasp_companies})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 if __name__ == '__main__':
     # Start tracking in background
     tracking_thread = threading.Thread(target=start_tracking, daemon=True)

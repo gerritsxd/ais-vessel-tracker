@@ -26,12 +26,12 @@ def main():
     profile_data = predictor.load_profile_data()
     wasp_adopters = predictor.get_wasp_adopters()
     
-    print(f"   ✓ Intelligence data: {len(intelligence_data)} companies")
-    print(f"   ✓ Profile data: {len(profile_data)} companies")
-    print(f"   ✓ WASP adopters: {len(wasp_adopters)} companies")
+    print(f"   [OK] Intelligence data: {len(intelligence_data)} companies")
+    print(f"   [OK] Profile data: {len(profile_data)} companies")
+    print(f"   [OK] WASP adopters: {len(wasp_adopters)} companies")
     
     if len(intelligence_data) == 0 and len(profile_data) == 0:
-        print("\n⚠️  No data available. Run intelligence scraper and profiler first.")
+        print("\n[WARN] No data available. Run intelligence scraper and profiler first.")
         return
     
     # Test feature extraction
@@ -40,9 +40,9 @@ def main():
         sample_company = list(intelligence_data.keys())[0]
         sample_data = intelligence_data[sample_company]
         features = predictor.extract_structured_features(sample_data)
-        print(f"   ✓ Sample company: {sample_company}")
-        print(f"   ✓ Features extracted: {len(features)} features")
-        print(f"   ✓ Key features: vessel_count={features.get('vessel_count', 0)}, "
+        print(f"   [OK] Sample company: {sample_company}")
+        print(f"   [OK] Features extracted: {len(features)} features")
+        print(f"   [OK] Key features: vessel_count={features.get('vessel_count', 0)}, "
               f"grants={features.get('grants_count', 0)}, "
               f"sustainability={features.get('sustainability_count', 0)}")
     
@@ -50,23 +50,23 @@ def main():
     print("\n3. Testing sentiment analysis...")
     test_text = "Maersk is investing heavily in green technology and wind propulsion systems."
     sentiment = predictor.analyze_sentiment(test_text)
-    print(f"   ✓ Test text: '{test_text[:50]}...'")
-    print(f"   ✓ Polarity: {sentiment['polarity']:.2f}")
-    print(f"   ✓ Subjectivity: {sentiment['subjectivity']:.2f}")
+    print(f"   [OK] Test text: '{test_text[:50]}...'")
+    print(f"   [OK] Polarity: {sentiment['polarity']:.2f}")
+    print(f"   [OK] Subjectivity: {sentiment['subjectivity']:.2f}")
     
     # Test model training (if enough data)
     print("\n4. Testing model training...")
     try:
         models = predictor.train_all_models()
         if models:
-            print(f"   ✓ Models trained: {list(models.keys())}")
+            print(f"   [OK] Models trained: {list(models.keys())}")
             predictor.save_models()
-            print("   ✓ Models saved to data/ml_models.pkl")
+            print("   [OK] Models saved to data/ml_models.pkl")
             
             # Test predictions
             print("\n5. Testing predictions...")
             predictions = predictor.predict_all_companies()
-            print(f"   ✓ Predictions generated: {len(predictions)} companies")
+            print(f"   [OK] Predictions generated: {len(predictions)} companies")
             
             # Show sample predictions
             print("\n6. Sample predictions:")
@@ -80,9 +80,9 @@ def main():
                 if 'company_type' in pred:
                     print(f"      Type: {pred['company_type']['prediction']}")
         else:
-            print("   ⚠️  No models trained (insufficient data)")
+            print("   [WARN] No models trained (insufficient data)")
     except Exception as e:
-        print(f"   ❌ Error training models: {e}")
+        print(f"   [ERROR] Error training models: {e}")
         import traceback
         traceback.print_exc()
     
