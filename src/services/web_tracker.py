@@ -1457,53 +1457,55 @@ def get_match_statistics():
         conn = sqlite3.connect(db_path, timeout=30)
         cursor = conn.cursor()
         
-        # Total vessels with IMO in AIS
-        cursor.execute('SELECT COUNT(*) FROM vessels_static WHERE imo IS NOT NULL AND imo > 0')
-        total_ais_with_imo = cursor.fetchone()[0]
+        # Ensure indexes exist for performance
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_vessels_static_imo ON vessels_static(imo)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_mrv_imo ON eu_mrv_emissions(imo)')
+        conn.commit()
         
-        # Total vessels in AIS (all)
+        # Optimized queries using LEFT JOINs instead of NOT EXISTS (much faster with indexes)
         cursor.execute('SELECT COUNT(*) FROM vessels_static')
         total_ais = cursor.fetchone()[0]
         
-        # Total vessels in emissions DB
+        cursor.execute('SELECT COUNT(*) FROM vessels_static WHERE imo IS NOT NULL AND imo > 0')
+        total_ais_with_imo = cursor.fetchone()[0]
+        
         cursor.execute('SELECT COUNT(*) FROM eu_mrv_emissions')
         total_emissions = cursor.fetchone()[0]
         
-        # Matched vessels (in both databases)
+        # Matched vessels - use INNER JOIN (fast with index)
         cursor.execute('''
-            SELECT COUNT(*)
+            SELECT COUNT(DISTINCT v.imo)
             FROM vessels_static v
             INNER JOIN eu_mrv_emissions e ON v.imo = e.imo
+            WHERE v.imo IS NOT NULL AND v.imo > 0
         ''')
         matched = cursor.fetchone()[0]
         
-        # Vessels with emissions data but no AIS
+        # Emissions only - use LEFT JOIN (faster than NOT EXISTS)
         cursor.execute('''
             SELECT COUNT(*)
             FROM eu_mrv_emissions e
-            WHERE NOT EXISTS (
-                SELECT 1 FROM vessels_static v WHERE v.imo = e.imo
-            )
+            LEFT JOIN vessels_static v ON e.imo = v.imo
+            WHERE v.imo IS NULL
         ''')
         emissions_only = cursor.fetchone()[0]
         
-        # Vessels with AIS but no emissions
+        # AIS only - use LEFT JOIN (faster than NOT EXISTS)
         cursor.execute('''
             SELECT COUNT(*)
             FROM vessels_static v
-            WHERE v.imo IS NOT NULL AND v.imo > 0
-            AND NOT EXISTS (
-                SELECT 1 FROM eu_mrv_emissions e WHERE e.imo = v.imo
-            )
+            LEFT JOIN eu_mrv_emissions e ON v.imo = e.imo
+            WHERE v.imo IS NOT NULL AND v.imo > 0 AND e.imo IS NULL
         ''')
         ais_only = cursor.fetchone()[0]
         
-        # Recent matches (vessels added in last 24 hours that have emissions data)
+        # Recent matches - simplified query
         cursor.execute('''
-            SELECT COUNT(*)
+            SELECT COUNT(DISTINCT v.imo)
             FROM vessels_static v
             INNER JOIN eu_mrv_emissions e ON v.imo = e.imo
-            WHERE datetime(v.last_updated) > datetime('now', '-1 day')
+            WHERE v.imo IS NOT NULL AND v.imo > 0
+            AND v.last_updated > datetime('now', '-1 day')
         ''')
         recent_matches = cursor.fetchone()[0]
         
