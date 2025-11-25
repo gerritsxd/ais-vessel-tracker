@@ -54,7 +54,8 @@ app = Flask(__name__,
             static_folder=str(static_dir))
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 app.config['SECRET_KEY'] = 'ais-tracker-secret'
-socketio = SocketIO(app, cors_allowed_origins="*")
+# Configure Socket.IO to work with /ships/ path prefix
+socketio = SocketIO(app, cors_allowed_origins="*", path="/ships/socket.io")
 
 # Global state
 API_KEY = None
