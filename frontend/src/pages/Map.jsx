@@ -1365,8 +1365,6 @@ function WindyEmbed({ opacity }) {
   );
 }
 
-<<<<<<< HEAD
-=======
 // Memoized Route Display Component
 const RouteDisplay = React.memo(({ routeData }) => {
   const routePositions = useMemo(
