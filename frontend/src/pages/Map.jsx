@@ -432,19 +432,7 @@ function WindyEmbed({ opacity }) {
 
 
 
-  // ---- PERIODIC STATS REFRESH ----
-  useEffect(() => {
-    const interval = setInterval(() => {
-      fetch('/ships/api/stats')
-        .then(res => res.json())
-        .then(data => setStats(prev => ({
-          ...prev,
-          total: data.total_vessels
-        })))
-        .catch(err => console.error('Error loading stats:', err));
-    }, 10000); // Increased to 10 seconds
-    return () => clearInterval(interval);
-  }, []);
+  // Stats are computed via useMemo from vessel data (line 268), no periodic refresh needed
 
   return (
     <div className={`vessel-map-page ${darkMode ? 'dark-mode' : ''}`}>
