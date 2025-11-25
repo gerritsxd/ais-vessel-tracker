@@ -259,18 +259,21 @@ export default function VesselMap() {
     return filtered.slice(0, 2000);
   }, [vessels, applyFilters]);
   
-  // Memoize stats calculation (moved here after memoizedFilteredVessels is defined)
-  const stats = useMemo(() => ({
-    total: vessels.length,
-    active: memoizedFilteredVessels.length,
-    withGT: vessels.filter(v => v.gross_tonnage > 0).length,
-    wasp: vessels.filter(v => v.wind_assisted === 1).length
-  }), [vessels, memoizedFilteredVessels]);
-  
   // Update filtered vessels state when memoized value changes
   useEffect(() => {
     setFilteredVessels(memoizedFilteredVessels);
   }, [memoizedFilteredVessels]);
+  
+  // Memoize stats calculation (moved here after memoizedFilteredVessels is defined and used)
+  const stats = useMemo(() => {
+    const filtered = memoizedFilteredVessels;
+    return {
+      total: vessels.length,
+      active: filtered.length,
+      withGT: vessels.filter(v => v.gross_tonnage > 0).length,
+      wasp: vessels.filter(v => v.wind_assisted === 1).length
+    };
+  }, [vessels, memoizedFilteredVessels]);
   
   // ---- EVENT HANDLERS ----
   const handleVesselClick = useCallback((vessel) => {
