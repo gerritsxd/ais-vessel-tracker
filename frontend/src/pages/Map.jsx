@@ -38,6 +38,234 @@ function MapBounds({ markers, disabled }) {
   return null;
 }
 
+// Memoized Route Display Component
+const RouteDisplay = React.memo(({ routeData }) => {
+  const routePositions = useMemo(
+    () => routeData.map(p => [p.lat, p.lon]),
+    [routeData]
+  );
+
+  return (
+    <>
+      <Polyline
+        positions={routePositions}
+        pathOptions={{
+          color: "#00eaff",
+          weight: 4,
+          opacity: 0.9,
+          dashArray: "4 6",
+        }}
+      />
+      <Marker
+        position={[routeData[0].lat, routeData[0].lon]}
+        icon={L.divIcon({
+          className: "route-start-icon",
+          html: `<div class="route-marker route-start"></div>`,
+          iconSize: [18, 18],
+          iconAnchor: [9, 9],
+        })}
+      />
+      <Marker
+        position={[routeData[routeData.length - 1].lat, routeData[routeData.length - 1].lon]}
+        icon={L.divIcon({
+          className: "route-end-icon",
+          html: `<div class="route-marker route-end"></div>`,
+          iconSize: [18, 18],
+          iconAnchor: [9, 9],
+        })}
+      />
+    </>
+  );
+});
+
+// Memoized Vessel Marker Component
+const VesselMarker = React.memo(({ 
+  vessel, 
+  isSelected, 
+  onClick, 
+  onHover, 
+  onHoverEnd, 
+  getShipTypeInfo, 
+  createIcon 
+}) => {
+  const handleClick = useCallback(() => onClick(vessel), [onClick, vessel]);
+  const handleHover = useCallback(() => onHover(vessel), [onHover, vessel]);
+
+  if (!vessel || !vessel.lat || !vessel.lon) return null;
+
+  return (
+    <Marker
+      position={[vessel.lat, vessel.lon]}
+      icon={createIcon(vessel, isSelected)}
+      eventHandlers={{
+        click: handleClick,
+        mouseover: handleHover,
+        mouseout: onHoverEnd
+      }}
+    >
+      <Popup>
+        <VesselPopup vessel={vessel} getShipTypeInfo={getShipTypeInfo} />
+      </Popup>
+    </Marker>
+  );
+}, (prevProps, nextProps) => {
+  // Custom comparison: return true if props are EQUAL (skip render)
+  // Return false if props are DIFFERENT (should render)
+  if (!prevProps || !nextProps) return false; // Always render on first render
+  
+  return (
+    prevProps.vessel?.mmsi === nextProps.vessel?.mmsi &&
+    prevProps.vessel?.lat === nextProps.vessel?.lat &&
+    prevProps.vessel?.lon === nextProps.vessel?.lon &&
+    prevProps.isSelected === nextProps.isSelected
+  );
+});
+
+// Enhanced Vessel Popup - Memoized
+const VesselPopup = React.memo(({ vessel, getShipTypeInfo }) => {
+  const info = getShipTypeInfo(vessel);
+  const [windTechDetails, setWindTechDetails] = useState(null);
+
+  // Fetch wind technology details if vessel has wind propulsion
+  useEffect(() => {
+    if (vessel.wind_assisted === 1) {
+      fetch(`/ships/api/vessel/${vessel.mmsi}/wind-tech`)
+        .then(response => response.json())
+        .then(data => {
+          if (data.found) {
+            setWindTechDetails(data);
+          }
+        })
+        .catch(error => console.error('Error loading wind tech:', error));
+    }
+  }, [vessel.mmsi, vessel.wind_assisted]);
+
+  return (
+    <motion.div
+      className="vessel-popup-content"
+      initial={{ scale: 0.8, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      transition={{ duration: 0.3 }}
+    >
+      <div className="popup-header">
+        <motion.div
+          className="popup-icon-large"
+          animate={{
+            rotate: [0, 5, -5, 0],
+            scale: [1, 1.1, 1]
+          }}
+          transition={{ duration: 3, repeat: Infinity }}
+        >
+          {info.icon}
+        </motion.div>
+        <h3 className="popup-vessel-name">{vessel.name || 'Unknown'}</h3>
+        <span className="popup-badge" style={{ background: info.color }}>
+          {info.name}
+        </span>
+        
+        {/* Wind-Assisted Indicator */}
+        {vessel.wind_assisted === 1 && (
+          <div style={{ 
+            marginTop: '8px', 
+            padding: '6px 12px', 
+            background: 'linear-gradient(135deg, #1a3a1a 0%, #2d5a2d 100%)',
+            border: '2px solid #00ff00',
+            borderRadius: '6px',
+            fontSize: '13px',
+            fontWeight: 'bold',
+            color: '#00ff00',
+            textAlign: 'center'
+          }}>
+            🌬️ Wind-Assisted Propulsion
+          </div>
+        )}
+      </div>
+
+      <div className="popup-details">
+        <div className="detail-row">
+          <span className="detail-label">MMSI</span>
+          <span className="detail-value">{vessel.mmsi}</span>
+        </div>
+        <div className="detail-row">
+          <span className="detail-label">Flag</span>
+          <span className="detail-value">{vessel.flag_state || 'Unknown'}</span>
+        </div>
+        <div className="detail-row">
+          <span className="detail-label">Length</span>
+          <span className="detail-value">
+            {vessel.length != null ? `${vessel.length}m` : 'N/A'}
+          </span>
+        </div>
+        {vessel.imo && (
+          <div className="detail-row">
+            <span className="detail-label">IMO</span>
+            <span className="detail-value">{vessel.imo}</span>
+          </div>
+        )}
+        
+        {/* Wind Technology Details */}
+        {windTechDetails && (
+          <>
+            <div className="detail-divider"></div>
+            <div className="detail-row">
+              <span className="detail-label">Wind Tech</span>
+              <span className="detail-value" style={{ color: '#00ff00' }}>
+                {windTechDetails.technology}
+              </span>
+            </div>
+            <div className="detail-row">
+              <span className="detail-label">Installed</span>
+              <span className="detail-value">
+                {windTechDetails.year} ({windTechDetails.type})
+              </span>
+            </div>
+          </>
+        )}
+        
+        <div className="detail-divider"></div>
+        {vessel.lat != null && vessel.lon != null && (
+          <>
+            <div className="detail-row">
+              <span className="detail-label">Position</span>
+              <span className="detail-value">
+                {vessel.lat.toFixed(4)}°N, {vessel.lon.toFixed(4)}°E
+              </span>
+            </div>
+            <div className="detail-row">
+              <span className="detail-label">Speed</span>
+              <span className="detail-value">
+                {vessel.sog != null ? `${vessel.sog} knots` : 'N/A'}
+              </span>
+            </div>
+            <div className="detail-row">
+              <span className="detail-label">Course</span>
+              <span className="detail-value">
+                {vessel.cog != null ? `${vessel.cog}°` : 'N/A'}
+              </span>
+            </div>
+            <div className="detail-row">
+              <span className="detail-label">Last Update</span>
+              <span className="detail-value">
+                {vessel.timestamp
+                  ? new Date(vessel.timestamp).toLocaleTimeString()
+                  : 'N/A'}
+              </span>
+            </div>
+          </>
+        )}
+        {vessel.lat == null && (
+          <div className="detail-row">
+            <span className="detail-label">Position</span>
+            <span className="detail-value">
+              <em>Waiting for live position…</em>
+            </span>
+          </div>
+        )}
+      </div>
+    </motion.div>
+  );
+});
+
 
 
 // Wind Layer Component
@@ -974,7 +1202,7 @@ function WindyEmbed({ opacity }) {
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
         )}
-        {/* Route History Rendering - Memoized */}
+        {/* Route History Rendering */}
         {routeData && routeData.length > 1 && (
           <RouteDisplay routeData={routeData} />
         )}
@@ -1157,228 +1385,5 @@ function WindyEmbed({ opacity }) {
     </div>
   );
 }
-
-// Memoized Route Display Component
-const RouteDisplay = React.memo(({ routeData }) => {
-  const routePositions = useMemo(
-    () => routeData.map(p => [p.lat, p.lon]),
-    [routeData]
-  );
-
-  return (
-    <>
-      <Polyline
-        positions={routePositions}
-        pathOptions={{
-          color: "#00eaff",
-          weight: 4,
-          opacity: 0.9,
-          dashArray: "4 6",
-        }}
-      />
-      <Marker
-        position={[routeData[0].lat, routeData[0].lon]}
-        icon={L.divIcon({
-          className: "route-start-icon",
-          html: `<div class="route-marker route-start"></div>`,
-          iconSize: [18, 18],
-          iconAnchor: [9, 9],
-        })}
-      />
-      <Marker
-        position={[routeData[routeData.length - 1].lat, routeData[routeData.length - 1].lon]}
-        icon={L.divIcon({
-          className: "route-end-icon",
-          html: `<div class="route-marker route-end"></div>`,
-          iconSize: [18, 18],
-          iconAnchor: [9, 9],
-        })}
-      />
-    </>
-  );
-});
-
-// Memoized Vessel Marker Component
-const VesselMarker = React.memo(({ 
-  vessel, 
-  isSelected, 
-  onClick, 
-  onHover, 
-  onHoverEnd, 
-  getShipTypeInfo, 
-  createIcon 
-}) => {
-  const handleClick = useCallback(() => onClick(vessel), [onClick, vessel]);
-  const handleHover = useCallback(() => onHover(vessel), [onHover, vessel]);
-
-  return (
-    <Marker
-      position={[vessel.lat, vessel.lon]}
-      icon={createIcon(vessel, isSelected)}
-      eventHandlers={{
-        click: handleClick,
-        mouseover: handleHover,
-        mouseout: onHoverEnd
-      }}
-    >
-      <Popup>
-        <VesselPopup vessel={vessel} getShipTypeInfo={getShipTypeInfo} />
-      </Popup>
-    </Marker>
-  );
-}, (prevProps, nextProps) => {
-  // Custom comparison to prevent unnecessary re-renders
-  return (
-    prevProps.vessel.mmsi === nextProps.vessel.mmsi &&
-    prevProps.vessel.lat === nextProps.vessel.lat &&
-    prevProps.vessel.lon === nextProps.vessel.lon &&
-    prevProps.isSelected === nextProps.isSelected
-  );
-});
-
-// Enhanced Vessel Popup - Memoized
-const VesselPopup = React.memo(({ vessel, getShipTypeInfo }) => {
-  const info = getShipTypeInfo(vessel);
-  const [windTechDetails, setWindTechDetails] = useState(null);
-
-  // Fetch wind technology details if vessel has wind propulsion
-  useEffect(() => {
-    if (vessel.wind_assisted === 1) {
-      fetch(`/ships/api/vessel/${vessel.mmsi}/wind-tech`)
-        .then(response => response.json())
-        .then(data => {
-          if (data.found) {
-            setWindTechDetails(data);
-          }
-        })
-        .catch(error => console.error('Error loading wind tech:', error));
-    }
-  }, [vessel.mmsi, vessel.wind_assisted]);
-
-  return (
-    <motion.div
-      className="vessel-popup-content"
-      initial={{ scale: 0.8, opacity: 0 }}
-      animate={{ scale: 1, opacity: 1 }}
-      transition={{ duration: 0.3 }}
-    >
-      <div className="popup-header">
-        <motion.div
-          className="popup-icon-large"
-          animate={{
-            rotate: [0, 5, -5, 0],
-            scale: [1, 1.1, 1]
-          }}
-          transition={{ duration: 3, repeat: Infinity }}
-        >
-          {info.icon}
-        </motion.div>
-        <h3 className="popup-vessel-name">{vessel.name || 'Unknown'}</h3>
-        <span className="popup-badge" style={{ background: info.color }}>
-          {info.name}
-        </span>
-        
-        {/* Wind-Assisted Indicator */}
-        {vessel.wind_assisted === 1 && (
-          <div style={{ 
-            marginTop: '8px', 
-            padding: '6px 12px', 
-            background: 'linear-gradient(135deg, #1a3a1a 0%, #2d5a2d 100%)',
-            border: '2px solid #00ff00',
-            borderRadius: '6px',
-            fontSize: '13px',
-            fontWeight: 'bold',
-            color: '#00ff00',
-            textAlign: 'center'
-          }}>
-            🌬️ Wind-Assisted Propulsion
-          </div>
-        )}
-      </div>
-
-      <div className="popup-details">
-        <div className="detail-row">
-          <span className="detail-label">MMSI</span>
-          <span className="detail-value">{vessel.mmsi}</span>
-        </div>
-        <div className="detail-row">
-          <span className="detail-label">Flag</span>
-          <span className="detail-value">{vessel.flag_state || 'Unknown'}</span>
-        </div>
-        <div className="detail-row">
-          <span className="detail-label">Length</span>
-          <span className="detail-value">
-            {vessel.length != null ? `${vessel.length}m` : 'N/A'}
-          </span>
-        </div>
-        {vessel.imo && (
-          <div className="detail-row">
-            <span className="detail-label">IMO</span>
-            <span className="detail-value">{vessel.imo}</span>
-          </div>
-        )}
-        
-        {/* Wind Technology Details */}
-        {windTechDetails && (
-          <>
-            <div className="detail-divider"></div>
-            <div className="detail-row">
-              <span className="detail-label">Wind Tech</span>
-              <span className="detail-value" style={{ color: '#00ff00' }}>
-                {windTechDetails.technology}
-              </span>
-            </div>
-            <div className="detail-row">
-              <span className="detail-label">Installed</span>
-              <span className="detail-value">
-                {windTechDetails.year} ({windTechDetails.type})
-              </span>
-            </div>
-          </>
-        )}
-        
-        <div className="detail-divider"></div>
-        {vessel.lat != null && vessel.lon != null && (
-          <>
-            <div className="detail-row">
-              <span className="detail-label">Position</span>
-              <span className="detail-value">
-                {vessel.lat.toFixed(4)}°N, {vessel.lon.toFixed(4)}°E
-              </span>
-            </div>
-            <div className="detail-row">
-              <span className="detail-label">Speed</span>
-              <span className="detail-value">
-                {vessel.sog != null ? `${vessel.sog} knots` : 'N/A'}
-              </span>
-            </div>
-            <div className="detail-row">
-              <span className="detail-label">Course</span>
-              <span className="detail-value">
-                {vessel.cog != null ? `${vessel.cog}°` : 'N/A'}
-              </span>
-            </div>
-            <div className="detail-row">
-              <span className="detail-label">Last Update</span>
-              <span className="detail-value">
-                {vessel.timestamp
-                  ? new Date(vessel.timestamp).toLocaleTimeString()
-                  : 'N/A'}
-              </span>
-            </div>
-          </>
-        )}
-        {vessel.lat == null && (
-          <div className="detail-row">
-            <span className="detail-label">Position</span>
-            <span className="detail-value">
-              <em>Waiting for live position…</em>
-            </span>
-          </div>
-        )}
-      </div>
-    </motion.div>
-  );
-});
 
 

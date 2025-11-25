@@ -10,6 +10,7 @@
 # ----------------------------------------------------------------------------
 Flask==3.1.2                    # Web framework for vessel tracking interface
 Flask-SocketIO==5.5.1           # Real-time WebSocket support for live updates
+Flask-CORS==5.0.0                # CORS support for ML service (PC)
 Werkzeug==3.1.3                 # WSGI utility library (Flask dependency)
 Jinja2==3.1.6                   # Template engine for Flask
 MarkupSafe==3.0.3               # Safe string handling for Jinja2
@@ -43,6 +44,11 @@ et-xmlfile==2.0.0               # XML utilities (openpyxl dependency)
 python-dateutil==2.9.0.post0    # Date parsing utilities
 pytz==2025.2                    # Timezone support
 tzdata==2025.2                  # Timezone database
+
+# Machine Learning & NLP
+# ----------------------------------------------------------------------------
+scikit-learn==1.6.0            # ML models (classification, regression)
+textblob==0.18.0                # Sentiment analysis and NLP
 
 # AI & Machine Learning (Optional)
 # ----------------------------------------------------------------------------

@@ -12,6 +12,7 @@ import threading
 import time
 from pathlib import Path
 from datetime import datetime
+import requests  # For proxying to PC ML service
 
 # Configuration
 DB_NAME = "vessel_static_data.db"
@@ -2028,6 +2029,214 @@ def get_intelligence_stats():
             'latest_file': latest_file.name,
             'timestamp': data.get('timestamp')
         })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# ==================== ML PREDICTION ROUTES ====================
+
+# ML Service Configuration (PC)
+# Set ML_PC_URL environment variable to use PC resources, e.g.:
+# export ML_PC_URL="http://YOUR_PC_IP:5001"
+# Or set to None/empty to use VPS resources
+ML_PC_URL = os.environ.get('ML_PC_URL', '')
+
+def proxy_to_pc(endpoint, method='GET', data=None):
+    """Proxy request to PC ML service."""
+    if not ML_PC_URL:
+        return None
+    
+    try:
+        import requests
+        url = f"{ML_PC_URL.rstrip('/')}/{endpoint.lstrip('/')}"
+        
+        if method == 'GET':
+            response = requests.get(url, timeout=30)
+        elif method == 'POST':
+            response = requests.post(url, json=data, timeout=300)  # Longer timeout for training
+        else:
+            return None
+        
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        print(f"Error proxying to PC: {e}")
+        return None
+
+@app.route('/ships/api/ml/predictions')
+def get_ml_predictions():
+    """Get ML predictions for all companies."""
+    # Try PC first if configured
+    if ML_PC_URL:
+        pc_response = proxy_to_pc('/predictions')
+        if pc_response:
+            return jsonify(pc_response)
+    
+    # Fallback to VPS
+    try:
+        project_root = Path(__file__).parent.parent.parent
+        predictions_file = project_root / 'data' / 'company_predictions.json'
+        
+        if not predictions_file.exists():
+            return jsonify({
+                'error': 'Predictions not available. Train models first.',
+                'predictions': {},
+                'total_companies': 0
+            })
+        
+        with open(predictions_file, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        return jsonify(data)
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/ships/api/ml/predictions/company/<company_name>')
+def get_company_prediction(company_name):
+    """Get ML predictions for a specific company."""
+    # Try PC first if configured
+    if ML_PC_URL:
+        pc_response = proxy_to_pc(f'/predictions/{company_name}')
+        if pc_response:
+            return jsonify(pc_response)
+    
+    # Fallback to VPS
+    try:
+        from services.ml_predictor_service import CompanyMLPredictor
+        
+        predictor = CompanyMLPredictor()
+        
+        # Try to load existing models
+        if not predictor.load_models():
+            return jsonify({
+                'error': 'Models not trained. Train models first.',
+                'company': company_name
+            }), 404
+        
+        # Load company data
+        intelligence_data = predictor.load_intelligence_data()
+        profile_data = predictor.load_profile_data()
+        
+        # Merge data
+        company_data = {}
+        if company_name in intelligence_data:
+            company_data.update(intelligence_data[company_name])
+        if company_name in profile_data:
+            company_data.update(profile_data[company_name])
+        
+        if not company_data:
+            return jsonify({'error': 'Company not found', 'company': company_name}), 404
+        
+        # Make prediction
+        predictions = predictor.predict_company(company_name, company_data)
+        
+        return jsonify({
+            'company': company_name,
+            'predictions': predictions,
+            'timestamp': datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/ships/api/ml/train', methods=['POST'])
+def train_ml_models():
+    """Train ML models (admin endpoint)."""
+    # Try PC first if configured
+    if ML_PC_URL:
+        pc_response = proxy_to_pc('/train', method='POST')
+        if pc_response:
+            return jsonify(pc_response)
+    
+    # Fallback to VPS
+    try:
+        from services.ml_predictor_service import CompanyMLPredictor
+        
+        predictor = CompanyMLPredictor()
+        models = predictor.train_all_models()
+        
+        if models:
+            predictor.save_models()
+            
+            # Generate predictions
+            predictions = predictor.predict_all_companies()
+            
+            # Save predictions
+            project_root = Path(__file__).parent.parent.parent
+            output_file = project_root / 'data' / 'company_predictions.json'
+            with open(output_file, 'w', encoding='utf-8') as f:
+                json.dump({
+                    'predictions': predictions,
+                    'total_companies': len(predictions),
+                    'timestamp': datetime.now().isoformat()
+                }, f, indent=2, ensure_ascii=False)
+            
+            return jsonify({
+                'status': 'success',
+                'models_trained': list(models.keys()),
+                'total_companies': len(predictions),
+                'message': 'Models trained and predictions generated'
+            })
+        else:
+            return jsonify({
+                'status': 'error',
+                'message': 'No models could be trained. Check data availability.'
+            }), 400
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/ships/api/ml/stats')
+def get_ml_stats():
+    """Get ML model statistics and performance metrics."""
+    # Try PC first if configured
+    if ML_PC_URL:
+        pc_response = proxy_to_pc('/stats')
+        if pc_response:
+            return jsonify(pc_response)
+    
+    # Fallback to VPS
+    try:
+        import pandas as pd
+        
+        project_root = Path(__file__).parent.parent.parent
+        predictions_file = project_root / 'data' / 'company_predictions.json'
+        models_file = project_root / 'data' / 'ml_models.pkl'
+        
+        stats = {
+            'models_available': models_file.exists(),
+            'predictions_available': predictions_file.exists(),
+            'total_companies': 0,
+            'predictions_summary': {}
+        }
+        
+        if predictions_file.exists():
+            with open(predictions_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            
+            predictions = data.get('predictions', {})
+            stats['total_companies'] = len(predictions)
+            
+            # Summary statistics
+            wasp_predictions = [p.get('wasp_adoption', {}).get('prediction', False) 
+                              for p in predictions.values() 
+                              if 'wasp_adoption' in p]
+            sust_predictions = [p.get('sustainability_focus', {}).get('prediction', 'unknown')
+                              for p in predictions.values()
+                              if 'sustainability_focus' in p]
+            
+            stats['predictions_summary'] = {
+                'wasp_adoption_positive': sum(wasp_predictions),
+                'wasp_adoption_total': len(wasp_predictions),
+                'sustainability_levels': dict(pd.Series(sust_predictions).value_counts()) if sust_predictions else {}
+            }
+        
+        return jsonify(stats)
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
