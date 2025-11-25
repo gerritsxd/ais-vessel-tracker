@@ -265,7 +265,7 @@ export default function VesselMap() {
     active: memoizedFilteredVessels.length,
     withGT: vessels.filter(v => v.gross_tonnage > 0).length,
     wasp: vessels.filter(v => v.wind_assisted === 1).length
-  }), [vessels.length, memoizedFilteredVessels.length]);
+  }), [vessels, memoizedFilteredVessels]);
   
   // Update filtered vessels state when memoized value changes
   useEffect(() => {
