@@ -1193,7 +1193,7 @@ const VesselMarker = React.memo(({
   return (
     <Marker
       position={[vessel.lat, vessel.lon]}
-      icon={lightIcon(getShipTypeInfo(vessel).color)}
+      icon={createIcon(vessel)}
       eventHandlers={{
         click: handleClick,
         mouseover: handleHover,
