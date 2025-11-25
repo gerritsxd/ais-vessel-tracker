@@ -2147,7 +2147,7 @@ def get_company_prediction(company_name):
     
     # Fallback to VPS
     try:
-        from services.ml_predictor_service import CompanyMLPredictor
+        from src.services.ml_predictor_service import CompanyMLPredictor
         
         predictor = CompanyMLPredictor()
         
@@ -2196,7 +2196,7 @@ def train_ml_models():
     
     # Fallback to VPS
     try:
-        from services.ml_predictor_service import CompanyMLPredictor
+        from src.services.ml_predictor_service import CompanyMLPredictor
         
         predictor = CompanyMLPredictor()
         models = predictor.train_all_models()
