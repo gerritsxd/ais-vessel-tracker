@@ -61,7 +61,8 @@ function VesselSidebar({ vessel, onClose, darkMode, getShipTypeInfo }) {
             alt="Vessel"
             className="vessel-photo"
             onError={(e) => {
-              e.target.src = "/static/placeholder_ship.png";
+              // Hide image on error instead of showing broken placeholder
+              e.target.style.display = "none";
             }}
           />
         </div>

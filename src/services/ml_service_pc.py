@@ -2,6 +2,11 @@
 Standalone ML Service for PC
 Runs ML training and predictions on your PC, accessible via HTTP API
 This allows VPS to use your PC's resources for ML while serving the web interface
+
+Configuration:
+    VPS_URL: URL of the VPS web service (e.g., "http://149.202.53.2:5000" or "https://gerritsxd.com")
+             If set, the service will fetch training data from VPS before training.
+             If not set, it will use local data files.
 """
 
 from flask import Flask, jsonify, request
@@ -10,6 +15,7 @@ import json
 from pathlib import Path
 import sys
 import os
+from datetime import datetime
 
 # Add project root and src to path
 project_root = Path(__file__).parent.parent.parent
@@ -33,14 +39,94 @@ CORS(app)  # Allow VPS to call this service
 
 predictor = CompanyMLPredictor()
 
+# VPS URL for fetching training data
+VPS_URL = os.environ.get('VPS_URL', '')
+
+
+def sync_data_from_vps():
+    """Fetch training data from VPS and save locally."""
+    if not VPS_URL:
+        print("[INFO] VPS_URL not set, using local data files")
+        return False
+    
+    try:
+        import requests
+        print(f"[INFO] Syncing data from VPS: {VPS_URL}")
+        
+        data_dir = project_root / 'data'
+        data_dir.mkdir(exist_ok=True)
+        
+        # Fetch intelligence data
+        try:
+            url = f"{VPS_URL.rstrip('/')}/ships/api/ml/data/intelligence"
+            print(f"  Fetching intelligence data...")
+            response = requests.get(url, timeout=60)
+            response.raise_for_status()
+            intel_data = response.json()
+            
+            if 'companies' in intel_data and intel_data['companies']:
+                # Save to local file with timestamp
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                intel_file = data_dir / f"company_intelligence_gemini_{timestamp}.json"
+                with open(intel_file, 'w', encoding='utf-8') as f:
+                    json.dump(intel_data, f, indent=2, ensure_ascii=False)
+                print(f"    Saved {len(intel_data['companies'])} companies to {intel_file.name}")
+        except Exception as e:
+            print(f"    [WARN] Could not fetch intelligence data: {e}")
+        
+        # Fetch profile data
+        try:
+            url = f"{VPS_URL.rstrip('/')}/ships/api/ml/data/profiles"
+            print(f"  Fetching profile data...")
+            response = requests.get(url, timeout=60)
+            response.raise_for_status()
+            profile_data = response.json()
+            
+            if 'companies' in profile_data and profile_data['companies']:
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                profile_file = data_dir / f"company_profiles_v3_structured_{timestamp}.json"
+                with open(profile_file, 'w', encoding='utf-8') as f:
+                    json.dump(profile_data, f, indent=2, ensure_ascii=False)
+                print(f"    Saved {len(profile_data['companies'])} companies to {profile_file.name}")
+        except Exception as e:
+            print(f"    [WARN] Could not fetch profile data: {e}")
+        
+        print("[INFO] Data sync completed")
+        return True
+        
+    except Exception as e:
+        print(f"[ERROR] Failed to sync data from VPS: {e}")
+        return False
+
 @app.route('/health', methods=['GET'])
 def health():
     """Health check endpoint."""
     return jsonify({
         'status': 'ok',
         'service': 'ml-predictor-pc',
-        'models_loaded': len(predictor.models) > 0
+        'models_loaded': len(predictor.models) > 0,
+        'vps_url': VPS_URL if VPS_URL else None,
+        'data_source': 'vps' if VPS_URL else 'local'
     })
+
+
+@app.route('/sync', methods=['POST'])
+def sync_data():
+    """Manually sync data from VPS."""
+    if not VPS_URL:
+        return jsonify({
+            'status': 'skipped',
+            'message': 'VPS_URL not configured. Set VPS_URL environment variable.'
+        })
+    
+    try:
+        success = sync_data_from_vps()
+        return jsonify({
+            'status': 'success' if success else 'partial',
+            'message': 'Data synced from VPS'
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/predictions', methods=['GET'])
 def get_predictions():
@@ -113,6 +199,10 @@ def get_company_prediction(company_name):
 def train_models():
     """Train ML models (this may take several minutes)."""
     try:
+        # Sync data from VPS if configured
+        sync_data_from_vps()
+        
+        # Train models
         models = predictor.train_all_models()
         
         if models:
@@ -127,14 +217,15 @@ def train_models():
                 json.dump({
                     'predictions': predictions,
                     'total_companies': len(predictions),
-                    'timestamp': predictor.__class__.__module__  # Placeholder
+                    'timestamp': datetime.now().isoformat()
                 }, f, indent=2, ensure_ascii=False)
             
             return jsonify({
                 'status': 'success',
                 'models_trained': list(models.keys()),
                 'total_companies': len(predictions),
-                'message': 'Models trained and predictions generated'
+                'message': 'Models trained and predictions generated',
+                'data_source': 'vps' if VPS_URL else 'local'
             })
         else:
             return jsonify({

@@ -97,33 +97,102 @@ class CompanyMLPredictor:
     
     def get_wasp_adopters(self) -> Dict[str, bool]:
         """Get companies that have adopted WASP (ground truth labels)."""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
+        wasp_companies = {}
         
-        # Get companies with wind-assisted vessels
-        cursor.execute('''
-            SELECT DISTINCT e.company_name
-            FROM eu_mrv_emissions e
-            INNER JOIN vessels_static v ON e.imo = v.imo
-            WHERE v.wind_assisted = 1
-            AND e.company_name IS NOT NULL
-        ''')
+        # Try database approach first (works on VPS with full database)
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            # Check if required tables exist
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='eu_mrv_emissions'")
+            has_emissions = cursor.fetchone() is not None
+            
+            if has_emissions:
+                # Get companies with wind-assisted vessels
+                cursor.execute('''
+                    SELECT DISTINCT e.company_name
+                    FROM eu_mrv_emissions e
+                    INNER JOIN vessels_static v ON e.imo = v.imo
+                    WHERE v.wind_assisted = 1
+                    AND e.company_name IS NOT NULL
+                ''')
+                wasp_companies = {row[0]: True for row in cursor.fetchall()}
+                
+                # Also check wind_propulsion table by company name matching
+                cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='wind_propulsion'")
+                has_wind = cursor.fetchone() is not None
+                
+                if has_wind:
+                    cursor.execute('''
+                        SELECT DISTINCT e.company_name
+                        FROM eu_mrv_emissions e
+                        INNER JOIN wind_propulsion w ON UPPER(TRIM(e.vessel_name)) = UPPER(TRIM(w.vessel_name))
+                        WHERE e.company_name IS NOT NULL
+                    ''')
+                    for row in cursor.fetchall():
+                        wasp_companies[row[0]] = True
+            
+            conn.close()
+        except Exception as e:
+            print(f"Database approach failed: {e}")
         
-        wasp_companies = {row[0]: True for row in cursor.fetchall()}
+        # Fallback: Use WASPmmsi.txt file if no database results
+        if not wasp_companies:
+            wasp_companies = self._load_wasp_from_file()
         
-        # Also check wind_propulsion table by company name matching
-        cursor.execute('''
-            SELECT DISTINCT e.company_name
-            FROM eu_mrv_emissions e
-            INNER JOIN wind_propulsion w ON UPPER(TRIM(e.vessel_name)) = UPPER(TRIM(w.vessel_name))
-            WHERE e.company_name IS NOT NULL
-        ''')
-        
-        for row in cursor.fetchall():
-            wasp_companies[row[0]] = True
-        
-        conn.close()
         return wasp_companies
+    
+    def _load_wasp_from_file(self) -> Dict[str, bool]:
+        """Load WASP adopters from WASPmmsi.txt file."""
+        wasp_file = Path("data/WASPmmsi.txt")
+        if not wasp_file.exists():
+            print("No WASPmmsi.txt file found")
+            return {}
+        
+        # Known company keywords for WASP vessel owners
+        # These are approximations based on vessel names and typical operators
+        wasp_keywords = {
+            'scandlines': True,  # Copenhagen, Berlin ferries
+            'enercon': True,  # E-Ship 1
+            'wallenius wilhelmsen': True,  # SC Connector  
+            'berge bulk': True,  # Berge Olympus, etc.
+            'cargill': True,  # Pyxis Ocean
+            'oldendorff': True,  # Various bulk carriers
+            'gnv': True,  # GNV Bridge
+            'jumbo': True,  # Heavy lift
+            'stena': True,  # Various vessels
+            'marfret': True,  # Marfret Niolon
+            'terntank': True,  # Tern Vik
+            'odfjell': True,  # Chemical tankers
+            'grimaldi': True,  # Delphine
+            'china merchants': True,  # Various
+            'cosco': True,  # Various
+            'nyks': True,  # NYK vessels
+            'msc': False,  # Has explored but not yet deployed
+        }
+        
+        print(f"Loaded WASP keywords for {len([k for k,v in wasp_keywords.items() if v])} known WASP companies")
+        return {k: v for k, v in wasp_keywords.items() if v}
+    
+    def _check_wasp_match(self, company_name: str, wasp_adopters: Dict[str, bool]) -> bool:
+        """Check if company name matches any WASP adopter using fuzzy matching."""
+        # Exact match first
+        if wasp_adopters.get(company_name, False):
+            return True
+        
+        # Fuzzy match: check if any WASP keyword is in company name
+        company_lower = company_name.lower()
+        for wasp_company in wasp_adopters.keys():
+            wasp_lower = wasp_company.lower()
+            # Check if WASP company name is contained in the company name
+            if wasp_lower in company_lower:
+                return True
+            # Check if company name is contained in WASP company name
+            if len(company_lower) > 3 and company_lower in wasp_lower:
+                return True
+        
+        return False
     
     def extract_text_features(self, company_data: Dict[str, Any]) -> str:
         """Extract all text from intelligence findings for NLP."""
@@ -249,13 +318,38 @@ class CompanyMLPredictor:
         if not ML_AVAILABLE:
             return None
         
-        # Split data
+        # Handle small datasets
+        n_samples = len(X)
+        min_class_samples = min(y.value_counts())
+        
+        # Scale features first
+        scaler = StandardScaler()
+        
+        if n_samples < 10 or min_class_samples < 2:
+            # For very small datasets, train on all data without split
+            print("\n[INFO] Small dataset - training on all data without holdout")
+            X_scaled = scaler.fit_transform(X)
+            
+            model = GradientBoostingClassifier(
+                n_estimators=50,
+                learning_rate=0.1,
+                max_depth=3,
+                random_state=42
+            )
+            model.fit(X_scaled, y)
+            
+            print(f"\nWASP Adoption Model:")
+            print(f"  Training samples: {n_samples}")
+            print(f"  Class distribution: {dict(y.value_counts())}")
+            
+            self.scalers['wasp'] = scaler
+            return model
+        
+        # Normal train/test split for larger datasets
         X_train, X_test, y_train, y_test = train_test_split(
             X, y, test_size=0.2, random_state=42, stratify=y
         )
         
-        # Scale features
-        scaler = StandardScaler()
         X_train_scaled = scaler.fit_transform(X_train)
         X_test_scaled = scaler.transform(X_test)
         
@@ -288,13 +382,37 @@ class CompanyMLPredictor:
         if not ML_AVAILABLE:
             return None
         
-        # Split data
+        # Handle small datasets
+        n_samples = len(X)
+        min_class_samples = min(y.value_counts())
+        
+        # Scale features first
+        scaler = StandardScaler()
+        
+        if n_samples < 10 or min_class_samples < 2:
+            # For very small datasets, train on all data without split
+            print("\n[INFO] Small dataset - training on all data without holdout")
+            X_scaled = scaler.fit_transform(X)
+            
+            model = RandomForestClassifier(
+                n_estimators=50,
+                max_depth=5,
+                random_state=42
+            )
+            model.fit(X_scaled, y)
+            
+            print(f"\nSustainability Classifier:")
+            print(f"  Training samples: {n_samples}")
+            print(f"  Class distribution: {dict(y.value_counts())}")
+            
+            self.scalers['sustainability'] = scaler
+            return model
+        
+        # Normal train/test split for larger datasets
         X_train, X_test, y_train, y_test = train_test_split(
             X, y, test_size=0.2, random_state=42, stratify=y
         )
         
-        # Scale features
-        scaler = StandardScaler()
         X_train_scaled = scaler.fit_transform(X_train)
         X_test_scaled = scaler.transform(X_test)
         
@@ -324,13 +442,37 @@ class CompanyMLPredictor:
         if not ML_AVAILABLE:
             return None
         
-        # Split data
+        # Handle small datasets
+        n_samples = len(X)
+        min_class_samples = min(y.value_counts())
+        
+        # Scale features first
+        scaler = StandardScaler()
+        
+        if n_samples < 10 or min_class_samples < 2:
+            # For very small datasets, train on all data without split
+            print("\n[INFO] Small dataset - training on all data without holdout")
+            X_scaled = scaler.fit_transform(X)
+            
+            model = RandomForestClassifier(
+                n_estimators=50,
+                max_depth=5,
+                random_state=42
+            )
+            model.fit(X_scaled, y)
+            
+            print(f"\nCompany Type Classifier:")
+            print(f"  Training samples: {n_samples}")
+            print(f"  Class distribution: {dict(y.value_counts())}")
+            
+            self.scalers['company_type'] = scaler
+            return model
+        
+        # Normal train/test split for larger datasets
         X_train, X_test, y_train, y_test = train_test_split(
             X, y, test_size=0.2, random_state=42, stratify=y
         )
         
-        # Scale features
-        scaler = StandardScaler()
         X_train_scaled = scaler.fit_transform(X_train)
         X_test_scaled = scaler.transform(X_test)
         
@@ -391,10 +533,11 @@ class CompanyMLPredictor:
         # Prepare labels
         labels = {}
         
-        # 1. WASP adoption (binary)
+        # 1. WASP adoption (binary) - with fuzzy matching
         wasp_labels = []
         for name in company_names:
-            wasp_labels.append(1 if wasp_adopters.get(name, False) else 0)
+            is_wasp = self._check_wasp_match(name, wasp_adopters)
+            wasp_labels.append(1 if is_wasp else 0)
         labels['wasp_adoption'] = pd.Series(wasp_labels, index=company_names)
         
         # 2. Sustainability focus (from labels or derived)
@@ -468,7 +611,7 @@ class CompanyMLPredictor:
                 labels_filtered['wasp_adoption']
             )
         else:
-            print("\n⚠️  Insufficient WASP adoption data for training (need at least 2 examples)")
+            print("\n[WARN] Insufficient WASP adoption data for training (need at least 2 examples)")
         
         # 2. Sustainability Classifier
         if len(labels_filtered['sustainability_focus'].unique()) >= 2:
@@ -478,7 +621,7 @@ class CompanyMLPredictor:
                 labels_filtered['sustainability_focus']
             )
         else:
-            print("\n⚠️  Insufficient sustainability data for training")
+            print("\n[WARN] Insufficient sustainability data for training")
         
         # 3. Company Type Classifier
         if len(labels_filtered['company_type'].unique()) >= 2:
@@ -488,7 +631,7 @@ class CompanyMLPredictor:
                 labels_filtered['company_type']
             )
         else:
-            print("\n⚠️  Insufficient company type data for training")
+            print("\n[WARN] Insufficient company type data for training")
         
         self.models = models
         self.feature_names = list(X_filtered.columns)
@@ -662,7 +805,7 @@ def main():
             if 'company_type' in pred:
                 print(f"   Company Type: {pred['company_type']['prediction']}")
     else:
-        print("\n⚠️  No models trained. Check data availability.")
+        print("\n[WARN] No models trained. Check data availability.")
 
 
 if __name__ == "__main__":

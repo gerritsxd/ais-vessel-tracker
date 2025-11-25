@@ -53,14 +53,6 @@ export default function VesselMap() {
   const [filteredVessels, setFilteredVessels] = useState([]);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
-  // Memoize stats calculation
-  const stats = useMemo(() => ({
-    total: vessels.length,
-    active: memoizedFilteredVessels.length,
-    withGT: vessels.filter(v => v.gross_tonnage > 0).length,
-    wasp: vessels.filter(v => v.wind_assisted === 1).length
-  }), [vessels.length, memoizedFilteredVessels.length]);
-
   const [filters, setFilters] = useState({
     type: 'all',
     detailedType: 'all',
@@ -272,6 +264,17 @@ export default function VesselMap() {
     setFilteredVessels(memoizedFilteredVessels);
   }, [memoizedFilteredVessels]);
   
+  // Memoize stats calculation (moved here after memoizedFilteredVessels is defined and used)
+  const stats = useMemo(() => {
+    const filtered = memoizedFilteredVessels;
+    return {
+      total: vessels.length,
+      active: filtered.length,
+      withGT: vessels.filter(v => v.gross_tonnage > 0).length,
+      wasp: vessels.filter(v => v.wind_assisted === 1).length
+    };
+  }, [vessels, memoizedFilteredVessels]);
+  
   // ---- EVENT HANDLERS ----
   const handleVesselClick = useCallback((vessel) => {
     setSelectedVessel(vessel.mmsi);
@@ -321,11 +324,27 @@ export default function VesselMap() {
   
   // ---- INITIAL LOAD ----
   useEffect(() => {
-    fetch('/ships/api/vessels')
-      .then(res => res.json())
-      .then(data => {
-        setVessels(data);
-      });
+    const loadVessels = async () => {
+      try {
+        console.log('Loading vessels from API...');
+        const res = await fetch('/ships/api/vessels');
+        if (!res.ok) {
+          throw new Error(`HTTP error: ${res.status}`);
+        }
+        const data = await res.json();
+        console.log(`Loaded ${data.length} vessels`);
+        if (Array.isArray(data)) {
+          setVessels(data);
+        } else {
+          console.error('API returned non-array:', data);
+        }
+      } catch (error) {
+        console.error('Error loading vessels:', error);
+        // Retry after 5 seconds on failure
+        setTimeout(loadVessels, 5000);
+      }
+    };
+    loadVessels();
   }, []);
 
 
@@ -429,19 +448,7 @@ function WindyEmbed({ opacity }) {
 
 
 
-  // ---- PERIODIC STATS REFRESH ----
-  useEffect(() => {
-    const interval = setInterval(() => {
-      fetch('/ships/api/stats')
-        .then(res => res.json())
-        .then(data => setStats(prev => ({
-          ...prev,
-          total: data.total_vessels
-        })))
-        .catch(err => console.error('Error loading stats:', err));
-    }, 10000); // Increased to 10 seconds
-    return () => clearInterval(interval);
-  }, []);
+  // Stats are computed via useMemo from vessel data (line 268), no periodic refresh needed
 
   return (
     <div className={`vessel-map-page ${darkMode ? 'dark-mode' : ''}`}>
@@ -1189,6 +1196,8 @@ const VesselMarker = React.memo(({
 }) => {
   const handleClick = useCallback(() => onClick(vessel), [onClick, vessel]);
   const handleHover = useCallback(() => onHover(vessel), [onHover, vessel]);
+
+  if (!vessel || !vessel.lat || !vessel.lon) return null;
 
   return (
     <Marker

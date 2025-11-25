@@ -13,9 +13,20 @@ import time
 from pathlib import Path
 from datetime import datetime
 import requests  # For proxying to PC ML service
+import sys
+import os
+
+# Add project root to path for imports
+_project_root = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(_project_root))
 
 # Configuration
 DB_NAME = "vessel_static_data.db"
+
+# Cache for match-stats (refresh every 5 minutes)
+_match_stats_cache = None
+_match_stats_cache_time = 0
+_match_stats_cache_ttl = 300  # 5 minutes
 
 
 def ensure_econowind_column(conn):
@@ -54,7 +65,8 @@ app = Flask(__name__,
             static_folder=str(static_dir))
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 app.config['SECRET_KEY'] = 'ais-tracker-secret'
-socketio = SocketIO(app, cors_allowed_origins="*")
+# Configure Socket.IO to work with /ships/ path prefix
+socketio = SocketIO(app, cors_allowed_origins="*", path="/ships/socket.io")
 
 # Global state
 API_KEY = None
@@ -405,34 +417,48 @@ def get_vessels():
     
     conn = None
     try:
-        conn = sqlite3.connect(db_path, timeout=30)
+        conn = sqlite3.connect(db_path, timeout=60)
         conn.execute('PRAGMA journal_mode=WAL')
         cursor = conn.cursor()
         
-        # Get vessels with positions from last 24 hours
+        # FAST approach: Get latest positions first (simple indexed query)
+        # Then join with vessel info - avoids complex nested queries
         cursor.execute('''
-            SELECT 
-                v.mmsi, v.name, v.ship_type, v.detailed_ship_type, v.length, v.beam,
-                v.imo, v.call_sign, v.flag_state, v.wind_assisted,
-                p.latitude, p.longitude, p.sog, p.cog, p.timestamp,
-                e.gross_tonnage
+            SELECT p.mmsi, p.latitude, p.longitude, p.sog, p.cog, MAX(p.timestamp) as timestamp
+            FROM vessel_positions p
+            WHERE p.timestamp >= datetime('now', '-6 hours')
+            GROUP BY p.mmsi
+            ORDER BY timestamp DESC
+            LIMIT 3000
+        ''')
+        recent_positions = {row[0]: {'lat': row[1], 'lon': row[2], 'sog': row[3], 'cog': row[4], 'timestamp': row[5]} 
+                          for row in cursor.fetchall()}
+        
+        if not recent_positions:
+            return jsonify(vessels)
+        
+        # Get vessel info for those MMSIs (fast lookup by primary key)
+        mmsi_list = ','.join(map(str, recent_positions.keys()))
+        cursor.execute(f'''
+            SELECT v.mmsi, v.name, v.ship_type, v.detailed_ship_type, v.length, v.beam,
+                   v.imo, v.call_sign, v.flag_state, v.wind_assisted, e.gross_tonnage
             FROM vessels_static v
-            INNER JOIN (
-                SELECT mmsi, latitude, longitude, sog, cog, timestamp,
-                       ROW_NUMBER() OVER (PARTITION BY mmsi ORDER BY timestamp DESC) as rn
-                FROM vessel_positions
-                WHERE timestamp >= datetime('now', '-24 hours')
-            ) p ON v.mmsi = p.mmsi AND p.rn = 1
             LEFT JOIN eu_mrv_emissions e ON v.imo = e.imo
-            WHERE v.mmsi NOT IN ({})
-            ORDER BY p.timestamp DESC
-            LIMIT 2000
-        '''.format(','.join(map(str, seen_mmsi)) if seen_mmsi else '0'))
+            WHERE v.mmsi IN ({mmsi_list})
+        ''')
         
         db_vessels = cursor.fetchall()
         
         for vessel in db_vessels:
-            mmsi, name, ship_type, detailed_type, length, beam, imo, call_sign, flag, wind_assisted, lat, lon, sog, cog, timestamp, gt = vessel
+            mmsi, name, ship_type, detailed_type, length, beam, imo, call_sign, flag, wind_assisted, gt = vessel
+            
+            # Skip if already in real-time data
+            if mmsi in seen_mmsi:
+                continue
+                
+            pos = recent_positions.get(mmsi, {})
+            if not pos:
+                continue
             
             vessels.append({
                 'mmsi': mmsi,
@@ -446,11 +472,11 @@ def get_vessels():
                 'flag_state': flag or 'Unknown',
                 'wind_assisted': wind_assisted or 0,
                 'gross_tonnage': gt,
-                'lat': lat,
-                'lon': lon,
-                'sog': sog,
-                'cog': cog,
-                'timestamp': timestamp
+                'lat': pos.get('lat'),
+                'lon': pos.get('lon'),
+                'sog': pos.get('sog'),
+                'cog': pos.get('cog'),
+                'timestamp': pos.get('timestamp')
             })
             
     except Exception as e:
@@ -1293,6 +1319,7 @@ def get_emissions_stats():
 def get_combined_vessel_data():
     """Get vessels with both AIS and emissions data."""
     limit = request.args.get('limit', 100, type=int)
+    offset = request.args.get('offset', 0, type=int)
     min_co2 = request.args.get('min_co2', type=float)
     
     project_root = Path(__file__).parent.parent.parent
@@ -1303,6 +1330,12 @@ def get_combined_vessel_data():
         conn = sqlite3.connect(db_path, timeout=30)
         ensure_econowind_column(conn)
         cursor = conn.cursor()
+        
+        # Ensure indexes exist for performance
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_vessels_static_imo ON vessels_static(imo)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_mrv_imo ON eu_mrv_emissions(imo)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_mrv_co2 ON eu_mrv_emissions(total_co2_emissions)')
+        conn.commit()
         
         query = '''
             SELECT v.mmsi, v.name, v.imo, v.ship_type, v.length, v.flag_state,
@@ -1321,8 +1354,8 @@ def get_combined_vessel_data():
             query += ' AND e.total_co2_emissions >= ?'
             params.append(min_co2)
         
-        query += ' ORDER BY e.total_co2_emissions DESC LIMIT ?'
-        params.append(limit)
+        query += ' ORDER BY e.total_co2_emissions DESC LIMIT ? OFFSET ?'
+        params.extend([limit, offset])
         
         cursor.execute(query, params)
         rows = cursor.fetchall()
@@ -1448,6 +1481,13 @@ def get_fleet_network():
 @app.route('/ships/api/emissions/match-stats')
 def get_match_statistics():
     """Get real-time matching statistics between AIS and emissions data."""
+    global _match_stats_cache, _match_stats_cache_time
+    
+    # Return cached result if still valid
+    current_time = time.time()
+    if _match_stats_cache and (current_time - _match_stats_cache_time) < _match_stats_cache_ttl:
+        return jsonify(_match_stats_cache)
+    
     project_root = Path(__file__).parent.parent.parent
     db_path = project_root / DB_NAME
     
@@ -1456,57 +1496,59 @@ def get_match_statistics():
         conn = sqlite3.connect(db_path, timeout=30)
         cursor = conn.cursor()
         
-        # Total vessels with IMO in AIS
-        cursor.execute('SELECT COUNT(*) FROM vessels_static WHERE imo IS NOT NULL AND imo > 0')
-        total_ais_with_imo = cursor.fetchone()[0]
+        # Ensure indexes exist for performance
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_vessels_static_imo ON vessels_static(imo)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_mrv_imo ON eu_mrv_emissions(imo)')
+        conn.commit()
         
-        # Total vessels in AIS (all)
+        # Optimized queries using LEFT JOINs instead of NOT EXISTS (much faster with indexes)
         cursor.execute('SELECT COUNT(*) FROM vessels_static')
         total_ais = cursor.fetchone()[0]
         
-        # Total vessels in emissions DB
+        cursor.execute('SELECT COUNT(*) FROM vessels_static WHERE imo IS NOT NULL AND imo > 0')
+        total_ais_with_imo = cursor.fetchone()[0]
+        
         cursor.execute('SELECT COUNT(*) FROM eu_mrv_emissions')
         total_emissions = cursor.fetchone()[0]
         
-        # Matched vessels (in both databases)
+        # Matched vessels - use INNER JOIN (fast with index)
         cursor.execute('''
-            SELECT COUNT(*)
+            SELECT COUNT(DISTINCT v.imo)
             FROM vessels_static v
             INNER JOIN eu_mrv_emissions e ON v.imo = e.imo
+            WHERE v.imo IS NOT NULL AND v.imo > 0
         ''')
         matched = cursor.fetchone()[0]
         
-        # Vessels with emissions data but no AIS
+        # Emissions only - use LEFT JOIN (faster than NOT EXISTS)
         cursor.execute('''
             SELECT COUNT(*)
             FROM eu_mrv_emissions e
-            WHERE NOT EXISTS (
-                SELECT 1 FROM vessels_static v WHERE v.imo = e.imo
-            )
+            LEFT JOIN vessels_static v ON e.imo = v.imo
+            WHERE v.imo IS NULL
         ''')
         emissions_only = cursor.fetchone()[0]
         
-        # Vessels with AIS but no emissions
+        # AIS only - use LEFT JOIN (faster than NOT EXISTS)
         cursor.execute('''
             SELECT COUNT(*)
             FROM vessels_static v
-            WHERE v.imo IS NOT NULL AND v.imo > 0
-            AND NOT EXISTS (
-                SELECT 1 FROM eu_mrv_emissions e WHERE e.imo = v.imo
-            )
+            LEFT JOIN eu_mrv_emissions e ON v.imo = e.imo
+            WHERE v.imo IS NOT NULL AND v.imo > 0 AND e.imo IS NULL
         ''')
         ais_only = cursor.fetchone()[0]
         
-        # Recent matches (vessels added in last 24 hours that have emissions data)
+        # Recent matches - simplified query
         cursor.execute('''
-            SELECT COUNT(*)
+            SELECT COUNT(DISTINCT v.imo)
             FROM vessels_static v
             INNER JOIN eu_mrv_emissions e ON v.imo = e.imo
-            WHERE datetime(v.last_updated) > datetime('now', '-1 day')
+            WHERE v.imo IS NOT NULL AND v.imo > 0
+            AND v.last_updated > datetime('now', '-1 day')
         ''')
         recent_matches = cursor.fetchone()[0]
         
-        return jsonify({
+        result = {
             'total_ais_vessels': total_ais,
             'total_ais_with_imo': total_ais_with_imo,
             'total_emissions_database': total_emissions,
@@ -1516,7 +1558,13 @@ def get_match_statistics():
             'emissions_only': emissions_only,
             'recent_matches_24h': recent_matches,
             'potential_new_matches': ais_only  # Vessels that could potentially be matched
-        })
+        }
+        
+        # Cache the result
+        _match_stats_cache = result
+        _match_stats_cache_time = current_time
+        
+        return jsonify(result)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
     finally:
@@ -2105,7 +2153,7 @@ def get_company_prediction(company_name):
     
     # Fallback to VPS
     try:
-        from services.ml_predictor_service import CompanyMLPredictor
+        from src.services.ml_predictor_service import CompanyMLPredictor
         
         predictor = CompanyMLPredictor()
         
@@ -2154,7 +2202,7 @@ def train_ml_models():
     
     # Fallback to VPS
     try:
-        from services.ml_predictor_service import CompanyMLPredictor
+        from src.services.ml_predictor_service import CompanyMLPredictor
         
         predictor = CompanyMLPredictor()
         models = predictor.train_all_models()
@@ -2238,6 +2286,112 @@ def get_ml_stats():
         
         return jsonify(stats)
         
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# ==================== ML DATA ENDPOINTS (for PC ML Service) ====================
+
+@app.route('/ships/api/ml/data/intelligence')
+def get_ml_intelligence_data():
+    """Serve intelligence data for PC ML service."""
+    try:
+        project_root = Path(__file__).parent.parent.parent
+        data_dir = project_root / 'data'
+        
+        # Find latest Gemini intelligence file
+        intel_files = sorted(
+            data_dir.glob("company_intelligence_gemini_*.json"),
+            reverse=True
+        )
+        
+        if not intel_files:
+            return jsonify({'error': 'No intelligence data found', 'companies': {}}), 404
+        
+        with open(intel_files[0], 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        return jsonify(data)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/ships/api/ml/data/profiles')
+def get_ml_profile_data():
+    """Serve profile data for PC ML service."""
+    try:
+        project_root = Path(__file__).parent.parent.parent
+        data_dir = project_root / 'data'
+        
+        # Find latest V3 structured profile file
+        profile_files = sorted(
+            data_dir.glob("company_profiles_v3_structured_*.json"),
+            reverse=True
+        )
+        
+        if not profile_files:
+            return jsonify({'error': 'No profile data found', 'companies': {}}), 404
+        
+        with open(profile_files[0], 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        return jsonify(data)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/ships/api/ml/data/wasp')
+def get_ml_wasp_data():
+    """Serve WASP adopters data for PC ML service."""
+    try:
+        project_root = Path(__file__).parent.parent.parent
+        db_path = project_root / 'data' / 'vessel_static_data.db'
+        
+        if not db_path.exists():
+            return jsonify({'error': 'Database not found', 'wasp_companies': {}}), 404
+        
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        
+        wasp_companies = {}
+        
+        # Check if required tables exist
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='eu_mrv_emissions'")
+        has_emissions = cursor.fetchone() is not None
+        
+        if has_emissions:
+            # Get companies with wind-assisted vessels
+            try:
+                cursor.execute('''
+                    SELECT DISTINCT e.company_name
+                    FROM eu_mrv_emissions e
+                    INNER JOIN vessels_static v ON e.imo = v.imo
+                    WHERE v.wind_assisted = 1
+                    AND e.company_name IS NOT NULL
+                ''')
+                wasp_companies = {row[0]: True for row in cursor.fetchall()}
+            except Exception:
+                pass
+            
+            # Also check wind_propulsion table
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='wind_propulsion'")
+            has_wind = cursor.fetchone() is not None
+            
+            if has_wind:
+                try:
+                    cursor.execute('''
+                        SELECT DISTINCT e.company_name
+                        FROM eu_mrv_emissions e
+                        INNER JOIN wind_propulsion w ON UPPER(TRIM(e.vessel_name)) = UPPER(TRIM(w.vessel_name))
+                        WHERE e.company_name IS NOT NULL
+                    ''')
+                    for row in cursor.fetchall():
+                        wasp_companies[row[0]] = True
+                except Exception:
+                    pass
+        
+        conn.close()
+        return jsonify({'wasp_companies': wasp_companies})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
