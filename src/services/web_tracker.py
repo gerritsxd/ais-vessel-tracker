@@ -17,6 +17,11 @@ import requests  # For proxying to PC ML service
 # Configuration
 DB_NAME = "vessel_static_data.db"
 
+# Cache for match-stats (refresh every 5 minutes)
+_match_stats_cache = None
+_match_stats_cache_time = 0
+_match_stats_cache_ttl = 300  # 5 minutes
+
 
 def ensure_econowind_column(conn):
     """Ensure the econowind_fit_score column exists before running queries."""
@@ -1294,6 +1299,7 @@ def get_emissions_stats():
 def get_combined_vessel_data():
     """Get vessels with both AIS and emissions data."""
     limit = request.args.get('limit', 100, type=int)
+    offset = request.args.get('offset', 0, type=int)
     min_co2 = request.args.get('min_co2', type=float)
     
     project_root = Path(__file__).parent.parent.parent
@@ -1304,6 +1310,12 @@ def get_combined_vessel_data():
         conn = sqlite3.connect(db_path, timeout=30)
         ensure_econowind_column(conn)
         cursor = conn.cursor()
+        
+        # Ensure indexes exist for performance
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_vessels_static_imo ON vessels_static(imo)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_mrv_imo ON eu_mrv_emissions(imo)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_mrv_co2 ON eu_mrv_emissions(total_co2_emissions)')
+        conn.commit()
         
         query = '''
             SELECT v.mmsi, v.name, v.imo, v.ship_type, v.length, v.flag_state,
@@ -1322,8 +1334,8 @@ def get_combined_vessel_data():
             query += ' AND e.total_co2_emissions >= ?'
             params.append(min_co2)
         
-        query += ' ORDER BY e.total_co2_emissions DESC LIMIT ?'
-        params.append(limit)
+        query += ' ORDER BY e.total_co2_emissions DESC LIMIT ? OFFSET ?'
+        params.extend([limit, offset])
         
         cursor.execute(query, params)
         rows = cursor.fetchall()
@@ -1449,6 +1461,13 @@ def get_fleet_network():
 @app.route('/ships/api/emissions/match-stats')
 def get_match_statistics():
     """Get real-time matching statistics between AIS and emissions data."""
+    global _match_stats_cache, _match_stats_cache_time
+    
+    # Return cached result if still valid
+    current_time = time.time()
+    if _match_stats_cache and (current_time - _match_stats_cache_time) < _match_stats_cache_ttl:
+        return jsonify(_match_stats_cache)
+    
     project_root = Path(__file__).parent.parent.parent
     db_path = project_root / DB_NAME
     
@@ -1509,7 +1528,7 @@ def get_match_statistics():
         ''')
         recent_matches = cursor.fetchone()[0]
         
-        return jsonify({
+        result = {
             'total_ais_vessels': total_ais,
             'total_ais_with_imo': total_ais_with_imo,
             'total_emissions_database': total_emissions,
@@ -1519,7 +1538,13 @@ def get_match_statistics():
             'emissions_only': emissions_only,
             'recent_matches_24h': recent_matches,
             'potential_new_matches': ais_only  # Vessels that could potentially be matched
-        })
+        }
+        
+        # Cache the result
+        _match_stats_cache = result
+        _match_stats_cache_time = current_time
+        
+        return jsonify(result)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
     finally:
