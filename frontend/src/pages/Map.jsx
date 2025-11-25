@@ -324,11 +324,27 @@ export default function VesselMap() {
   
   // ---- INITIAL LOAD ----
   useEffect(() => {
-    fetch('/ships/api/vessels')
-      .then(res => res.json())
-      .then(data => {
-        setVessels(data);
-      });
+    const loadVessels = async () => {
+      try {
+        console.log('Loading vessels from API...');
+        const res = await fetch('/ships/api/vessels');
+        if (!res.ok) {
+          throw new Error(`HTTP error: ${res.status}`);
+        }
+        const data = await res.json();
+        console.log(`Loaded ${data.length} vessels`);
+        if (Array.isArray(data)) {
+          setVessels(data);
+        } else {
+          console.error('API returned non-array:', data);
+        }
+      } catch (error) {
+        console.error('Error loading vessels:', error);
+        // Retry after 5 seconds on failure
+        setTimeout(loadVessels, 5000);
+      }
+    };
+    loadVessels();
   }, []);
 
 

@@ -411,34 +411,48 @@ def get_vessels():
     
     conn = None
     try:
-        conn = sqlite3.connect(db_path, timeout=30)
+        conn = sqlite3.connect(db_path, timeout=60)
         conn.execute('PRAGMA journal_mode=WAL')
         cursor = conn.cursor()
         
-        # Get vessels with positions from last 24 hours
+        # FAST approach: Get latest positions first (simple indexed query)
+        # Then join with vessel info - avoids complex nested queries
         cursor.execute('''
-            SELECT 
-                v.mmsi, v.name, v.ship_type, v.detailed_ship_type, v.length, v.beam,
-                v.imo, v.call_sign, v.flag_state, v.wind_assisted,
-                p.latitude, p.longitude, p.sog, p.cog, p.timestamp,
-                e.gross_tonnage
+            SELECT p.mmsi, p.latitude, p.longitude, p.sog, p.cog, MAX(p.timestamp) as timestamp
+            FROM vessel_positions p
+            WHERE p.timestamp >= datetime('now', '-6 hours')
+            GROUP BY p.mmsi
+            ORDER BY timestamp DESC
+            LIMIT 3000
+        ''')
+        recent_positions = {row[0]: {'lat': row[1], 'lon': row[2], 'sog': row[3], 'cog': row[4], 'timestamp': row[5]} 
+                          for row in cursor.fetchall()}
+        
+        if not recent_positions:
+            return jsonify(vessels)
+        
+        # Get vessel info for those MMSIs (fast lookup by primary key)
+        mmsi_list = ','.join(map(str, recent_positions.keys()))
+        cursor.execute(f'''
+            SELECT v.mmsi, v.name, v.ship_type, v.detailed_ship_type, v.length, v.beam,
+                   v.imo, v.call_sign, v.flag_state, v.wind_assisted, e.gross_tonnage
             FROM vessels_static v
-            INNER JOIN (
-                SELECT mmsi, latitude, longitude, sog, cog, timestamp,
-                       ROW_NUMBER() OVER (PARTITION BY mmsi ORDER BY timestamp DESC) as rn
-                FROM vessel_positions
-                WHERE timestamp >= datetime('now', '-24 hours')
-            ) p ON v.mmsi = p.mmsi AND p.rn = 1
             LEFT JOIN eu_mrv_emissions e ON v.imo = e.imo
-            WHERE v.mmsi NOT IN ({})
-            ORDER BY p.timestamp DESC
-            LIMIT 2000
-        '''.format(','.join(map(str, seen_mmsi)) if seen_mmsi else '0'))
+            WHERE v.mmsi IN ({mmsi_list})
+        ''')
         
         db_vessels = cursor.fetchall()
         
         for vessel in db_vessels:
-            mmsi, name, ship_type, detailed_type, length, beam, imo, call_sign, flag, wind_assisted, lat, lon, sog, cog, timestamp, gt = vessel
+            mmsi, name, ship_type, detailed_type, length, beam, imo, call_sign, flag, wind_assisted, gt = vessel
+            
+            # Skip if already in real-time data
+            if mmsi in seen_mmsi:
+                continue
+                
+            pos = recent_positions.get(mmsi, {})
+            if not pos:
+                continue
             
             vessels.append({
                 'mmsi': mmsi,
@@ -452,11 +466,11 @@ def get_vessels():
                 'flag_state': flag or 'Unknown',
                 'wind_assisted': wind_assisted or 0,
                 'gross_tonnage': gt,
-                'lat': lat,
-                'lon': lon,
-                'sog': sog,
-                'cog': cog,
-                'timestamp': timestamp
+                'lat': pos.get('lat'),
+                'lon': pos.get('lon'),
+                'sog': pos.get('sog'),
+                'cog': pos.get('cog'),
+                'timestamp': pos.get('timestamp')
             })
             
     except Exception as e:
