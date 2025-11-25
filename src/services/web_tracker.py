@@ -13,6 +13,12 @@ import time
 from pathlib import Path
 from datetime import datetime
 import requests  # For proxying to PC ML service
+import sys
+import os
+
+# Add project root to path for imports
+_project_root = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(_project_root))
 
 # Configuration
 DB_NAME = "vessel_static_data.db"
