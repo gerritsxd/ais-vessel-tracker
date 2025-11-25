@@ -702,7 +702,7 @@ const debouncedApplyFilters = useRef(
                       </td>
                       <td>{vessel.length || 'N/A'}</td>
                       <td>{vessel.flag_state || 'Unknown'}</td>
-                      <td>vessel.signatory_company || vessel.mrv_company || 'Unknown'</td>
+                      <td>${vessel.signatory_company || vessel.mrv_company || 'Unknown'}</td>
                       <td className="co2-value">
                         {vessel.total_co2_emissions 
                           ? formatNumber(vessel.total_co2_emissions) + ' t'
