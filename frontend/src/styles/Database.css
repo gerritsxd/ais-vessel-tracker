@@ -2,9 +2,11 @@
 
 .database-container {
   min-height: 100vh;
-  background: linear-gradient(180deg, #f6faff 0%, #e9f4fb 100%);
   padding: 2rem;
+  background: transparent;
+  color: inherit;
 }
+
 
 /* Animated Stats Grid */
 .stats-grid {
@@ -16,7 +18,7 @@
 
 .stat-card {
   position: relative;
-  background: white;
+  background: var(--surface-1, rgba(255,255,255,0.06));
   border-radius: 20px;
   padding: 2rem;
   box-shadow: 0 8px 24px rgba(11, 37, 69, 0.08);
@@ -32,7 +34,7 @@
   left: 0;
   right: 0;
   height: 4px;
-  background: linear-gradient(90deg, #0077b6, #00b4d8);
+  background: var(--surface-1, rgba(255,255,255,0.06));
   transform: scaleX(0);
   transition: transform 0.3s ease;
 }
@@ -143,7 +145,7 @@
   border: 2px solid rgba(0, 119, 182, 0.2);
   border-radius: 16px;
   font-size: 1rem;
-  background: white;
+  background: var(--surface-1, rgba(255,255,255,0.06));
   color: #0b2545;
   transition: all 0.3s ease;
 }
@@ -165,7 +167,7 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.875rem 1.25rem;
-  background: white;
+  background: var(--surface-1, rgba(255,255,255,0.06));
   border: 2px solid rgba(0, 119, 182, 0.2);
   border-radius: 12px;
   color: #0077b6;
@@ -210,7 +212,7 @@
 
 /* Filters Panel */
 .filters-panel {
-  background: white;
+  background: var(--surface-1, rgba(255,255,255,0.06));
   border-radius: 20px;
   padding: 1.5rem;
   margin-bottom: 1.5rem;
@@ -245,7 +247,7 @@
   border: 2px solid rgba(0, 119, 182, 0.2);
   border-radius: 12px;
   font-size: 0.875rem;
-  background: #f6faff;
+  background: var(--surface-1, rgba(255,255,255,0.06));
   color: #0b2545;
   transition: all 0.3s ease;
 }
@@ -254,7 +256,7 @@
 .filter-group select:focus {
   outline: none;
   border-color: #0077b6;
-  background: white;
+  background: var(--surface-1, rgba(255,255,255,0.06));
   box-shadow: 0 0 0 3px rgba(0, 119, 182, 0.1);
 }
 
@@ -281,7 +283,7 @@
 
 /* Data Container */
 .data-container {
-  background: white;
+  background: var(--surface-1, rgba(255,255,255,0.06));
   border-radius: 20px;
   box-shadow: 0 8px 30px rgba(11, 37, 69, 0.1);
   overflow: hidden;
@@ -296,7 +298,7 @@
 }
 
 .vessel-card {
-  background: white;
+  background: var(--surface-1, rgba(255,255,255,0.06));
   border: 2px solid rgba(0, 119, 182, 0.1);
   border-radius: 16px;
   padding: 1.5rem;
@@ -555,7 +557,7 @@
 }
 
 .modal-content {
-  background: white;
+  background: var(--surface-1, rgba(255,255,255,0.06));
   border-radius: 24px;
   max-width: 700px;
   width: 100%;
@@ -638,7 +640,7 @@
   flex-direction: column;
   gap: 0.5rem;
   padding: 1rem;
-  background: #f6faff;
+  background: var(--surface-1, rgba(255,255,255,0.06));
   border-radius: 12px;
   transition: all 0.3s ease;
 }
@@ -681,7 +683,7 @@
 }
 
 .action-btn.secondary {
-  background: white;
+  background: var(--surface-1, rgba(255,255,255,0.06));
   color: #0077b6;
   border: 2px solid #0077b6;
 }
@@ -750,7 +752,7 @@
 }
 
 .stat-card {
-  background: white;
+  background: var(--surface-1, rgba(255,255,255,0.06));
   border-radius: 16px;
   padding: 2rem;
   box-shadow: 0 4px 12px rgba(11, 37, 69, 0.08);
@@ -814,7 +816,7 @@
   border: 2px solid rgba(0, 119, 182, 0.2);
   border-radius: 12px;
   font-size: 1rem;
-  background: white;
+  background: var(--surface-1, rgba(255,255,255,0.06));
   color: #0b2545;
   transition: all 0.3s ease;
 }
@@ -830,7 +832,8 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.875rem 1.5rem;
-  background: white;
+  background: var(--surface-1, rgba(255,255,255,0.06));
+
   border: 2px solid rgba(0, 119, 182, 0.2);
   border-radius: 12px;
   color: #0077b6;
@@ -848,7 +851,8 @@
 
 /* Filters Panel */
 .filters-panel {
-  background: white;
+  background: var(--surface-1, rgba(255,255,255,0.06));
+
   border-radius: 16px;
   padding: 1.5rem;
   margin-bottom: 1.5rem;
@@ -892,7 +896,8 @@
 .filter-group select:focus {
   outline: none;
   border-color: #0077b6;
-  background: white;
+  background: var(--surface-1, rgba(255,255,255,0.06));
+
 }
 
 .clear-filters-btn {
@@ -918,7 +923,8 @@
 
 /* Table Container */
 .table-container {
-  background: white;
+  background: var(--surface-1, rgba(255,255,255,0.06));
+
   border-radius: 16px;
   box-shadow: 0 4px 20px rgba(11, 37, 69, 0.1);
   overflow: hidden;
@@ -1115,7 +1121,8 @@
 }
 
 .modal-content {
-  background: white;
+  background: var(--surface-1, rgba(255,255,255,0.06));
+
   border-radius: 20px;
   max-width: 700px;
   width: 100%;
@@ -1226,7 +1233,8 @@
 }
 
 .action-btn.secondary {
-  background: white;
+  background: var(--surface-1, rgba(255,255,255,0.06));
+
   color: #0077b6;
   border: 2px solid #0077b6;
 }

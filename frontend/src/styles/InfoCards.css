@@ -1,9 +1,16 @@
 
 
 .info-cards-section {
-  padding: 5rem 2rem;
-  background: #f6faff;
+  padding: 6rem 2rem;
   position: relative;
+}
+
+.info-cards-section::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.2);
+  pointer-events: none;
 }
 
 .info-cards-container {
@@ -15,7 +22,7 @@
   text-align: center;
   font-size: 2.5rem;
   font-weight: 700;
-  color: #0b2545;
+  color: var(--text-primary);
   margin-bottom: 3rem;
   letter-spacing: -0.02em;
 }
@@ -28,42 +35,44 @@
 }
 
 .info-card {
-  background: white;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 16px;
   padding: 2.5rem 2rem;
-  box-shadow: 0 4px 6px rgba(11, 37, 69, 0.08);
-  transition: all 0.3s ease;
-  border: 1px solid rgba(0, 119, 182, 0.1);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  transition: transform 0.2s ease, border-color 0.2s ease;
 }
+
+
 
 .info-card:hover {
-  box-shadow: 0 12px 24px rgba(0, 119, 182, 0.15);
-  border-color: rgba(0, 180, 216, 0.3);
+  transform: translateY(-6px);
+  border-color: rgba(255, 255, 255, 0.16);
 }
 
+
 .card-icon {
-  width: 64px;
-  height: 64px;
-  background: linear-gradient(135deg, #0077b6 0%, #00b4d8 100%);
-  border-radius: 12px;
+  width: 56px;
+  height: 56px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
+  color: var(--accent-primary);
   margin-bottom: 1.5rem;
 }
 
 .card-title {
-  font-size: 1.5rem;
+  font-size: 1.4rem;
   font-weight: 600;
-  color: #0b2545;
-  margin-bottom: 1rem;
   letter-spacing: -0.01em;
 }
 
+
 .card-description {
   font-size: 1rem;
-  color: #284b63;
+  color: var(--text-secondary);
   line-height: 1.7;
   margin: 0;
 }
