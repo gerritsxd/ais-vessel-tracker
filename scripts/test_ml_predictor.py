@@ -16,7 +16,7 @@ try:
     from src.ml.predictor import CompanyMLPredictor
 except ImportError:
     # Fallback to old location
-    from src.services.ml_predictor_service import CompanyMLPredictor
+from src.services.ml_predictor_service import CompanyMLPredictor
 
 def main():
     print("="*80)

@@ -27,7 +27,7 @@ export default function MLInsights() {
   const [viewMode, setViewMode] = useState("list"); // "list" or "grid"
 
   useEffect(() => {
-    loadCSV("/data/score_breakdown_normalized.csv")
+    loadCSV("/data/score_breakdown.csv")
       .then(raw => {
         console.log("Raw CSV data:", raw[0]); // Debug log
         const parsed = raw.map(row => {
