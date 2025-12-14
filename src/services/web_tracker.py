@@ -359,36 +359,25 @@ class VesselTrackerWebSocket:
                 time.sleep(5)
 
 
-# Flask routes - Serving plain HTML/CSS/JS templates (faster, no React build needed)
+# Flask routes - Serving React frontend
 @app.route('/ships/')
-def index():
-    """Serve the home page."""
-    return render_template('index.html')
+def serve_index():
+    """Serve the React frontend entry point."""
+    return send_from_directory(str(frontend_dist), 'index.html')
 
-@app.route('/ships/map')
-def map_page():
-    """Serve the main map page."""
-    return render_template('map.html')
-
-@app.route('/ships/database')
-def database_page():
-    """Serve the database browser page."""
-    return render_template('database_enhanced.html')
-
-@app.route('/ships/intelligence')
-def intelligence_page():
-    """Serve the intelligence dashboard."""
-    return render_template('intelligence.html')
-
-@app.route('/ships/ml-predictions')
-def ml_predictions_page():
-    """Serve the ML predictions dashboard."""
-    return render_template('ml_predictions.html')
-
-@app.route('/ships/fleet-viz')
-def fleet_viz_page():
-    """Serve the 3D fleet visualization page."""
-    return render_template('fleet_visualization.html')
+@app.route('/ships/<path:path>')
+def serve_frontend(path):
+    """Serve static files or React frontend for SPA routing."""
+    # Allow API routes to pass through (handled by other routes or return 404)
+    if path.startswith('api/'):
+        return jsonify({'error': 'API endpoint not found'}), 404
+        
+    # Try to serve static file if it exists in dist
+    if (frontend_dist / path).exists():
+        return send_from_directory(str(frontend_dist), path)
+        
+    # Otherwise serve index.html for client-side routing
+    return send_from_directory(str(frontend_dist), 'index.html')
 
 
 @app.route('/ships/api/vessels')
