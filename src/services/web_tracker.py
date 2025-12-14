@@ -173,9 +173,10 @@ def get_filtered_vessels():
         cursor = conn.cursor()
         
         # Try query with gross_tonnage first
+        # Note: e.ship_type contains the EU MRV detailed type (e.g., "Bulk carrier", "Container ship")
         try:
             query = '''
-                SELECT v.mmsi, v.name, v.ship_type, v.detailed_ship_type, v.length, v.beam, v.imo, 
+                SELECT v.mmsi, v.name, v.ship_type, e.ship_type as detailed_ship_type, v.length, v.beam, v.imo, 
                        v.call_sign, v.flag_state, v.signatory_company, v.wind_assisted, e.gross_tonnage
                 FROM vessels_static v
                 LEFT JOIN eu_mrv_emissions e ON v.imo = e.imo
@@ -191,7 +192,7 @@ def get_filtered_vessels():
             # Fallback query without gross_tonnage if column doesn't exist
             print("Warning: gross_tonnage column not found, using fallback query")
             query = '''
-                SELECT v.mmsi, v.name, v.ship_type, v.detailed_ship_type, v.length, v.beam, v.imo, 
+                SELECT v.mmsi, v.name, v.ship_type, NULL as detailed_ship_type, v.length, v.beam, v.imo, 
                        v.call_sign, v.flag_state, v.signatory_company, v.wind_assisted
                 FROM vessels_static v
                 WHERE v.mmsi IS NOT NULL
@@ -435,7 +436,7 @@ def get_vessels():
         # Get vessel info for those MMSIs (fast lookup by primary key)
         mmsi_list = ','.join(map(str, recent_positions.keys()))
         cursor.execute(f'''
-            SELECT v.mmsi, v.name, v.ship_type, v.detailed_ship_type, v.length, v.beam,
+            SELECT v.mmsi, v.name, v.ship_type, e.ship_type as detailed_ship_type, v.length, v.beam,
                    v.imo, v.call_sign, v.flag_state, v.wind_assisted, e.gross_tonnage
             FROM vessels_static v
             LEFT JOIN eu_mrv_emissions e ON v.imo = e.imo
