@@ -9,8 +9,6 @@ import "./styles/primitives.css";
 
 const basename = import.meta.env.DEV ? '/' : '/ships'
 
-const basename = import.meta.env.DEV ? '/' : '/ships'
-
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <BrowserRouter basename={basename}>
