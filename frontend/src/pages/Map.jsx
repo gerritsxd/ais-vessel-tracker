@@ -139,17 +139,29 @@ export default function VesselMap() {
   const createVesselIcon = useCallback((vessel) => {
   const type = getShipTypeInfo(vessel);
   const color = type.color || "#00aaff";
+  
+  // Calculate size based on ship length (min 4px, max 16px)
+  const length = vessel.length || 100;
+  let size = Math.max(4, Math.min(16, Math.round(length / 25)));
+  
+  // Wind-assisted vessels get a green glow
+  const isWindAssisted = vessel.wind_assisted === 1;
+  const glowStyle = isWindAssisted 
+    ? `box-shadow: 0 0 8px 2px rgba(0, 255, 0, 0.7);` 
+    : `box-shadow: 0 0 ${size}px ${color}88;`;
 
   return L.divIcon({
     className: "",
     html: `<div style="
-      width:6px;
-      height:6px;
+      width:${size}px;
+      height:${size}px;
       border-radius:50%;
       background:${color};
+      border: 1px solid rgba(255,255,255,0.6);
+      ${glowStyle}
     "></div>`,
-    iconSize: [6, 6],
-    iconAnchor: [3, 3],
+    iconSize: [size, size],
+    iconAnchor: [size/2, size/2],
   });
 }, [getShipTypeInfo]);
 
