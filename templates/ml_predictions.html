@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ML Predictions Dashboard</title>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+        }
+        
+        #header {
+            background: #16213e;
+            padding: 15px 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        #header h1 {
+            font-size: 24px;
+            color: #00d4ff;
+        }
+        
+        .nav-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .btn {
+            background: #0f3460;
+            color: #00d4ff;
+            border: 1px solid #00d4ff;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        
+        .btn:hover {
+            background: #00d4ff;
+            color: #0f3460;
+        }
+        
+        .btn-train {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            color: white;
+            font-weight: bold;
+        }
+        
+        .btn-train:hover {
+            opacity: 0.9;
+            color: white;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: #16213e;
+            border: 1px solid #0f3460;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            text-align: center;
+        }
+        
+        .stat-card h3 {
+            color: #00d4ff;
+            font-size: 14px;
+            font-weight: normal;
+            margin-bottom: 10px;
+        }
+        
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #fff;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #888;
+            margin-top: 5px;
+        }
+        
+        .section {
+            background: #16213e;
+            border: 1px solid #0f3460;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .section-title {
+            font-size: 18px;
+            color: #00d4ff;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #0f3460;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+            align-items: center;
+        }
+        
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .control-group label {
+            color: #888;
+            font-size: 14px;
+        }
+        
+        .control-group select {
+            background: #0f3460;
+            color: #eee;
+            border: 1px solid #00d4ff;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th {
+            background: rgba(0, 212, 255, 0.1);
+            padding: 12px;
+            text-align: left;
+            font-size: 12px;
+            text-transform: uppercase;
+            color: #00d4ff;
+            border-bottom: 2px solid #0f3460;
+        }
+        
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #0f3460;
+        }
+        
+        tr:hover {
+            background: rgba(0, 212, 255, 0.05);
+        }
+        
+        .company-name {
+            font-weight: bold;
+            color: #fff;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .badge-yes {
+            background: rgba(34, 197, 94, 0.2);
+            color: #22c55e;
+        }
+        
+        .badge-no {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+        }
+        
+        .badge-high {
+            background: rgba(34, 197, 94, 0.2);
+            color: #22c55e;
+        }
+        
+        .badge-medium {
+            background: rgba(251, 191, 36, 0.2);
+            color: #fbbf24;
+        }
+        
+        .badge-low {
+            background: rgba(156, 163, 175, 0.2);
+            color: #9ca3af;
+        }
+        
+        .badge-type {
+            background: rgba(99, 102, 241, 0.1);
+            color: #6366f1;
+        }
+        
+        .probability {
+            font-size: 11px;
+            color: #888;
+            margin-top: 4px;
+        }
+        
+        .features {
+            font-size: 11px;
+            color: #888;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 60px;
+            color: #888;
+            font-size: 18px;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #888;
+        }
+        
+        .text-center {
+            text-align: center;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #0f3460;
+            border-top-color: #00d4ff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="header">
+        <h1>🤖 ML Predictions Dashboard</h1>
+        <div class="nav-buttons">
+            <a href="/ships/" class="btn">Home</a>
+            <a href="/ships/map" class="btn">Map</a>
+            <a href="/ships/database" class="btn">Database</a>
+            <a href="/ships/intelligence" class="btn">Intelligence</a>
+            <button class="btn btn-train" onclick="trainModels()">🚀 Train Models</button>
+        </div>
+    </div>
+    
+    <div class="container">
+        <!-- Stats Cards -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h3>Total Companies</h3>
+                <div class="stat-value" id="total-companies">-</div>
+                <div class="stat-label">With predictions</div>
+            </div>
+            <div class="stat-card">
+                <h3>WASP Candidates</h3>
+                <div class="stat-value" id="wasp-candidates">-</div>
+                <div class="stat-label">High probability</div>
+            </div>
+            <div class="stat-card">
+                <h3>Sustainability Focus</h3>
+                <div class="stat-value" id="sustainability-high">-</div>
+                <div class="stat-label">High focus</div>
+            </div>
+            <div class="stat-card">
+                <h3>Models Status</h3>
+                <div class="stat-value" id="models-status">-</div>
+                <div class="stat-label" id="models-label">Loading...</div>
+            </div>
+        </div>
+        
+        <!-- Controls -->
+        <div class="section">
+            <div class="section-title">🔧 Controls</div>
+            <div class="controls">
+                <div class="control-group">
+                    <label>Filter:</label>
+                    <select id="filter" onchange="applyFilters()">
+                        <option value="all">All Companies</option>
+                        <option value="wasp_high">High WASP Probability</option>
+                        <option value="sustainability_high">High Sustainability Focus</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label>Sort By:</label>
+                    <select id="sortBy" onchange="applyFilters()">
+                        <option value="wasp_probability">WASP Probability</option>
+                        <option value="sustainability">Sustainability Level</option>
+                        <option value="company_name">Company Name</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Predictions Table -->
+        <div class="section">
+            <div class="section-title">📊 Company Predictions (<span id="filtered-count">0</span> companies)</div>
+            
+            <div id="loading" class="loading">
+                <span class="spinner"></span> Loading predictions...
+            </div>
+            
+            <div id="table-container" style="display: none; overflow-x: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Company</th>
+                            <th class="text-center">WASP Adoption</th>
+                            <th class="text-center">Sustainability</th>
+                            <th class="text-center">Company Type</th>
+                            <th class="text-center">Key Features</th>
+                        </tr>
+                    </thead>
+                    <tbody id="predictions-body">
+                    </tbody>
+                </table>
+            </div>
+            
+            <div id="empty-state" class="empty-state" style="display: none;">
+                No predictions available. Train models first.
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let predictions = {};
+        let stats = null;
+        
+        // Load data on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadPredictions();
+            loadStats();
+        });
+        
+        async function loadPredictions() {
+            try {
+                const res = await fetch('/ships/api/ml/predictions');
+                const data = await res.json();
+                predictions = data.predictions || {};
+                
+                document.getElementById('loading').style.display = 'none';
+                
+                if (Object.keys(predictions).length > 0) {
+                    document.getElementById('table-container').style.display = 'block';
+                    applyFilters();
+                } else {
+                    document.getElementById('empty-state').style.display = 'block';
+                }
+            } catch (err) {
+                console.error('Error loading predictions:', err);
+                document.getElementById('loading').innerHTML = 'Error loading predictions';
+            }
+        }
+        
+        async function loadStats() {
+            try {
+                const res = await fetch('/ships/api/ml/stats');
+                stats = await res.json();
+                
+                document.getElementById('models-status').textContent = 
+                    stats.models_available ? '✅' : '❌';
+                document.getElementById('models-label').textContent = 
+                    stats.models_available ? 'Trained' : 'Not trained';
+            } catch (err) {
+                console.error('Error loading stats:', err);
+            }
+        }
+        
+        function applyFilters() {
+            const filter = document.getElementById('filter').value;
+            const sortBy = document.getElementById('sortBy').value;
+            
+            // Convert to array for filtering/sorting
+            let entries = Object.entries(predictions);
+            
+            // Apply filter
+            if (filter === 'wasp_high') {
+                entries = entries.filter(([_, pred]) => 
+                    pred.wasp_adoption?.prediction === true && 
+                    pred.wasp_adoption?.confidence === 'high'
+                );
+            } else if (filter === 'sustainability_high') {
+                entries = entries.filter(([_, pred]) => 
+                    pred.sustainability_focus?.prediction === 'high'
+                );
+            }
+            
+            // Apply sort
+            entries.sort(([nameA, predA], [nameB, predB]) => {
+                if (sortBy === 'wasp_probability') {
+                    const probA = predA.wasp_adoption?.probability || 0;
+                    const probB = predB.wasp_adoption?.probability || 0;
+                    return probB - probA;
+                } else if (sortBy === 'sustainability') {
+                    const sustA = predA.sustainability_focus?.prediction || 'low';
+                    const sustB = predB.sustainability_focus?.prediction || 'low';
+                    const order = { 'high': 3, 'medium': 2, 'low': 1 };
+                    return (order[sustB] || 0) - (order[sustA] || 0);
+                } else {
+                    return nameA.localeCompare(nameB);
+                }
+            });
+            
+            // Update stats
+            document.getElementById('total-companies').textContent = Object.keys(predictions).length;
+            document.getElementById('wasp-candidates').textContent = 
+                Object.values(predictions).filter(p => p.wasp_adoption?.prediction).length;
+            document.getElementById('sustainability-high').textContent = 
+                Object.values(predictions).filter(p => p.sustainability_focus?.prediction === 'high').length;
+            document.getElementById('filtered-count').textContent = entries.length;
+            
+            // Render table
+            renderTable(entries);
+        }
+        
+        function renderTable(entries) {
+            const tbody = document.getElementById('predictions-body');
+            tbody.innerHTML = '';
+            
+            if (entries.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="5" class="text-center" style="padding: 40px; color: #888;">
+                            No companies match the current filter.
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            entries.forEach(([companyName, pred]) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="company-name">${escapeHtml(companyName)}</td>
+                    <td class="text-center">
+                        ${pred.wasp_adoption ? `
+                            <div>
+                                <span class="badge ${pred.wasp_adoption.prediction ? 'badge-yes' : 'badge-no'}">
+                                    ${pred.wasp_adoption.prediction ? '✅ YES' : '❌ NO'}
+                                </span>
+                                <div class="probability">
+                                    ${(pred.wasp_adoption.probability * 100).toFixed(0)}% (${pred.wasp_adoption.confidence})
+                                </div>
+                            </div>
+                        ` : '<span style="color: #666">N/A</span>'}
+                    </td>
+                    <td class="text-center">
+                        ${pred.sustainability_focus ? `
+                            <div>
+                                <span class="badge badge-${pred.sustainability_focus.prediction}">
+                                    ${pred.sustainability_focus.prediction.toUpperCase()}
+                                </span>
+                                <div class="probability">
+                                    ${(pred.sustainability_focus.probability * 100).toFixed(0)}%
+                                </div>
+                            </div>
+                        ` : '<span style="color: #666">N/A</span>'}
+                    </td>
+                    <td class="text-center">
+                        ${pred.company_type ? `
+                            <span class="badge badge-type">
+                                ${pred.company_type.prediction.replace('_', ' ')}
+                            </span>
+                        ` : '<span style="color: #666">N/A</span>'}
+                    </td>
+                    <td>
+                        ${pred.features ? `
+                            <div class="features">
+                                ${pred.features.vessel_count > 0 ? `<span>🚢 ${pred.features.vessel_count} vessels</span>` : ''}
+                                ${pred.features.grants_count > 0 ? `<span>💰 ${pred.features.grants_count} grants</span>` : ''}
+                                ${pred.features.sustainability_count > 0 ? `<span>🌱 ${pred.features.sustainability_count} sustainability</span>` : ''}
+                                ${pred.features.has_wind_keywords ? '<span>🌬️ Wind keywords</span>' : ''}
+                            </div>
+                        ` : ''}
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+        
+        async function trainModels() {
+            if (!confirm('This will train ML models. This may take a few minutes. Continue?')) {
+                return;
+            }
+            
+            document.getElementById('models-status').textContent = '⏳';
+            document.getElementById('models-label').textContent = 'Training...';
+            
+            try {
+                const res = await fetch('/ships/api/ml/train', { method: 'POST' });
+                const data = await res.json();
+                
+                if (data.status === 'success') {
+                    alert(`✅ Models trained successfully!\n${data.models_trained.length} models\n${data.total_companies} companies`);
+                    loadPredictions();
+                    loadStats();
+                } else {
+                    alert(`❌ Error: ${data.message || data.error}`);
+                    document.getElementById('models-status').textContent = '❌';
+                    document.getElementById('models-label').textContent = 'Error';
+                }
+            } catch (err) {
+                alert(`❌ Error training models: ${err.message}`);
+                document.getElementById('models-status').textContent = '❌';
+                document.getElementById('models-label').textContent = 'Error';
+            }
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>
+

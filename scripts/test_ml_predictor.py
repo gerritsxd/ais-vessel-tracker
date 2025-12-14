@@ -11,7 +11,12 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from src.services.ml_predictor_service import CompanyMLPredictor
+# Import from new ML module location
+try:
+    from src.ml.predictor import CompanyMLPredictor
+except ImportError:
+    # Fallback to old location
+    from src.services.ml_predictor_service import CompanyMLPredictor
 
 def main():
     print("="*80)

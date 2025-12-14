@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AIS Vessel Tracker - Carbon at Sea</title>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0b1929;
+            color: #eee;
+            min-height: 100vh;
+        }
+        
+        /* Navigation */
+        .navbar {
+            background: rgba(11, 25, 41, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 15px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            border-bottom: 1px solid rgba(0, 212, 255, 0.2);
+        }
+        
+        .logo {
+            font-size: 22px;
+            font-weight: bold;
+            color: #00d4ff;
+            text-decoration: none;
+        }
+        
+        .nav-links {
+            display: flex;
+            gap: 30px;
+        }
+        
+        .nav-links a {
+            color: #8892b0;
+            text-decoration: none;
+            font-size: 14px;
+            transition: color 0.3s;
+        }
+        
+        .nav-links a:hover {
+            color: #00d4ff;
+        }
+        
+        /* Hero Section */
+        .hero {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            background: linear-gradient(135deg, #0b1929 0%, #0f2744 50%, #0b1929 100%);
+        }
+        
+        .hero-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                radial-gradient(ellipse at 20% 80%, rgba(0, 212, 255, 0.1) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 20%, rgba(0, 100, 180, 0.1) 0%, transparent 50%);
+            animation: pulse 8s ease-in-out infinite alternate;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        /* Animated waves */
+        .waves {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 200px;
+            overflow: hidden;
+        }
+        
+        .wave {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 200%;
+            height: 100%;
+            background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 120'%3E%3Cpath fill='rgba(0,212,255,0.1)' d='M0,60 C150,120 350,0 600,60 C850,120 1050,0 1200,60 L1200,120 L0,120 Z'/%3E%3C/svg%3E") repeat-x;
+            animation: wave 15s linear infinite;
+        }
+        
+        .wave:nth-child(2) {
+            bottom: 10px;
+            opacity: 0.5;
+            animation-duration: 12s;
+            animation-direction: reverse;
+        }
+        
+        .wave:nth-child(3) {
+            bottom: 20px;
+            opacity: 0.3;
+            animation-duration: 20s;
+        }
+        
+        @keyframes wave {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+        
+        .hero-content {
+            position: relative;
+            z-index: 10;
+            max-width: 800px;
+            padding: 0 20px;
+        }
+        
+        .hero h1 {
+            font-size: 56px;
+            font-weight: 700;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: fadeInUp 1s ease-out;
+        }
+        
+        .hero p {
+            font-size: 20px;
+            color: #8892b0;
+            margin-bottom: 40px;
+            animation: fadeInUp 1s ease-out 0.2s backwards;
+        }
+        
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .cta-buttons {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            animation: fadeInUp 1s ease-out 0.4s backwards;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
+            color: #0b1929;
+            padding: 14px 32px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 16px;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(0, 212, 255, 0.3);
+        }
+        
+        .btn-secondary {
+            background: transparent;
+            color: #00d4ff;
+            padding: 14px 32px;
+            border: 1px solid #00d4ff;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 16px;
+            transition: background 0.3s, color 0.3s;
+        }
+        
+        .btn-secondary:hover {
+            background: rgba(0, 212, 255, 0.1);
+        }
+        
+        /* Info Cards Section */
+        .info-section {
+            padding: 80px 40px;
+            background: #0f2744;
+        }
+        
+        .section-title {
+            text-align: center;
+            font-size: 36px;
+            color: #00d4ff;
+            margin-bottom: 50px;
+        }
+        
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .card {
+            background: rgba(11, 25, 41, 0.8);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 12px;
+            padding: 30px;
+            transition: transform 0.3s, border-color 0.3s;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+            border-color: #00d4ff;
+        }
+        
+        .card-icon {
+            font-size: 40px;
+            margin-bottom: 20px;
+        }
+        
+        .card h3 {
+            font-size: 20px;
+            color: #fff;
+            margin-bottom: 12px;
+        }
+        
+        .card p {
+            color: #8892b0;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        
+        .card-stat {
+            font-size: 32px;
+            font-weight: bold;
+            color: #00d4ff;
+            margin-top: 15px;
+        }
+        
+        /* Stats Section */
+        .stats-section {
+            padding: 60px 40px;
+            background: #0b1929;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 40px;
+            max-width: 1000px;
+            margin: 0 auto;
+            text-align: center;
+        }
+        
+        .stat-item .value {
+            font-size: 48px;
+            font-weight: bold;
+            color: #00d4ff;
+        }
+        
+        .stat-item .label {
+            color: #8892b0;
+            font-size: 14px;
+            margin-top: 8px;
+        }
+        
+        /* Footer */
+        .footer {
+            background: #0f2744;
+            padding: 40px;
+            text-align: center;
+            border-top: 1px solid rgba(0, 212, 255, 0.2);
+        }
+        
+        .footer a {
+            color: #00d4ff;
+            text-decoration: none;
+        }
+        
+        .footer p {
+            color: #8892b0;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <a href="/ships/" class="logo">🚢 AIS Tracker</a>
+        <div class="nav-links">
+            <a href="/ships/map">Map</a>
+            <a href="/ships/database">Database</a>
+            <a href="/ships/intelligence">Intelligence</a>
+            <a href="/ships/ml-predictions">ML Predictions</a>
+            <a href="/ships/sql">SQL Query</a>
+        </div>
+    </nav>
+    
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-bg"></div>
+        <div class="waves">
+            <div class="wave"></div>
+            <div class="wave"></div>
+            <div class="wave"></div>
+        </div>
+        
+        <div class="hero-content">
+            <h1>Tracking Carbon at Sea</h1>
+            <p>Real-time vessel emissions and wind propulsion insights, powered by live AIS data</p>
+            <div class="cta-buttons">
+                <a href="/ships/map" class="btn-primary">View Live Map</a>
+                <a href="/ships/database" class="btn-secondary">Explore Database</a>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Stats Section -->
+    <section class="stats-section">
+        <div class="stats-grid">
+            <div class="stat-item">
+                <div class="value" id="vessel-count">-</div>
+                <div class="label">Vessels Tracked</div>
+            </div>
+            <div class="stat-item">
+                <div class="value" id="emissions-count">16K+</div>
+                <div class="label">Emissions Records</div>
+            </div>
+            <div class="stat-item">
+                <div class="value" id="company-count">-</div>
+                <div class="label">Companies</div>
+            </div>
+            <div class="stat-item">
+                <div class="value">Live</div>
+                <div class="label">Real-Time Updates</div>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Info Cards -->
+    <section class="info-section">
+        <h2 class="section-title">Platform Features</h2>
+        <div class="cards-grid">
+            <div class="card">
+                <div class="card-icon">🗺️</div>
+                <h3>Real-Time Tracking</h3>
+                <p>Track cargo and tanker vessels worldwide with live AIS data. See position, speed, and route history.</p>
+            </div>
+            
+            <div class="card">
+                <div class="card-icon">🌍</div>
+                <h3>EU MRV Emissions</h3>
+                <p>CO₂ emissions data for 16,000+ vessels. Compare efficiency and identify high-emission fleets.</p>
+            </div>
+            
+            <div class="card">
+                <div class="card-icon">💨</div>
+                <h3>Econowind Fit Score</h3>
+                <p>Proprietary 0-8 scoring system identifies optimal vessels for wind propulsion retrofit.</p>
+            </div>
+            
+            <div class="card">
+                <div class="card-icon">🤖</div>
+                <h3>AI Company Intelligence</h3>
+                <p>Google Gemini-powered analysis of grants, violations, and sustainability initiatives.</p>
+            </div>
+            
+            <div class="card">
+                <div class="card-icon">📊</div>
+                <h3>ML Predictions</h3>
+                <p>Machine learning models predict WASP adoption likelihood and sustainability focus.</p>
+            </div>
+            
+            <div class="card">
+                <div class="card-icon">🌊</div>
+                <h3>Atlantic Coverage</h3>
+                <p>Hybrid data sources ensure mid-ocean tracking beyond terrestrial AIS range.</p>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Footer -->
+    <footer class="footer">
+        <p>Built with AISStream, Datalastic, EU MRV, and Google Gemini</p>
+        <p style="margin-top: 10px;">
+            <a href="https://github.com/gerritsxd/ais-vessel-tracker">GitHub</a> • 
+            <a href="https://gerritsxd.com/ships/">Live Demo</a>
+        </p>
+    </footer>
+    
+    <script>
+        // Load stats on page load
+        async function loadStats() {
+            try {
+                // Get vessel count
+                const vesselsRes = await fetch('/ships/api/stats');
+                const vesselsData = await vesselsRes.json();
+                document.getElementById('vessel-count').textContent = 
+                    (vesselsData.total_vessels || 0).toLocaleString() + '+';
+                
+                // Get emissions stats
+                const emissionsRes = await fetch('/ships/api/emissions/match-stats');
+                const emissionsData = await emissionsRes.json();
+                document.getElementById('company-count').textContent = 
+                    (emissionsData.total_emissions_database || 0).toLocaleString();
+            } catch (err) {
+                console.log('Stats not available');
+            }
+        }
+        
+        loadStats();
+    </script>
+</body>
+</html>
+

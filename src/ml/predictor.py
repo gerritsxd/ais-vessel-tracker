@@ -1,62 +1,49 @@
 """
-ML/NLP Prediction Service for Company Intelligence
+ML Predictor for Company WASP Adoption
 
-DEPRECATED: This module has been moved to src/ml/predictor.py
-This file remains for backwards compatibility.
+This module contains the main CompanyMLPredictor class that:
+1. Loads and merges company intelligence + profile data
+2. Extracts features for ML models
+3. Trains classification models
+4. Generates predictions for WASP adoption likelihood
 
-Uses sentiment analysis, feature engineering, and classification models to predict:
-- WASP adoption likelihood
-- Sustainability focus classification
-- Company type classification
+MODELS:
+=======
+1. WASP Adoption (Binary): GradientBoostingClassifier
+   - Predicts: Will company adopt wind propulsion? (True/False)
+   - Ground truth: Known WASP adopters from wind_propulsion table
+
+2. Sustainability Focus (Multi-class): RandomForestClassifier
+   - Predicts: high / medium / low sustainability focus
+   - Derived from emissions category + sustainability news count
+
+3. Company Type (Multi-class): RandomForestClassifier
+   - Predicts: container_carrier, tanker_operator, bulk_carrier, etc.
+   - From company profile labels
 """
 
-# Re-export from new location for backwards compatibility
-import sys
-from pathlib import Path
-
-# Add project root to path
-_project_root = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(_project_root))
-
-try:
-    from src.ml.predictor import CompanyMLPredictor, main
-    from src.ml.features import FeatureExtractor
-    from src.ml.scoring import EconowindScorer, SCORING_WEIGHTS
-except ImportError:
-    # Fallback to original implementation if new module not available
-    pass
-
-# Original imports for backwards compatibility
 import json
 import sqlite3
-import numpy as np
-import pandas as pd
+import pickle
+from pathlib import Path
 from typing import Dict, List, Any, Optional, Tuple
 from datetime import datetime
-from collections import defaultdict
-import re
 
-# ML Libraries
+import numpy as np
+import pandas as pd
+
+# Try importing ML libraries
 try:
-    from sklearn.feature_extraction.text import TfidfVectorizer
-    from sklearn.linear_model import LogisticRegression, LinearRegression
-    from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+    from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
     from sklearn.model_selection import train_test_split
     from sklearn.preprocessing import StandardScaler
-    from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
-    import pickle
+    from sklearn.metrics import accuracy_score, classification_report
     ML_AVAILABLE = True
 except ImportError:
     ML_AVAILABLE = False
     print("Warning: scikit-learn not installed. Install with: pip install scikit-learn")
 
-# NLP Libraries (lightweight)
-try:
-    from textblob import TextBlob
-    NLP_AVAILABLE = True
-except ImportError:
-    NLP_AVAILABLE = False
-    print("Warning: textblob not installed. Install with: pip install textblob")
+from .features import FeatureExtractor
 
 
 class CompanyMLPredictor:
@@ -65,14 +52,25 @@ class CompanyMLPredictor:
     """
     
     def __init__(self, db_path: str = "data/vessel_static_data.db"):
+        """
+        Initialize the predictor.
+        
+        Args:
+            db_path: Path to SQLite database
+        """
         self.db_path = db_path
-        self.models = {}
-        self.scalers = {}
-        self.vectorizers = {}
-        self.feature_names = []
+        self.models: Dict[str, Any] = {}
+        self.scalers: Dict[str, StandardScaler] = {}
+        self.feature_names: List[str] = []
+        self.feature_extractor = FeatureExtractor()
         
     def load_intelligence_data(self) -> Dict[str, Any]:
-        """Load latest company intelligence JSON file."""
+        """
+        Load latest company intelligence JSON file.
+        
+        Returns:
+            Dictionary mapping company name -> intelligence data
+        """
         data_dir = Path("data")
         
         # Find latest Gemini intelligence file
@@ -94,7 +92,12 @@ class CompanyMLPredictor:
         return data.get('companies', {})
     
     def load_profile_data(self) -> Dict[str, Any]:
-        """Load latest company profile V3 JSON file."""
+        """
+        Load latest company profile V3 JSON file.
+        
+        Returns:
+            Dictionary mapping company name -> profile data
+        """
         data_dir = Path("data")
         
         # Find latest V3 structured profile file
@@ -116,16 +119,23 @@ class CompanyMLPredictor:
         return data.get('companies', {})
     
     def get_wasp_adopters(self) -> Dict[str, bool]:
-        """Get companies that have adopted WASP (ground truth labels)."""
+        """
+        Get companies that have adopted WASP (ground truth labels).
+        
+        Returns:
+            Dictionary mapping company name -> True for known adopters
+        """
         wasp_companies = {}
         
-        # Try database approach first (works on VPS with full database)
+        # Try database approach first
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
             
             # Check if required tables exist
-            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='eu_mrv_emissions'")
+            cursor.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='eu_mrv_emissions'"
+            )
             has_emissions = cursor.fetchone() is not None
             
             if has_emissions:
@@ -139,15 +149,18 @@ class CompanyMLPredictor:
                 ''')
                 wasp_companies = {row[0]: True for row in cursor.fetchall()}
                 
-                # Also check wind_propulsion table by company name matching
-                cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='wind_propulsion'")
+                # Also check wind_propulsion table
+                cursor.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name='wind_propulsion'"
+                )
                 has_wind = cursor.fetchone() is not None
                 
                 if has_wind:
                     cursor.execute('''
                         SELECT DISTINCT e.company_name
                         FROM eu_mrv_emissions e
-                        INNER JOIN wind_propulsion w ON UPPER(TRIM(e.vessel_name)) = UPPER(TRIM(w.vessel_name))
+                        INNER JOIN wind_propulsion w 
+                            ON UPPER(TRIM(e.vessel_name)) = UPPER(TRIM(w.vessel_name))
                         WHERE e.company_name IS NOT NULL
                     ''')
                     for row in cursor.fetchall():
@@ -157,46 +170,48 @@ class CompanyMLPredictor:
         except Exception as e:
             print(f"Database approach failed: {e}")
         
-        # Fallback: Use WASPmmsi.txt file if no database results
+        # Fallback: Known WASP adopter keywords
         if not wasp_companies:
-            wasp_companies = self._load_wasp_from_file()
+            wasp_companies = self._get_known_wasp_companies()
         
         return wasp_companies
     
-    def _load_wasp_from_file(self) -> Dict[str, bool]:
-        """Load WASP adopters from WASPmmsi.txt file."""
-        wasp_file = Path("data/WASPmmsi.txt")
-        if not wasp_file.exists():
-            print("No WASPmmsi.txt file found")
-            return {}
+    def _get_known_wasp_companies(self) -> Dict[str, bool]:
+        """
+        Get known WASP adopters based on public information.
         
-        # Known company keywords for WASP vessel owners
-        # These are approximations based on vessel names and typical operators
-        wasp_keywords = {
+        These are companies known to have deployed wind propulsion systems.
+        """
+        # Known WASP-adopting companies (verified deployments)
+        known_adopters = {
             'scandlines': True,  # Copenhagen, Berlin ferries
             'enercon': True,  # E-Ship 1
-            'wallenius wilhelmsen': True,  # SC Connector  
-            'berge bulk': True,  # Berge Olympus, etc.
+            'wallenius wilhelmsen': True,  # SC Connector
+            'berge bulk': True,  # Berge Olympus
             'cargill': True,  # Pyxis Ocean
             'oldendorff': True,  # Various bulk carriers
             'gnv': True,  # GNV Bridge
-            'jumbo': True,  # Heavy lift
             'stena': True,  # Various vessels
             'marfret': True,  # Marfret Niolon
             'terntank': True,  # Tern Vik
             'odfjell': True,  # Chemical tankers
             'grimaldi': True,  # Delphine
-            'china merchants': True,  # Various
-            'cosco': True,  # Various
-            'nyks': True,  # NYK vessels
-            'msc': False,  # Has explored but not yet deployed
+            'china merchants': True,
         }
         
-        print(f"Loaded WASP keywords for {len([k for k,v in wasp_keywords.items() if v])} known WASP companies")
-        return {k: v for k, v in wasp_keywords.items() if v}
+        return known_adopters
     
     def _check_wasp_match(self, company_name: str, wasp_adopters: Dict[str, bool]) -> bool:
-        """Check if company name matches any WASP adopter using fuzzy matching."""
+        """
+        Check if company name matches any WASP adopter using fuzzy matching.
+        
+        Args:
+            company_name: Company name to check
+            wasp_adopters: Dict of known WASP adopters
+            
+        Returns:
+            True if match found
+        """
         # Exact match first
         if wasp_adopters.get(company_name, False):
             return True
@@ -205,323 +220,23 @@ class CompanyMLPredictor:
         company_lower = company_name.lower()
         for wasp_company in wasp_adopters.keys():
             wasp_lower = wasp_company.lower()
-            # Check if WASP company name is contained in the company name
             if wasp_lower in company_lower:
                 return True
-            # Check if company name is contained in WASP company name
             if len(company_lower) > 3 and company_lower in wasp_lower:
                 return True
         
         return False
     
-    def extract_text_features(self, company_data: Dict[str, Any]) -> str:
-        """Extract all text from intelligence findings for NLP."""
-        text_parts = []
-        
-        # From intelligence data
-        if 'intelligence' in company_data:
-            for category, cat_data in company_data['intelligence'].items():
-                findings = cat_data.get('findings', [])
-                for finding in findings:
-                    text_parts.append(finding.get('title', ''))
-                    text_parts.append(finding.get('snippet', ''))
-        
-        # From profile data (text_data)
-        if 'text_data' in company_data:
-            wiki = company_data['text_data'].get('wikipedia', {})
-            if wiki.get('summary'):
-                text_parts.append(wiki['summary'])
-            
-            website = company_data['text_data'].get('website', {})
-            for page in website.get('pages', []):
-                text_parts.append(page.get('text', ''))
-        
-        return ' '.join(text_parts)
-    
-    def analyze_sentiment(self, text: str) -> Dict[str, float]:
-        """Perform sentiment analysis on text."""
-        if not NLP_AVAILABLE or not text:
-            return {
-                'polarity': 0.0,
-                'subjectivity': 0.0,
-                'positive_score': 0.0,
-                'negative_score': 0.0
-            }
-        
-        try:
-            blob = TextBlob(text)
-            polarity = blob.sentiment.polarity  # -1 to 1
-            subjectivity = blob.sentiment.subjectivity  # 0 to 1
-            
-            # Simple positive/negative classification
-            positive_score = max(0, polarity)
-            negative_score = abs(min(0, polarity))
-            
-            return {
-                'polarity': float(polarity),
-                'subjectivity': float(subjectivity),
-                'positive_score': float(positive_score),
-                'negative_score': float(negative_score)
-            }
-        except:
-            return {
-                'polarity': 0.0,
-                'subjectivity': 0.0,
-                'positive_score': 0.0,
-                'negative_score': 0.0
-            }
-    
-    def extract_structured_features(self, company_data: Dict[str, Any]) -> Dict[str, float]:
-        """Extract structured numerical features from company data."""
-        features = {}
-        
-        # From metadata/attributes
-        metadata = company_data.get('metadata', {}) or company_data.get('attributes', {})
-        
-        features['vessel_count'] = float(metadata.get('vessel_count', 0))
-        features['avg_emissions'] = float(metadata.get('avg_emissions', 0) or metadata.get('avg_emissions_tons', 0) or 0)
-        features['avg_co2_distance'] = float(metadata.get('avg_co2_distance', 0) or metadata.get('avg_co2_per_distance', 0) or 0)
-        features['avg_wasp_score'] = float(metadata.get('avg_wasp_fit_score', 0) or 0)
-        
-        # Intelligence category counts
-        intelligence = company_data.get('intelligence', {})
-        features['grants_count'] = float(intelligence.get('grants_subsidies', {}).get('results_count', 0))
-        features['violations_count'] = float(intelligence.get('legal_violations', {}).get('results_count', 0))
-        features['sustainability_count'] = float(intelligence.get('sustainability_news', {}).get('results_count', 0))
-        features['reputation_count'] = float(intelligence.get('reputation', {}).get('results_count', 0))
-        features['financial_pressure_count'] = float(intelligence.get('financial_pressure', {}).get('results_count', 0))
-        features['total_findings'] = sum([
-            features['grants_count'],
-            features['violations_count'],
-            features['sustainability_count'],
-            features['reputation_count'],
-            features['financial_pressure_count']
-        ])
-        
-        # Sentiment scores from all text
-        text = self.extract_text_features(company_data)
-        sentiment = self.analyze_sentiment(text)
-        features.update(sentiment)
-        
-        # Keyword-based features
-        text_lower = text.lower()
-        features['has_wind_keywords'] = float(1.0 if any(kw in text_lower for kw in [
-            'wind propulsion', 'rotor sail', 'wing sail', 'wasp', 'econowind',
-            'flettner', 'wind-assisted', 'wind power'
-        ]) else 0.0)
-        
-        features['has_grant_keywords'] = float(1.0 if any(kw in text_lower for kw in [
-            'grant', 'subsidy', 'funding', 'eu fund', 'government support'
-        ]) else 0.0)
-        
-        features['has_sustainability_keywords'] = float(1.0 if any(kw in text_lower for kw in [
-            'sustainability', 'green', 'decarbonization', 'carbon neutral', 'emissions reduction'
-        ]) else 0.0)
-        
-        return features
-    
-    def build_feature_matrix(self, companies_data: Dict[str, Any]) -> Tuple[pd.DataFrame, List[str]]:
-        """Build feature matrix from all companies."""
-        features_list = []
-        company_names = []
-        
-        for company_name, company_data in companies_data.items():
-            features = self.extract_structured_features(company_data)
-            features_list.append(features)
-            company_names.append(company_name)
-        
-        df = pd.DataFrame(features_list, index=company_names)
-        return df, company_names
-    
-    def train_wasp_adoption_model(self, X: pd.DataFrame, y: pd.Series) -> Any:
-        """Train classifier to predict WASP adoption."""
-        if not ML_AVAILABLE:
-            return None
-        
-        # Handle small datasets
-        n_samples = len(X)
-        min_class_samples = min(y.value_counts())
-        
-        # Scale features first
-        scaler = StandardScaler()
-        
-        if n_samples < 10 or min_class_samples < 2:
-            # For very small datasets, train on all data without split
-            print("\n[INFO] Small dataset - training on all data without holdout")
-            X_scaled = scaler.fit_transform(X)
-            
-            model = GradientBoostingClassifier(
-                n_estimators=50,
-                learning_rate=0.1,
-                max_depth=3,
-                random_state=42
-            )
-            model.fit(X_scaled, y)
-            
-            print(f"\nWASP Adoption Model:")
-            print(f"  Training samples: {n_samples}")
-            print(f"  Class distribution: {dict(y.value_counts())}")
-            
-            self.scalers['wasp'] = scaler
-            return model
-        
-        # Normal train/test split for larger datasets
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=0.2, random_state=42, stratify=y
-        )
-        
-        X_train_scaled = scaler.fit_transform(X_train)
-        X_test_scaled = scaler.transform(X_test)
-        
-        # Train ensemble model
-        model = GradientBoostingClassifier(
-            n_estimators=100,
-            learning_rate=0.1,
-            max_depth=5,
-            random_state=42
-        )
-        
-        model.fit(X_train_scaled, y_train)
-        
-        # Evaluate
-        y_pred = model.predict(X_test_scaled)
-        accuracy = accuracy_score(y_test, y_pred)
-        
-        print(f"\nWASP Adoption Model:")
-        print(f"  Accuracy: {accuracy:.3f}")
-        print(f"  Training samples: {len(X_train)}")
-        print(f"  Test samples: {len(X_test)}")
-        print(f"\nClassification Report:")
-        print(classification_report(y_test, y_pred))
-        
-        self.scalers['wasp'] = scaler
-        return model
-    
-    def train_sustainability_classifier(self, X: pd.DataFrame, y: pd.Series) -> Any:
-        """Train classifier to predict sustainability focus level."""
-        if not ML_AVAILABLE:
-            return None
-        
-        # Handle small datasets
-        n_samples = len(X)
-        min_class_samples = min(y.value_counts())
-        
-        # Scale features first
-        scaler = StandardScaler()
-        
-        if n_samples < 10 or min_class_samples < 2:
-            # For very small datasets, train on all data without split
-            print("\n[INFO] Small dataset - training on all data without holdout")
-            X_scaled = scaler.fit_transform(X)
-            
-            model = RandomForestClassifier(
-                n_estimators=50,
-                max_depth=5,
-                random_state=42
-            )
-            model.fit(X_scaled, y)
-            
-            print(f"\nSustainability Classifier:")
-            print(f"  Training samples: {n_samples}")
-            print(f"  Class distribution: {dict(y.value_counts())}")
-            
-            self.scalers['sustainability'] = scaler
-            return model
-        
-        # Normal train/test split for larger datasets
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=0.2, random_state=42, stratify=y
-        )
-        
-        X_train_scaled = scaler.fit_transform(X_train)
-        X_test_scaled = scaler.transform(X_test)
-        
-        # Train model
-        model = RandomForestClassifier(
-            n_estimators=100,
-            max_depth=10,
-            random_state=42
-        )
-        
-        model.fit(X_train_scaled, y_train)
-        
-        # Evaluate
-        y_pred = model.predict(X_test_scaled)
-        accuracy = accuracy_score(y_test, y_pred)
-        
-        print(f"\nSustainability Classifier:")
-        print(f"  Accuracy: {accuracy:.3f}")
-        print(f"\nClassification Report:")
-        print(classification_report(y_test, y_pred))
-        
-        self.scalers['sustainability'] = scaler
-        return model
-    
-    def train_company_type_classifier(self, X: pd.DataFrame, y: pd.Series) -> Any:
-        """Train classifier to predict company type."""
-        if not ML_AVAILABLE:
-            return None
-        
-        # Handle small datasets
-        n_samples = len(X)
-        min_class_samples = min(y.value_counts())
-        
-        # Scale features first
-        scaler = StandardScaler()
-        
-        if n_samples < 10 or min_class_samples < 2:
-            # For very small datasets, train on all data without split
-            print("\n[INFO] Small dataset - training on all data without holdout")
-            X_scaled = scaler.fit_transform(X)
-            
-            model = RandomForestClassifier(
-                n_estimators=50,
-                max_depth=5,
-                random_state=42
-            )
-            model.fit(X_scaled, y)
-            
-            print(f"\nCompany Type Classifier:")
-            print(f"  Training samples: {n_samples}")
-            print(f"  Class distribution: {dict(y.value_counts())}")
-            
-            self.scalers['company_type'] = scaler
-            return model
-        
-        # Normal train/test split for larger datasets
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=0.2, random_state=42, stratify=y
-        )
-        
-        X_train_scaled = scaler.fit_transform(X_train)
-        X_test_scaled = scaler.transform(X_test)
-        
-        # Train model
-        model = RandomForestClassifier(
-            n_estimators=100,
-            max_depth=10,
-            random_state=42
-        )
-        
-        model.fit(X_train_scaled, y_train)
-        
-        # Evaluate
-        y_pred = model.predict(X_test_scaled)
-        accuracy = accuracy_score(y_test, y_pred)
-        
-        print(f"\nCompany Type Classifier:")
-        print(f"  Accuracy: {accuracy:.3f}")
-        print(f"\nClassification Report:")
-        print(classification_report(y_test, y_pred))
-        
-        self.scalers['company_type'] = scaler
-        return model
-    
     def prepare_training_data(self) -> Tuple[pd.DataFrame, Dict[str, pd.Series]]:
-        """Prepare training data from intelligence and profile data."""
-        print("="*80)
+        """
+        Prepare training data from intelligence and profile data.
+        
+        Returns:
+            Tuple of (feature_matrix, dict_of_label_series)
+        """
+        print("=" * 80)
         print("PREPARING ML TRAINING DATA")
-        print("="*80)
+        print("=" * 80)
         
         # Load data
         intelligence_data = self.load_intelligence_data()
@@ -530,11 +245,13 @@ class CompanyMLPredictor:
         
         print(f"Loaded {len(intelligence_data)} companies with intelligence data")
         print(f"Loaded {len(profile_data)} companies with profile data")
-        print(f"Found {len(wasp_adopters)} companies with WASP adoption")
+        print(f"Found {len(wasp_adopters)} known WASP adopters")
         
         # Merge intelligence and profile data
         merged_data = {}
-        for company_name in set(list(intelligence_data.keys()) + list(profile_data.keys())):
+        all_companies = set(list(intelligence_data.keys()) + list(profile_data.keys()))
+        
+        for company_name in all_companies:
             merged = {}
             if company_name in intelligence_data:
                 merged.update(intelligence_data[company_name])
@@ -546,14 +263,14 @@ class CompanyMLPredictor:
         print(f"Merged {len(merged_data)} companies")
         
         # Build feature matrix
-        X, company_names = self.build_feature_matrix(merged_data)
+        X, company_names = self.feature_extractor.build_feature_matrix(merged_data)
         print(f"Feature matrix shape: {X.shape}")
         print(f"Features: {list(X.columns)}")
         
         # Prepare labels
         labels = {}
         
-        # 1. WASP adoption (binary) - with fuzzy matching
+        # 1. WASP adoption (binary)
         wasp_labels = []
         for name in company_names:
             is_wasp = self._check_wasp_match(name, wasp_adopters)
@@ -566,9 +283,10 @@ class CompanyMLPredictor:
             company = merged_data.get(name, {})
             labels_data = company.get('labels', {})
             
-            # Use emissions_category as proxy, or derive from sustainability_count
             emissions_cat = labels_data.get('emissions_category', 'medium')
-            sust_count = company.get('intelligence', {}).get('sustainability_news', {}).get('results_count', 0)
+            sust_count = company.get('intelligence', {}).get(
+                'sustainability_news', {}
+            ).get('results_count', 0)
             
             if sust_count >= 3 or emissions_cat == 'low':
                 sustainability_labels.append('high')
@@ -587,71 +305,253 @@ class CompanyMLPredictor:
             categories = labels_data.get('company_categories', [])
             
             if categories:
-                company_type_labels.append(categories[0])  # Use primary category
+                company_type_labels.append(categories[0])
             else:
                 company_type_labels.append('unknown')
         
         labels['company_type'] = pd.Series(company_type_labels, index=company_names)
         
         print(f"\nLabel distributions:")
-        print(f"  WASP adoption: {sum(wasp_labels)}/{len(wasp_labels)} ({100*sum(wasp_labels)/len(wasp_labels):.1f}%)")
-        print(f"  Sustainability focus: {pd.Series(sustainability_labels).value_counts().to_dict()}")
+        print(f"  WASP adoption: {sum(wasp_labels)}/{len(wasp_labels)} "
+              f"({100*sum(wasp_labels)/len(wasp_labels):.1f}%)")
+        print(f"  Sustainability: {pd.Series(sustainability_labels).value_counts().to_dict()}")
         print(f"  Company types: {pd.Series(company_type_labels).value_counts().to_dict()}")
         
         return X, labels
     
-    def train_all_models(self) -> Dict[str, Any]:
-        """Train all ML models."""
+    def train_wasp_adoption_model(self, X: pd.DataFrame, y: pd.Series) -> Any:
+        """
+        Train binary classifier for WASP adoption prediction.
+        
+        Args:
+            X: Feature matrix
+            y: Binary labels (0/1)
+            
+        Returns:
+            Trained model or None if insufficient data
+        """
         if not ML_AVAILABLE:
-            print("ERROR: scikit-learn not available. Install with: pip install scikit-learn")
+            return None
+        
+        n_samples = len(X)
+        min_class_samples = min(y.value_counts())
+        
+        scaler = StandardScaler()
+        
+        # Handle small datasets
+        if n_samples < 10 or min_class_samples < 2:
+            print("\n[INFO] Small dataset - training on all data without holdout")
+            X_scaled = scaler.fit_transform(X)
+            
+            model = GradientBoostingClassifier(
+                n_estimators=50,
+                learning_rate=0.1,
+                max_depth=3,
+                random_state=42
+            )
+            model.fit(X_scaled, y)
+            
+            print(f"\nWASP Adoption Model:")
+            print(f"  Training samples: {n_samples}")
+            print(f"  Class distribution: {dict(y.value_counts())}")
+            
+            self.scalers['wasp'] = scaler
+            return model
+        
+        # Normal train/test split
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=0.2, random_state=42, stratify=y
+        )
+        
+        X_train_scaled = scaler.fit_transform(X_train)
+        X_test_scaled = scaler.transform(X_test)
+        
+        model = GradientBoostingClassifier(
+            n_estimators=100,
+            learning_rate=0.1,
+            max_depth=5,
+            random_state=42
+        )
+        model.fit(X_train_scaled, y_train)
+        
+        # Evaluate
+        y_pred = model.predict(X_test_scaled)
+        accuracy = accuracy_score(y_test, y_pred)
+        
+        print(f"\nWASP Adoption Model:")
+        print(f"  Accuracy: {accuracy:.3f}")
+        print(f"  Training samples: {len(X_train)}")
+        print(f"  Test samples: {len(X_test)}")
+        print(f"\nClassification Report:")
+        print(classification_report(y_test, y_pred))
+        
+        self.scalers['wasp'] = scaler
+        return model
+    
+    def train_sustainability_classifier(self, X: pd.DataFrame, y: pd.Series) -> Any:
+        """
+        Train multi-class classifier for sustainability focus.
+        
+        Args:
+            X: Feature matrix
+            y: Multi-class labels (high/medium/low)
+            
+        Returns:
+            Trained model or None
+        """
+        if not ML_AVAILABLE:
+            return None
+        
+        n_samples = len(X)
+        min_class_samples = min(y.value_counts())
+        
+        scaler = StandardScaler()
+        
+        if n_samples < 10 or min_class_samples < 2:
+            print("\n[INFO] Small dataset - training on all data")
+            X_scaled = scaler.fit_transform(X)
+            
+            model = RandomForestClassifier(
+                n_estimators=50,
+                max_depth=5,
+                random_state=42
+            )
+            model.fit(X_scaled, y)
+            
+            print(f"\nSustainability Classifier:")
+            print(f"  Training samples: {n_samples}")
+            print(f"  Class distribution: {dict(y.value_counts())}")
+            
+            self.scalers['sustainability'] = scaler
+            return model
+        
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=0.2, random_state=42, stratify=y
+        )
+        
+        X_train_scaled = scaler.fit_transform(X_train)
+        X_test_scaled = scaler.transform(X_test)
+        
+        model = RandomForestClassifier(
+            n_estimators=100,
+            max_depth=10,
+            random_state=42
+        )
+        model.fit(X_train_scaled, y_train)
+        
+        y_pred = model.predict(X_test_scaled)
+        accuracy = accuracy_score(y_test, y_pred)
+        
+        print(f"\nSustainability Classifier:")
+        print(f"  Accuracy: {accuracy:.3f}")
+        print(f"\nClassification Report:")
+        print(classification_report(y_test, y_pred))
+        
+        self.scalers['sustainability'] = scaler
+        return model
+    
+    def train_company_type_classifier(self, X: pd.DataFrame, y: pd.Series) -> Any:
+        """Train company type classifier."""
+        if not ML_AVAILABLE:
+            return None
+        
+        n_samples = len(X)
+        min_class_samples = min(y.value_counts())
+        
+        scaler = StandardScaler()
+        
+        if n_samples < 10 or min_class_samples < 2:
+            print("\n[INFO] Small dataset - training on all data")
+            X_scaled = scaler.fit_transform(X)
+            
+            model = RandomForestClassifier(
+                n_estimators=50,
+                max_depth=5,
+                random_state=42
+            )
+            model.fit(X_scaled, y)
+            
+            print(f"\nCompany Type Classifier:")
+            print(f"  Training samples: {n_samples}")
+            
+            self.scalers['company_type'] = scaler
+            return model
+        
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=0.2, random_state=42, stratify=y
+        )
+        
+        X_train_scaled = scaler.fit_transform(X_train)
+        X_test_scaled = scaler.transform(X_test)
+        
+        model = RandomForestClassifier(
+            n_estimators=100,
+            max_depth=10,
+            random_state=42
+        )
+        model.fit(X_train_scaled, y_train)
+        
+        y_pred = model.predict(X_test_scaled)
+        accuracy = accuracy_score(y_test, y_pred)
+        
+        print(f"\nCompany Type Classifier:")
+        print(f"  Accuracy: {accuracy:.3f}")
+        
+        self.scalers['company_type'] = scaler
+        return model
+    
+    def train_all_models(self) -> Dict[str, Any]:
+        """
+        Train all ML models.
+        
+        Returns:
+            Dictionary of trained models
+        """
+        if not ML_AVAILABLE:
+            print("ERROR: scikit-learn not available")
             return {}
         
-        print("\n" + "="*80)
+        print("\n" + "=" * 80)
         print("TRAINING ML MODELS")
-        print("="*80)
+        print("=" * 80)
         
         # Prepare data
         X, labels = self.prepare_training_data()
         
-        # Filter out companies with insufficient data
+        # Filter companies with insufficient data
         valid_mask = (X['total_findings'] > 0) | (X['vessel_count'] > 0)
         X_filtered = X[valid_mask]
         labels_filtered = {k: v[valid_mask] for k, v in labels.items()}
         
         print(f"\nFiltered to {len(X_filtered)} companies with sufficient data")
         
-        # Train models
         models = {}
         
-        # 1. WASP Adoption Model
-        if sum(labels_filtered['wasp_adoption']) >= 2:  # Need at least 2 positive examples
-            print("\n" + "-"*80)
+        # Train WASP model
+        if sum(labels_filtered['wasp_adoption']) >= 2:
+            print("\n" + "-" * 80)
             models['wasp_adoption'] = self.train_wasp_adoption_model(
                 X_filtered,
                 labels_filtered['wasp_adoption']
             )
         else:
-            print("\n[WARN] Insufficient WASP adoption data for training (need at least 2 examples)")
+            print("\n[WARN] Insufficient WASP data (need >= 2 positive examples)")
         
-        # 2. Sustainability Classifier
+        # Train sustainability classifier
         if len(labels_filtered['sustainability_focus'].unique()) >= 2:
-            print("\n" + "-"*80)
+            print("\n" + "-" * 80)
             models['sustainability_focus'] = self.train_sustainability_classifier(
                 X_filtered,
                 labels_filtered['sustainability_focus']
             )
-        else:
-            print("\n[WARN] Insufficient sustainability data for training")
         
-        # 3. Company Type Classifier
+        # Train company type classifier
         if len(labels_filtered['company_type'].unique()) >= 2:
-            print("\n" + "-"*80)
+            print("\n" + "-" * 80)
             models['company_type'] = self.train_company_type_classifier(
                 X_filtered,
                 labels_filtered['company_type']
             )
-        else:
-            print("\n[WARN] Insufficient company type data for training")
         
         self.models = models
         self.feature_names = list(X_filtered.columns)
@@ -659,17 +559,24 @@ class CompanyMLPredictor:
         return models
     
     def predict_company(self, company_name: str, company_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Make predictions for a single company."""
+        """
+        Generate predictions for a single company.
+        
+        Args:
+            company_name: Company name
+            company_data: Company intelligence/profile data
+            
+        Returns:
+            Dictionary with predictions and confidence scores
+        """
         if not self.models:
-            return {
-                'error': 'Models not trained. Call train_all_models() first.'
-            }
+            return {'error': 'Models not trained. Call train_all_models() first.'}
         
         # Extract features
-        features = self.extract_structured_features(company_data)
+        features = self.feature_extractor.extract_structured_features(company_data)
         feature_vector = pd.DataFrame([features])
         
-        # Ensure all features are present
+        # Ensure all features present
         for feat in self.feature_names:
             if feat not in feature_vector.columns:
                 feature_vector[feat] = 0.0
@@ -689,7 +596,7 @@ class CompanyMLPredictor:
                 'confidence': 'high' if max(proba) > 0.7 else 'medium' if max(proba) > 0.5 else 'low'
             }
         
-        # Sustainability focus prediction
+        # Sustainability prediction
         if 'sustainability_focus' in self.models:
             scaler = self.scalers.get('sustainability')
             X_scaled = scaler.transform(feature_vector)
@@ -713,7 +620,7 @@ class CompanyMLPredictor:
                 'confidence': 'high' if max(proba) > 0.5 else 'medium' if max(proba) > 0.3 else 'low'
             }
         
-        # Add feature importance for interpretability
+        # Add key features for interpretability
         predictions['features'] = {
             'vessel_count': features.get('vessel_count', 0),
             'grants_count': features.get('grants_count', 0),
@@ -725,13 +632,20 @@ class CompanyMLPredictor:
         return predictions
     
     def predict_all_companies(self) -> Dict[str, Dict[str, Any]]:
-        """Make predictions for all companies."""
+        """
+        Generate predictions for all companies with data.
+        
+        Returns:
+            Dictionary mapping company name -> predictions
+        """
         intelligence_data = self.load_intelligence_data()
         profile_data = self.load_profile_data()
         
         # Merge data
         merged_data = {}
-        for company_name in set(list(intelligence_data.keys()) + list(profile_data.keys())):
+        all_companies = set(list(intelligence_data.keys()) + list(profile_data.keys()))
+        
+        for company_name in all_companies:
             merged = {}
             if company_name in intelligence_data:
                 merged.update(intelligence_data[company_name])
@@ -748,7 +662,7 @@ class CompanyMLPredictor:
         
         return all_predictions
     
-    def save_models(self, filepath: str = "data/ml_models.pkl"):
+    def save_models(self, filepath: str = "data/ml_models.pkl") -> None:
         """Save trained models to disk."""
         if not self.models:
             print("No models to save")
@@ -766,8 +680,13 @@ class CompanyMLPredictor:
         
         print(f"Models saved to: {filepath}")
     
-    def load_models(self, filepath: str = "data/ml_models.pkl"):
-        """Load trained models from disk."""
+    def load_models(self, filepath: str = "data/ml_models.pkl") -> bool:
+        """
+        Load trained models from disk.
+        
+        Returns:
+            True if loaded successfully, False otherwise
+        """
         if not Path(filepath).exists():
             print(f"Model file not found: {filepath}")
             return False
@@ -785,24 +704,21 @@ class CompanyMLPredictor:
 
 
 def main():
-    """Train models and save predictions."""
+    """Train models and save predictions (CLI entry point)."""
     predictor = CompanyMLPredictor()
     
-    # Train models
     models = predictor.train_all_models()
     
     if models:
-        # Save models
         predictor.save_models()
         
-        # Generate predictions for all companies
-        print("\n" + "="*80)
+        print("\n" + "=" * 80)
         print("GENERATING PREDICTIONS")
-        print("="*80)
+        print("=" * 80)
         
         predictions = predictor.predict_all_companies()
         
-        # Save predictions to JSON
+        # Save predictions
         output_file = Path("data/company_predictions.json")
         with open(output_file, 'w', encoding='utf-8') as f:
             json.dump({
@@ -814,20 +730,18 @@ def main():
         print(f"\n✅ Predictions saved to: {output_file}")
         print(f"   Total companies: {len(predictions)}")
         
-        # Show sample predictions
+        # Show sample
         print("\nSample Predictions:")
         for i, (company, pred) in enumerate(list(predictions.items())[:5]):
             print(f"\n{i+1}. {company}")
             if 'wasp_adoption' in pred:
-                print(f"   WASP Adoption: {pred['wasp_adoption']['prediction']} ({pred['wasp_adoption']['confidence']} confidence)")
-            if 'sustainability_focus' in pred:
-                print(f"   Sustainability: {pred['sustainability_focus']['prediction']} ({pred['sustainability_focus']['confidence']} confidence)")
-            if 'company_type' in pred:
-                print(f"   Company Type: {pred['company_type']['prediction']}")
+                print(f"   WASP: {pred['wasp_adoption']['prediction']} "
+                      f"({pred['wasp_adoption']['confidence']} confidence)")
     else:
         print("\n[WARN] No models trained. Check data availability.")
 
 
 if __name__ == "__main__":
     main()
+
 
