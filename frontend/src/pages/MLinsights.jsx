@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { loadCSV } from "../utils/loadCSV";
-import "../styles/MLInsights.css";
+import "../styles/MLinsights.css";
 
 function interpretSignal(value) {
   if (value > 0.6) return "Strongly positive";
