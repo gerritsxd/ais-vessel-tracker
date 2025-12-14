@@ -1,0 +1,52 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap');
+@import "./tokens.css";
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+   background:
+    radial-gradient(
+      120% 80% at 20% 10%,
+      rgba(120, 200, 255, 0.08),
+      transparent 60%
+    ),
+    linear-gradient(
+      180deg,
+      #05090d 0%,
+      #05090d 100%
+    );
+  color: var(--text-primary);
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
+
+h1, h2, h3 {
+  font-family: "Space Grotesk", Inter, system-ui, sans-serif;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+
+
+a { color: inherit; }
+
+
+body {
+   background:
+    radial-gradient(
+      120% 80% at 20% 10%,
+      rgba(120, 200, 255, 0.08),
+      transparent 60%
+    ),
+    linear-gradient(
+      180deg,
+      #05090d 0%,
+      #05090d 100%
+    );
+  color: var(--text-primary);
+}
+
+
+p {
+  color: var(--text-secondary);
+}

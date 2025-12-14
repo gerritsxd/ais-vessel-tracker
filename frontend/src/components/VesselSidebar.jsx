@@ -22,8 +22,9 @@ function VesselSidebar({ vessel, onClose, darkMode, getShipTypeInfo }) {
           width: "350px",
           zIndex: 3000,
           overflowY: "auto",
-          background: darkMode ? "rgba(10,10,10,0.92)" : "white",
-          color: darkMode ? "#fff" : "#000",
+          background: "rgba(15,18,25,0.9)",
+color: "var(--text-primary)",
+
           boxShadow: "0 0 20px rgba(0,0,0,0.4)",
           padding: "20px"
         }}

@@ -3,7 +3,7 @@
 /* Main Container */
 .vessel-map-page {
   min-height: 100vh;
-  background: linear-gradient(180deg, #f6faff 0%, #e9f4fb 100%);
+  background: transparent;
   position: relative;
   overflow-x: hidden;
 }
@@ -62,9 +62,9 @@
 .map-header {
   position: relative;
   z-index: 10;
-  background: linear-gradient(135deg, rgba(246, 250, 255, 0.95) 0%, rgba(233, 244, 251, 0.95) 100%);
+  background: rgba(10,15,25,0.7);
   backdrop-filter: blur(20px);
-  border-bottom: 2px solid rgba(0, 180, 216, 0.2);
+  border-bottom: 1px solid rgba(255,255,255,0.1);
   box-shadow: 0 4px 20px rgba(0, 119, 182, 0.1);
 }
 
@@ -88,9 +88,10 @@
   font-size: 2.5rem;
   font-weight: 700;
   margin: 0 0 0.5rem 0;
-  background: linear-gradient(90deg, #0077b6, #00b4d8);
+  background: none;
+  color: var(--text-primary);
   -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  -webkit-text-fill-color: unset;
   background-clip: text;
   letter-spacing: -0.02em;
   text-shadow: 0 2px 10px rgba(0, 180, 216, 0.2);
@@ -98,7 +99,7 @@
 
 .map-subtitle {
   font-size: 1.1rem;
-  color: #284b63;
+  color: var(--text-secondary);
   margin: 0;
   font-weight: 500;
 }
@@ -111,8 +112,8 @@
 }
 
 .stat-card {
-  background: linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%);
-  border: 2px solid rgba(0, 180, 216, 0.2);
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
   border-radius: 16px;
   padding: 1.25rem 1.5rem;
   display: flex;
@@ -193,12 +194,12 @@
 }
 
 .filter-wrapper select {
-  background: white;
+  background: rgba(0,0,0,0.4);
   border: 2px solid rgba(0, 180, 216, 0.3);
   border-radius: 12px;
   padding: 0.75rem 1rem;
   font-size: 0.95rem;
-  color: #0b2545;
+  color: var(--text-primary);
   font-weight: 500;
   outline: none;
   cursor: pointer;

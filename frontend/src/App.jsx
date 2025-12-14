@@ -5,7 +5,7 @@ import InfoCards from './components/InfoCards'
 import VesselDatabase from './components/VesselDatabase'  
 import VesselMap from './pages/Map'  // Add this import
 import Intelligence from './pages/Intelligence'
-import MLPredictions from './pages/MLPredictions'
+import MLinsights from './pages/MLinsights'
 
 function DataPage() {
   return <div style={{ padding: '2rem', color: '#0b2545' }}>Data</div>
@@ -30,7 +30,7 @@ function DatabasePage() {
 
 export default function App() {
   return (
-    <div className="app-container">
+    <div className="app-bg">
       <Navbar />
       <Routes>
         <Route path="/" element={<Home />} />
@@ -38,8 +38,8 @@ export default function App() {
         <Route path="/database" element={<DatabasePage />} />
         <Route path="/about" element={<AboutPage />} />
         <Route path="/intelligence" element={<Intelligence />} />
-        <Route path="/ml-predictions" element={<MLPredictions />} />
+        <Route path="/ML-insights" element={<MLinsights />} />
       </Routes>
     </div>
-  )
+  );
 }

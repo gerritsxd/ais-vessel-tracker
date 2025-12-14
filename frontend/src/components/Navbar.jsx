@@ -9,7 +9,7 @@ export default function Navbar() {
     { to: '/map', label: 'Map' },
     { to: '/database', label: 'Data' },
     { to: '/intelligence', label: 'Intelligence' },
-    { to: '/ml-predictions', label: 'ML Predictions' },
+    { to: '/ML-insights', label: 'ML Insights' },
     { to: '/about', label: 'About' },
   ]
 

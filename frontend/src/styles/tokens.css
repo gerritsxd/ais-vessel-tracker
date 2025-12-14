@@ -1,0 +1,29 @@
+:root {
+  /* Base */
+--bg-0: #0a0f14;   /* deep navy, not pure black */
+--bg-1: #121923;   /* panel background */
+
+
+  /* Text */
+ /* Text roles */
+--text-primary: #f5f7fa;     /* main readable text */
+--text-secondary: #b5bcc7;   /* subtitles, labels */
+--text-muted: #7f8794;       /* helper text */
+
+--accent-primary: #7DD3FC;   /* soft sky blue */
+--text-accent: #E0F2FE;      /* very light ice */
+
+
+
+
+  /* Glass */
+  --glass-bg: rgba(255, 255, 255, 0.08);
+  --glass-border: rgba(255, 255, 255, 0.14);
+
+  /* Effects */
+  --shadow-lg: 0 30px 80px rgba(0,0,0,0.55);
+  --glow-primary: 0 0 40px rgba(124, 255, 178, 0.28);
+
+  /* Shape */
+  --radius-xl: 18px;
+}
