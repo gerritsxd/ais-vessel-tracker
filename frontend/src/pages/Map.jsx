@@ -49,7 +49,7 @@ function MapBounds({ markers, disabled }) {
 export default function VesselMap() {
   // ---- STATE ----
   const [vessels, setVessels] = useState([]);
-  const [darkMode, setDarkMode] = useState(false);
+  const [darkMode, setDarkMode] = useState(true);  // Dark mode ON by default
   const [filteredVessels, setFilteredVessels] = useState([]);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
