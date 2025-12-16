@@ -33,6 +33,15 @@ sys.path.insert(0, str(project_root))
 
 from src.utils.company_intelligence_scraper_gemini import GeminiIntelligenceScraper
 
+QUOTA_EXIT_CODE = 42
+
+def _is_quota_error(err: str) -> bool:
+    if not err:
+        return False
+    s = err.lower()
+    return ('quota exceeded' in s) or ('429' in s) or ('rate limit' in s)
+
+
 
 def load_api_key() -> str:
     p = project_root / 'config' / 'gemini_api_key.txt'
@@ -130,6 +139,22 @@ def main() -> int:
         print(f"\n[{idx}/{len(companies)}] {company['name']}")
         intel = scraper.gather_intelligence(company)
         scraper.intelligence_data[company['name']] = intel
+
+        # If Gemini quota is exhausted, stop early and let caller handle fallback
+        err = None
+        if isinstance(intel, dict):
+            err = intel.get('error')
+        if _is_quota_error(str(err) if err else ''):
+            print('Gemini quota exhausted; stopping early.')
+            progress_payload = {
+                'generated_at': datetime.now().isoformat(),
+                'scope': 'wasp_adopters',
+                'companies': scraper.intelligence_data,
+                'error': str(err),
+            }
+            progress_path = out_dir / 'company_intelligence_gemini_wasp_progress.json'
+            progress_path.write_text(__import__('json').dumps(progress_payload, indent=2), encoding='utf-8')
+            return QUOTA_EXIT_CODE
 
         if idx % args.progress_every == 0:
             progress_payload = {
