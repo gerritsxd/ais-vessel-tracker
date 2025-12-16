@@ -6,15 +6,23 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."  # project root
 
+PY="/var/www/apihub/venv/bin/python3"
+if [ ! -x "$PY" ]; then
+  # Fallback for local runs
+  PY="python3"
+fi
+
+echo "Using python: $PY"
+
 # 1) Export current WASP adopter list (ground truth) from DB
-python3 scripts/export_wasp_adopters_from_db.py || true
+$PY scripts/export_wasp_adopters_from_db.py || true
 
 # 2) Run Gemini intelligence scrape ONLY for WASP adopter companies
 # Keep conservative defaults to stay under free tier limits.
-python3 scripts/run_gemini_intelligence_for_wasp.py --limit 30 --sleep 30
+$PY scripts/run_gemini_intelligence_for_wasp.py --limit 30 --sleep 30
 
 # 3) Optional: export suction-tech (Econowind proxy) adopter list from DB
-python3 scripts/export_econowind_adopters_from_db.py || true
+$PY scripts/export_econowind_adopters_from_db.py || true
 
 # 4) Export regression dataset (feature matrix + labels)
-python3 scripts/export_econowind_dataset.py || true
+$PY scripts/export_econowind_dataset.py || true
