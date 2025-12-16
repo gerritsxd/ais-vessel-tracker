@@ -1,0 +1,14 @@
+[Unit]
+Description=Run WASP-only Gemini company intelligence scrape + exports
+After=network.target
+
+[Service]
+Type=oneshot
+User=erik
+WorkingDirectory=/var/www/apihub
+ExecStart=/bin/bash -lc '/var/www/apihub/scripts/wasp_scrape_and_export.sh'
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ais-wasp-scrape
