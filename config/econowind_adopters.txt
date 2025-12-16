@@ -1,0 +1,18 @@
+# Econowind (VentoFoil) adopters - ground truth company labels
+# Format:
+#   Company Name | optional_website | optional_notes
+#
+# Notes:
+# - Keep this file in git (it's NOT a secret).
+# - Keep names close to the company names used in intelligence/profile data so fuzzy matching works.
+# - Add/remove companies freely; the ML + export scripts read this file at runtime.
+
+Uni-Tankers | https://www.uni-tankers.com | Installed VentoFoils on Jutlandia Swan (reported)
+Jumbo Maritime | https://www.jumbomaritime.com | Installed VentoFoils on Jumbo Jubilee (reported)
+Boomsma Shipping | https://www.boomsma-shipping.com | VentoFoil on Frisian Sea (reported)
+Van Dam Shipping | https://www.vandamshipping.com | VentoFoil trials / partner (reported)
+Vertom Group | https://www.vertom.com | VentoFoil trials / partner (reported)
+Schram Shipping | https://www.schramshipping.com | VentoFoil trials / partner (reported)
+Chemship | https://www.chemship.com | Reported adopter (verify exact vessel)
+NYK Line | https://www.nyk.com | Reported adopter (verify exact vessel)
+

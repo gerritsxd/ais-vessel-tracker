@@ -175,7 +175,29 @@ class CompanyMLPredictor:
             wasp_companies = self._get_known_wasp_companies()
         
         return wasp_companies
-    
+
+    def get_econowind_adopters(self) -> Dict[str, bool]:
+        """Get companies that have adopted Econowind (VentoFoil) (ground truth labels).
+
+        Source of truth:
+        - `config/econowind_adopters.txt`
+        """
+        adopters: Dict[str, bool] = {}
+
+        adopters_file = Path("config/econowind_adopters.txt")
+        if not adopters_file.exists():
+            return adopters
+
+        for raw_line in adopters_file.read_text(encoding="utf-8").splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith("#"):
+                continue
+            company = line.split("|", 1)[0].strip()
+            if company:
+                adopters[company] = True
+
+        return adopters
+
     def _get_known_wasp_companies(self) -> Dict[str, bool]:
         """
         Get known WASP adopters based on public information.
@@ -227,6 +249,26 @@ class CompanyMLPredictor:
         
         return False
     
+
+    def _check_econowind_match(self, company_name: str, econowind_adopters: Dict[str, bool]) -> bool:
+        """Check if company name matches any Econowind adopter using fuzzy matching."""
+        if not company_name:
+            return False
+
+        if econowind_adopters.get(company_name, False):
+            return True
+
+        company_lower = company_name.lower()
+        for econ_company in econowind_adopters.keys():
+            econ_lower = econ_company.lower()
+            if econ_lower in company_lower:
+                return True
+            if len(company_lower) > 3 and company_lower in econ_lower:
+                return True
+
+        return False
+
+
     def prepare_training_data(self) -> Tuple[pd.DataFrame, Dict[str, pd.Series]]:
         """
         Prepare training data from intelligence and profile data.
@@ -242,6 +284,7 @@ class CompanyMLPredictor:
         intelligence_data = self.load_intelligence_data()
         profile_data = self.load_profile_data()
         wasp_adopters = self.get_wasp_adopters()
+        econowind_adopters = self.get_econowind_adopters()
         
         print(f"Loaded {len(intelligence_data)} companies with intelligence data")
         print(f"Loaded {len(profile_data)} companies with profile data")
@@ -276,6 +319,14 @@ class CompanyMLPredictor:
             is_wasp = self._check_wasp_match(name, wasp_adopters)
             wasp_labels.append(1 if is_wasp else 0)
         labels['wasp_adoption'] = pd.Series(wasp_labels, index=company_names)
+
+        # 1b. Econowind adoption (binary)
+        econowind_labels = []
+        for name in company_names:
+            is_econ = self._check_econowind_match(name, econowind_adopters) if econowind_adopters else False
+            econowind_labels.append(1 if is_econ else 0)
+        labels['econowind_adoption'] = pd.Series(econowind_labels, index=company_names)
+
         
         # 2. Sustainability focus (from labels or derived)
         sustainability_labels = []
@@ -388,6 +439,42 @@ class CompanyMLPredictor:
         self.scalers['wasp'] = scaler
         return model
     
+
+    def train_econowind_adoption_model(self, X: pd.DataFrame, y: pd.Series) -> Any:
+        """Train binary classifier for Econowind adoption prediction."""
+        if not ML_AVAILABLE:
+            return None
+
+        n_samples = len(X)
+        min_class_samples = min(y.value_counts())
+
+        scaler = StandardScaler()
+
+        if min_class_samples < 2 or n_samples < 10:
+            X_scaled = scaler.fit_transform(X)
+            model = GradientBoostingClassifier(random_state=42)
+            model.fit(X_scaled, y)
+            self.scalers['econowind'] = scaler
+            return model
+
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=0.2, random_state=42, stratify=y
+        )
+
+        X_train_scaled = scaler.fit_transform(X_train)
+        X_test_scaled = scaler.transform(X_test)
+
+        model = GradientBoostingClassifier(random_state=42)
+        model.fit(X_train_scaled, y_train)
+
+        y_pred = model.predict(X_test_scaled)
+        accuracy = accuracy_score(y_test, y_pred)
+        print(f"\nEconowind Adoption Model: Accuracy={accuracy:.3f}")
+
+        self.scalers['econowind'] = scaler
+        return model
+
+
     def train_sustainability_classifier(self, X: pd.DataFrame, y: pd.Series) -> Any:
         """
         Train multi-class classifier for sustainability focus.
@@ -536,6 +623,17 @@ class CompanyMLPredictor:
             )
         else:
             print("\n[WARN] Insufficient WASP data (need >= 2 positive examples)")
+
+        # Train Econowind model (labels from config/econowind_adopters.txt)
+        if 'econowind_adoption' in labels_filtered and sum(labels_filtered['econowind_adoption']) >= 2:
+            print("\n" + "-" * 80)
+            models['econowind_adoption'] = self.train_econowind_adoption_model(
+                X_filtered,
+                labels_filtered['econowind_adoption']
+            )
+        elif 'econowind_adoption' in labels_filtered:
+            print("\n[WARN] Insufficient Econowind data (need >= 2 positive examples). Edit config/econowind_adopters.txt")
+
         
         # Train sustainability classifier
         if len(labels_filtered['sustainability_focus'].unique()) >= 2:
@@ -596,6 +694,18 @@ class CompanyMLPredictor:
                 'confidence': 'high' if max(proba) > 0.7 else 'medium' if max(proba) > 0.5 else 'low'
             }
         
+
+        # Econowind adoption prediction
+        if 'econowind_adoption' in self.models:
+            scaler = self.scalers.get('econowind')
+            X_scaled = scaler.transform(feature_vector)
+            proba = self.models['econowind_adoption'].predict_proba(X_scaled)[0]
+            predictions['econowind_adoption'] = {
+                'prediction': bool(self.models['econowind_adoption'].predict(X_scaled)[0]),
+                'probability': float(max(proba)),
+                'confidence': 'high' if max(proba) > 0.7 else 'medium' if max(proba) > 0.5 else 'low'
+            }
+
         # Sustainability prediction
         if 'sustainability_focus' in self.models:
             scaler = self.scalers.get('sustainability')
