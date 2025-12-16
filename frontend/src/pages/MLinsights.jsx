@@ -25,9 +25,11 @@ export default function MLInsights() {
   const [compareCompany, setCompareCompany] = useState(null);
   const [compareMode, setCompareMode] = useState(false);
   const [viewMode, setViewMode] = useState("list"); // "list" or "grid"
+  const clamp = (value, min, max) =>
+  Math.max(min, Math.min(max, value));
 
   useEffect(() => {
-    loadCSV("/data/score_breakdown_normalized.csv")
+    loadCSV("/data/score_breakdown.csv")
       .then(raw => {
         console.log("Raw CSV data:", raw[0]); // Debug log
         const parsed = raw.map(row => {
@@ -40,7 +42,7 @@ export default function MLInsights() {
           
           return {
             company_name: row.company_name,
-            total: isNaN(total) ? 0 : Math.max(-2, Math.min(2, total)), // Clamp to reasonable range
+            total: isNaN(total) ? 0 : total, // Clamp to reasonable range
             topic_signal: isNaN(topic) ? 0 : Math.max(-1, Math.min(1, topic)),
             sentiment_signal: isNaN(sentiment) ? 0 : Math.max(-1, Math.min(1, sentiment)),
             tag_signal: isNaN(tag) ? 0 : Math.max(-1, Math.min(1, tag)),
@@ -581,6 +583,7 @@ export default function MLInsights() {
         </section>
       )}
 
+
       {/* SCATTER PLOT - SIGNAL CORRELATION */}
       {data.length > 0 && (
         <section className="ml-scatter container">
@@ -594,15 +597,19 @@ export default function MLInsights() {
               <h3>Technical fit vs. Total score</h3>
               <div className="ml-scatter-plot">
                 <div className="ml-scatter-axis-y">
-                  <span>2.0</span>
                   <span>1.0</span>
+                  <span>0.5</span>
                   <span>0</span>
+                  <span>-0.5</span>
                   <span>-1.0</span>
                 </div>
+
+
                 <div className="ml-scatter-content">
                   {data.map((company, i) => {
                     const x = ((company.technical_fit + 1) / 2) * 100;
-                    const y = 100 - ((company.total + 2) / 4) * 100;
+                    const totalClamped = clamp(company.total, -1, 1);
+                    const y = 100 - ((totalClamped + 1) / 2) * 100;
                     const isSelected = selectedCompany?.company_name === company.company_name;
                     const isCompare = compareCompany?.company_name === company.company_name;
                     
@@ -610,12 +617,13 @@ export default function MLInsights() {
                       <div
                         key={company.company_name}
                         className={`ml-scatter-point ${isSelected ? "selected" : ""} ${isCompare ? "compare" : ""}`}
-                        style={{ 
-                          left: `${x}%`, 
-                          top: `${y}%`,
+                        style={{
+                          left: `${clamp(x, 0, 100)}%`,
+                          top: `${clamp(y, 0, 100)}%`,
                           background: getSignalColor(company.total),
                           opacity: isSelected || isCompare ? 1 : 0.6
                         }}
+
                         onClick={() => handleCompanyClick(company)}
                         title={`${company.company_name}: ${company.total.toFixed(2)}`}
                       />
@@ -644,8 +652,8 @@ export default function MLInsights() {
                 </div>
                 <div className="ml-scatter-content">
                   {data.map((company, i) => {
-                    const x = ((company.sentiment_signal + 1) / 2) * 100;
-                    const y = 100 - ((company.tag_signal + 1) / 2) * 100;
+                    const x = ((clamp(company.sentiment_signal, -1, 1) + 1) / 2) * 100;
+                    const y = 100 - ((clamp(company.tag_signal, -1, 1) + 1) / 2) * 100;
                     const isSelected = selectedCompany?.company_name === company.company_name;
                     const isCompare = compareCompany?.company_name === company.company_name;
                     
@@ -653,151 +661,13 @@ export default function MLInsights() {
                       <div
                         key={company.company_name}
                         className={`ml-scatter-point ${isSelected ? "selected" : ""} ${isCompare ? "compare" : ""}`}
-                        style={{ 
-                          left: `${x}%`, 
-                          top: `${y}%`,
+                        style={{
+                          left: `${clamp(x, 0, 100)}%`,
+                          top: `${clamp(y, 0, 100)}%`,
                           background: getSignalColor(company.total),
                           opacity: isSelected || isCompare ? 1 : 0.6
                         }}
-                        onClick={() => handleCompanyClick(company)}
-                        title={`${company.company_name}: ${company.total.toFixed(2)}`}
-                      />
-                    );
-                  })}
-                  <div className="ml-scatter-grid-line" style={{ left: "50%", height: "100%" }} />
-                  <div className="ml-scatter-grid-line" style={{ top: "50%", width: "100%" }} />
-                </div>
-                <div className="ml-scatter-axis-x">
-                  <span>-1.0</span>
-                  <span>Sentiment</span>
-                  <span>1.0</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-      )}
 
-      {selectedCompany && compareCompany && (
-        <section className="ml-compare container">
-          <h2 className="ml-section-title">Side-by-side comparison</h2>
-
-          <div className="ml-compare-grid">
-            <div className="ml-compare-col glass">
-              <div className="ml-compare-header">
-                <h3>{selectedCompany.company_name}</h3>
-                <div className="ml-compare-total">
-                  Total: <span style={{ color: getSignalColor(selectedCompany.total) }}>
-                    {selectedCompany.total.toFixed(2)}
-                  </span>
-                </div>
-              </div>
-              <div className="ml-compare-bars">
-                <SignalBar label="Topic" value={selectedCompany.topic_signal} />
-                <SignalBar label="Sentiment" value={selectedCompany.sentiment_signal} />
-                <SignalBar label="Tags" value={selectedCompany.tag_signal} />
-                <SignalBar label="Technical" value={selectedCompany.technical_fit} />
-              </div>
-            </div>
-
-            <div className="ml-compare-col glass">
-              <div className="ml-compare-header">
-                <h3>{compareCompany.company_name}</h3>
-                <div className="ml-compare-total">
-                  Total: <span style={{ color: getSignalColor(compareCompany.total) }}>
-                    {compareCompany.total.toFixed(2)}
-                  </span>
-                </div>
-              </div>
-              <div className="ml-compare-bars">
-                <SignalBar label="Topic" value={compareCompany.topic_signal} />
-                <SignalBar label="Sentiment" value={compareCompany.sentiment_signal} />
-                <SignalBar label="Tags" value={compareCompany.tag_signal} />
-                <SignalBar label="Technical" value={compareCompany.technical_fit} />
-              </div>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* SCATTER PLOT - SIGNAL CORRELATION */}
-      {data.length > 0 && (
-        <section className="ml-scatter container">
-          <h2 className="ml-section-title">Signal relationships</h2>
-          <p className="ml-scatter-subtitle">
-            Explore how different signals correlate. Each point represents a company.
-            Click to select or compare.
-          </p>
-          <div className="ml-scatter-grid">
-            <div className="ml-scatter-chart glass">
-              <h3>Technical fit vs. Total score</h3>
-              <div className="ml-scatter-plot">
-                <div className="ml-scatter-axis-y">
-                  <span>2.0</span>
-                  <span>1.0</span>
-                  <span>0</span>
-                  <span>-1.0</span>
-                </div>
-                <div className="ml-scatter-content">
-                  {data.map((company, i) => {
-                    const x = ((company.technical_fit + 1) / 2) * 100;
-                    const y = 100 - ((company.total + 2) / 4) * 100;
-                    const isSelected = selectedCompany?.company_name === company.company_name;
-                    const isCompare = compareCompany?.company_name === company.company_name;
-                    
-                    return (
-                      <div
-                        key={company.company_name}
-                        className={`ml-scatter-point ${isSelected ? "selected" : ""} ${isCompare ? "compare" : ""}`}
-                        style={{ 
-                          left: `${x}%`, 
-                          top: `${y}%`,
-                          background: getSignalColor(company.total),
-                          opacity: isSelected || isCompare ? 1 : 0.6
-                        }}
-                        onClick={() => handleCompanyClick(company)}
-                        title={`${company.company_name}: ${company.total.toFixed(2)}`}
-                      />
-                    );
-                  })}
-                  {/* Grid lines */}
-                  <div className="ml-scatter-grid-line" style={{ left: "50%", height: "100%" }} />
-                  <div className="ml-scatter-grid-line" style={{ top: "50%", width: "100%" }} />
-                </div>
-                <div className="ml-scatter-axis-x">
-                  <span>-1.0</span>
-                  <span>Technical fit</span>
-                  <span>1.0</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="ml-scatter-chart glass">
-              <h3>Sentiment vs. Tag signal</h3>
-              <div className="ml-scatter-plot">
-                <div className="ml-scatter-axis-y">
-                  <span>1.0</span>
-                  <span>0.5</span>
-                  <span>0</span>
-                  <span>-0.5</span>
-                </div>
-                <div className="ml-scatter-content">
-                  {data.map((company, i) => {
-                    const x = ((company.sentiment_signal + 1) / 2) * 100;
-                    const y = 100 - ((company.tag_signal + 1) / 2) * 100;
-                    const isSelected = selectedCompany?.company_name === company.company_name;
-                    const isCompare = compareCompany?.company_name === company.company_name;
-                    
-                    return (
-                      <div
-                        key={company.company_name}
-                        className={`ml-scatter-point ${isSelected ? "selected" : ""} ${isCompare ? "compare" : ""}`}
-                        style={{ 
-                          left: `${x}%`, 
-                          top: `${y}%`,
-                          background: getSignalColor(company.total),
-                          opacity: isSelected || isCompare ? 1 : 0.6
-                        }}
                         onClick={() => handleCompanyClick(company)}
                         title={`${company.company_name}: ${company.total.toFixed(2)}`}
                       />
