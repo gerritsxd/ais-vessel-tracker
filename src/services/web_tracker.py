@@ -1799,20 +1799,29 @@ def list_intelligence_datasets():
         # Find all intelligence JSON files
         for file_path in data_dir.glob('company_intelligence*.json'):
             try:
-                stat = file_path.stat()
-                
-                # Load file to get stats
+                stat = file_path.stat()                # Load file to get stats
                 with open(file_path, 'r', encoding='utf-8') as f:
                     data = json.load(f)
-                    companies_count = data.get('total', 0)
-                    
+
+                    companies_obj = data.get('companies', {})
+                    if isinstance(companies_obj, dict):
+                        companies_count = data.get('total', len(companies_obj))
+                        company_iter = companies_obj.values()
+                    elif isinstance(companies_obj, list):
+                        companies_count = data.get('total', len(companies_obj))
+                        company_iter = companies_obj
+                    else:
+                        companies_count = data.get('total', 0)
+                        company_iter = []
+
                     # Count findings
                     findings_count = 0
-                    if 'companies' in data:
-                        for company in data['companies'].values():
-                            if 'intelligence' in company:
-                                for category in company['intelligence'].values():
+                    for company in company_iter:
+                        if isinstance(company, dict) and 'intelligence' in company:
+                            for category in company['intelligence'].values():
+                                if isinstance(category, dict):
                                     findings_count += category.get('results_count', 0)
+
                 
                 datasets.append({
                     'filename': file_path.name,

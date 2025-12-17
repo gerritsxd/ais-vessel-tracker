@@ -44,7 +44,9 @@ def _is_quota_error(err: str) -> bool:
 
 
 def load_api_key() -> str:
-    p = project_root / 'config' / 'gemini_api_key.txt'
+    p = project_root / 'config' / 'gemini_api_key_wasp.txt'
+    if not p.exists():
+        p = project_root / 'config' / 'gemini_api_key.txt'
     if not p.exists():
         raise SystemExit(f"Missing Gemini key file: {p}")
     key = p.read_text().strip()
@@ -150,6 +152,8 @@ def main() -> int:
                 'generated_at': datetime.now().isoformat(),
                 'scope': 'wasp_adopters',
                 'companies': scraper.intelligence_data,
+        'total': len(scraper.intelligence_data),
+                'total': len(scraper.intelligence_data),
                 'error': str(err),
             }
             progress_path = out_dir / 'company_intelligence_gemini_wasp_progress.json'

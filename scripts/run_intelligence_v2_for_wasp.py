@@ -108,6 +108,8 @@ def main() -> int:
                     'scope': 'wasp_adopters',
                     'version': 'intelligence-v2-duckduckgo',
                     'companies': scraper.intelligence_data,
+        'total': len(scraper.intelligence_data),
+                'total': len(scraper.intelligence_data),
                 }
                 progress_path.write_text(json.dumps(payload, indent=2), encoding='utf-8')
                 print(f"Saved progress: {progress_path}")
