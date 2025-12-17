@@ -71,3 +71,6 @@ data/*.db
 data/*.json
 *.db-shm
 *.db-wal
+
+# Extra Gemini key for WASP-only scraping
+config/gemini_api_key_wasp.txt
