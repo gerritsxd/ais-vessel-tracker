@@ -257,6 +257,82 @@ class CompanyProfilerV3:
         except Exception as e:
             return {'error': str(e)}
     
+    def _get_official_website_from_wikidata(self, company_name: str) -> str | None:
+        """Try to resolve the official website via Wikipedia->Wikidata (P856).
+
+        This avoids bad domain guesses (e.g., SMT -> Sports Media Tech instead of shipping).
+        Returns a base URL like https://example.com or None.
+        """
+        try:
+            # 1) Find best Wikipedia page
+            search_url = "https://en.wikipedia.org/w/api.php"
+            params = {
+                'action': 'opensearch',
+                'search': company_name,
+                'limit': 1,
+                'namespace': 0,
+                'format': 'json'
+            }
+            r = self.session.get(search_url, params=params, timeout=10)
+            data = r.json()
+            if not data or len(data) < 2 or not data[1]:
+                return None
+            title = data[1][0]
+
+            # 2) Get Wikidata QID from pageprops
+            params2 = {
+                'action': 'query',
+                'prop': 'pageprops',
+                'titles': title,
+                'format': 'json'
+            }
+            r2 = self.session.get(search_url, params=params2, timeout=10)
+            j2 = r2.json()
+            pages = (j2.get('query') or {}).get('pages') or {}
+            page = next(iter(pages.values()), {})
+            qid = ((page.get('pageprops') or {}).get('wikibase_item'))
+            if not qid:
+                return None
+
+            # 3) Fetch Wikidata entity JSON
+            wd_url = f"https://www.wikidata.org/wiki/Special:EntityData/{qid}.json"
+            r3 = self.session.get(wd_url, timeout=10)
+            j3 = r3.json()
+            entity = ((j3.get('entities') or {}).get(qid) or {})
+            claims = entity.get('claims') or {}
+            p856 = claims.get('P856')  # official website
+            if not p856:
+                return None
+            dv = p856[0].get('mainsnak', {}).get('datavalue', {}).get('value')
+            if not dv or not isinstance(dv, str):
+                return None
+            return dv.strip().rstrip('/')
+        except Exception:
+            return None
+
+    def _looks_like_correct_company_site(self, company_name: str, text: str) -> bool:
+        """Heuristic validation to reject obviously wrong websites."""
+        if not text:
+            return False
+
+        low = text.lower()
+        # obvious wrong-industry signals we saw in the wild
+        wrong_signals = ['sports', 'tennis', 'nfl', 'nhl', 'mlb', 'pga', 'fans', 'tournament']
+        if any(w in low for w in wrong_signals):
+            return False
+
+        # require at least one maritime/shipping keyword to reduce false matches
+        maritime = ['shipping', 'maritime', 'vessel', 'fleet', 'cargo', 'tanker', 'bulk', 'ship', 'logistics', 'offshore']
+        maritime_hits = sum(1 for k in maritime if k in low)
+        if maritime_hits == 0:
+            return False
+
+        # also require that at least one meaningful token from company name appears
+        tokens = [t for t in re.split(r'[^a-z0-9]+', company_name.lower()) if len(t) >= 3]
+        token_hits = sum(1 for t in set(tokens) if t in low)
+        return token_hits >= 1
+
+
     def _crawl_website_key_pages(self, company_name: str) -> Dict[str, Any]:
         """Crawl ONLY key pages: About, Services, Fleet, Sustainability"""
         try:
@@ -280,6 +356,11 @@ class CompanyProfilerV3:
                     base_urls = [url]
                     break
             
+            # Prefer official website via Wikidata (if available)
+            official = self._get_official_website_from_wikidata(company_name)
+            if official:
+                base_urls = [official]
+
             # Key page paths to try
             key_paths = [
                 '/',
@@ -313,8 +394,12 @@ class CompanyProfilerV3:
                         cleaned = self._clean_text_advanced(text)
                         
                         if len(cleaned) > 200:
+                            # Reject obviously wrong websites (bad domain guesses)
+                            if not self._looks_like_correct_company_site(company_name, cleaned):
+                                continue
                             pages_data.append({
                                 'page_type': path.strip('/') or 'home',
+                                'url': resp.url,
                                 'text': cleaned[:2000],  # Max 2K per page
                                 'length': len(cleaned)
                             })

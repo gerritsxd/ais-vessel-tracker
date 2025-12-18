@@ -17,6 +17,35 @@ from datetime import datetime
 from textblob import TextBlob
 
 
+def _pick_best_input() -> Path:
+    data_dir = Path('data')
+    prog = data_dir / 'company_profiles_v3_structured_wasp_progress.json'
+    latest = sorted(data_dir.glob('company_profiles_v3_structured_wasp_*.json'), reverse=True)
+
+    cand = []
+    if prog.exists():
+        cand.append(prog)
+    if latest:
+        cand.append(latest[0])
+
+    best = None
+    best_n = -1
+    for c in cand:
+        try:
+            data = json.loads(c.read_text(encoding='utf-8'))
+            n = len(data.get('companies', {}) or {})
+            if n > best_n:
+                best_n = n
+                best = c
+        except Exception:
+            continue
+
+    if best is None:
+        raise FileNotFoundError('No WASP profiles found')
+    return best
+
+
+
 def is_aboutish(page_type: str) -> bool:
     s = (page_type or '').lower()
     keys = ['about', 'company', 'mission', 'values', 'sustainability', 'environment', 'esg']
@@ -44,16 +73,11 @@ def main() -> int:
     if args.input:
         in_path = Path(args.input)
     else:
-        # prefer progress file (most up to date) else latest timestamped
-        prog = data_dir / 'company_profiles_v3_structured_wasp_progress.json'
-        if prog.exists():
-            in_path = prog
-        else:
-            files = sorted(data_dir.glob('company_profiles_v3_structured_wasp_*.json'), reverse=True)
-            if not files:
-                print('No WASP profiles found. Run scripts/run_profiler_v3_for_wasp.py first.')
-                return 2
-            in_path = files[0]
+        try:
+            in_path = _pick_best_input()
+        except Exception:
+            print('No WASP profiles found. Run scripts/run_profiler_v3_for_wasp.py first.')
+            return 2
 
     data = json.loads(in_path.read_text(encoding='utf-8'))
     companies = data.get('companies', {}) or {}
