@@ -15,6 +15,14 @@ export default function Intelligence() {
   });
 
   const [datasets, setDatasets] = useState([]);
+  const [profileScope, setProfileScope] = useState(""); // "", "wasp", "non_wasp"
+  const [profilesSummary, setProfilesSummary] = useState({
+    file: null,
+    intelligence_file: null,
+    total: 0,
+    companies: []
+  });
+  const [profilesError, setProfilesError] = useState("");
   const [scraperStatus, setScraperStatus] = useState({
     intelligence: {
       running: false,
@@ -77,6 +85,27 @@ export default function Intelligence() {
     }
   }
 
+  async function loadProfilesSummary() {
+    try {
+      const qs = new URLSearchParams();
+      qs.set("limit", "24");
+      if (profileScope) qs.set("scope", profileScope);
+      const res = await fetch(`/ships/api/intelligence/company-profiles/summary?${qs.toString()}`);
+      if (!res.ok) throw new Error("Profiles endpoint not ready");
+      const data = await res.json();
+      setProfilesSummary(data);
+      setProfilesError("");
+    } catch (err) {
+      setProfilesError("No profile summary available yet.");
+      setProfilesSummary({
+        file: null,
+        intelligence_file: null,
+        total: 0,
+        companies: []
+      });
+    }
+  }
+
   async function loadScraperStatus() {
     try {
       const res = await fetch("/ships/api/scrapers/status");
@@ -90,7 +119,7 @@ export default function Intelligence() {
   }
 
   async function loadPage() {
-    await Promise.all([loadStats(), loadDatasets(), loadScraperStatus()]);
+    await Promise.all([loadStats(), loadDatasets(), loadScraperStatus(), loadProfilesSummary()]);
   }
 
   // ----------------------------
@@ -106,6 +135,11 @@ export default function Intelligence() {
       clearInterval(refreshScraper);
     };
   }, []);
+
+  // Refresh profiles when scope changes
+  useEffect(() => {
+    loadProfilesSummary();
+  }, [profileScope]);
 
   return (
     <div className="intel-page">
@@ -124,6 +158,117 @@ export default function Intelligence() {
       </header>
 
       <div className="intel-container">
+
+        {/* ---------- COMPANY PROFILES + SENTIMENT (TOP) ---------- */}
+        <motion.div
+          className="intel-section"
+          initial={{ opacity: 0, y: 25 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45 }}
+        >
+          <div className="intel-section-title">🧾 Company Profiles + Website Sentiment</div>
+
+          <div className="profiles-toolbar">
+            <div className="profiles-meta">
+              <div className="profiles-meta-row">
+                <span className="profiles-meta-label">Profile dataset:</span>
+                <span className="profiles-meta-value">
+                  {profilesSummary.file || "-"}
+                </span>
+              </div>
+              <div className="profiles-meta-row">
+                <span className="profiles-meta-label">Intel dataset:</span>
+                <span className="profiles-meta-value">
+                  {profilesSummary.intelligence_file || "-"}
+                </span>
+              </div>
+            </div>
+
+            <div className="profiles-controls">
+              <label className="profiles-select-label">
+                Scope
+                <select
+                  className="profiles-select"
+                  value={profileScope}
+                  onChange={(e) => setProfileScope(e.target.value)}
+                >
+                  <option value="">Latest</option>
+                  <option value="wasp">WASP</option>
+                  <option value="non_wasp">Non‑WASP</option>
+                </select>
+              </label>
+              <button className="profiles-refresh" onClick={loadProfilesSummary}>
+                Refresh
+              </button>
+            </div>
+          </div>
+
+          {profilesError ? (
+            <div className="empty-state">{profilesError}</div>
+          ) : (
+            <div className="profiles-grid">
+              <div className="profiles-plot-card">
+                <div className="profiles-plot-title">Normalized sentiment scatter</div>
+                <SentimentScatter companies={profilesSummary.companies || []} />
+                <div className="profiles-plot-caption">
+                  x = polarity (z), y = subjectivity (z), bubble ~ log(1+text_len)
+                </div>
+              </div>
+
+              <div className="profiles-cards">
+                {(profilesSummary.companies || []).length === 0 ? (
+                  <div className="empty-state">No company profiles loaded yet</div>
+                ) : (
+                  (profilesSummary.companies || []).map((c) => (
+                    <div className="profile-card" key={c.company_name}>
+                      <div className="profile-card-title">
+                        {c.company_name}
+                        <span className="profile-chip">
+                          {c.attributes?.vessel_count ?? 0} vessels
+                        </span>
+                      </div>
+
+                      <div className="profile-card-row">
+                        <span className="profile-k">text_len</span>
+                        <span className="profile-v">{c.sentiment?.text_len ?? 0}</span>
+                        <span className="profile-k">pages</span>
+                        <span className="profile-v">{c.sentiment?.num_pages_total ?? 0}</span>
+                      </div>
+
+                      <div className="profile-card-row">
+                        <span className="profile-k">polarity</span>
+                        <span className="profile-v">{(c.sentiment?.polarity ?? 0).toFixed(3)}</span>
+                        <span className="profile-k">subjectivity</span>
+                        <span className="profile-v">{(c.sentiment?.subjectivity ?? 0).toFixed(3)}</span>
+                      </div>
+
+                      <div className="profile-card-row">
+                        <span className="profile-k">intel findings</span>
+                        <span className="profile-v">{c.intelligence?.total_findings ?? 0}</span>
+                        <span className="profile-k">WASP fit</span>
+                        <span className="profile-v">{c.attributes?.avg_wasp_fit_score ?? "-"}</span>
+                      </div>
+
+                      {(c.attributes?.primary_ship_types || []).length > 0 ? (
+                        <div className="profile-tags">
+                          {(c.attributes.primary_ship_types || []).slice(0, 3).map((t) => (
+                            <span className="profile-tag" key={t}>{t}</span>
+                          ))}
+                        </div>
+                      ) : null}
+
+                      {c.wikipedia?.summary ? (
+                        <div className="profile-summary">
+                          {c.wikipedia.summary}
+                        </div>
+                      ) : null}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+        </motion.div>
 
         {/* ---------- STATS CARDS ---------- */}
 
@@ -405,5 +550,64 @@ export default function Intelligence() {
 
       </div>
     </div>
+  );
+}
+
+function zscore(values) {
+  const arr = values.map((v) => (Number.isFinite(v) ? v : 0));
+  const mean = arr.reduce((a, b) => a + b, 0) / (arr.length || 1);
+  const variance =
+    arr.reduce((a, b) => a + (b - mean) * (b - mean), 0) / (arr.length || 1);
+  const std = Math.sqrt(variance);
+  if (!std) return arr.map(() => 0);
+  return arr.map((v) => (v - mean) / std);
+}
+
+function SentimentScatter({ companies }) {
+  const pts = (companies || [])
+    .filter((c) => (c?.sentiment?.text_len || 0) > 0)
+    .slice(0, 40);
+
+  if (pts.length === 0) {
+    return <div className="empty-state">No scraped website text yet</div>;
+  }
+
+  const pol = pts.map((c) => Number(c.sentiment?.polarity ?? 0));
+  const sub = pts.map((c) => Number(c.sentiment?.subjectivity ?? 0));
+  const tl = pts.map((c) => Math.log1p(Number(c.sentiment?.text_len ?? 0)));
+
+  const polZ = zscore(pol);
+  const subZ = zscore(sub);
+  const tlZ = zscore(tl);
+
+  const W = 420;
+  const H = 260;
+  const pad = 26;
+
+  const xMin = -3, xMax = 3;
+  const yMin = -3, yMax = 3;
+
+  const xScale = (x) => pad + ((x - xMin) / (xMax - xMin)) * (W - pad * 2);
+  const yScale = (y) => H - pad - ((y - yMin) / (yMax - yMin)) * (H - pad * 2);
+
+  return (
+    <svg className="sentiment-scatter" width={W} height={H} viewBox={`0 0 ${W} ${H}`}>
+      {/* axes */}
+      <line x1={pad} y1={H / 2} x2={W - pad} y2={H / 2} stroke="#cbd5e1" />
+      <line x1={W / 2} y1={pad} x2={W / 2} y2={H - pad} stroke="#cbd5e1" />
+      {pts.map((c, i) => {
+        const r = 5 + Math.max(0, tlZ[i]) * 4;
+        const cx = xScale(polZ[i]);
+        const cy = yScale(subZ[i]);
+        return (
+          <g key={c.company_name}>
+            <circle cx={cx} cy={cy} r={r} fill="#0ea5e9" opacity="0.75" />
+            <title>
+              {`${c.company_name}\npolarity_z=${polZ[i].toFixed(2)} subjectivity_z=${subZ[i].toFixed(2)} text_len=${c.sentiment?.text_len ?? 0}`}
+            </title>
+          </g>
+        );
+      })}
+    </svg>
   );
 }

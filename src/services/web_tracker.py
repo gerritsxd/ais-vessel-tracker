@@ -16,6 +16,14 @@ import requests  # For proxying to PC ML service
 import sys
 import os
 
+# Optional sentiment (used for website profile summaries shown in Intelligence UI)
+try:
+    from textblob import TextBlob
+    TEXTBLOB_AVAILABLE = True
+except Exception:
+    TextBlob = None
+    TEXTBLOB_AVAILABLE = False
+
 # Add project root to path for imports
 _project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(_project_root))
@@ -1792,12 +1800,20 @@ def list_intelligence_datasets():
     """List all available intelligence datasets."""
     try:
         project_root = Path(__file__).parent.parent.parent
-        data_dir = project_root / 'data'
+        # VPS stores datasets under /data; local analysis often stores under /intelligence
+        search_dirs = []
+        if (project_root / 'data').exists():
+            search_dirs.append(project_root / 'data')
+        if (project_root / 'intelligence').exists():
+            search_dirs.append(project_root / 'intelligence')
         
         datasets = []
         
         # Find all intelligence JSON files
-        for file_path in data_dir.glob('company_intelligence*.json'):
+        intel_files = []
+        for d in search_dirs:
+            intel_files.extend(list(d.glob('company_intelligence*.json')))
+        for file_path in intel_files:
             try:
                 stat = file_path.stat()                # Load file to get stats
                 with open(file_path, 'r', encoding='utf-8') as f:
@@ -1838,7 +1854,10 @@ def list_intelligence_datasets():
                 continue
         
         # Find all profiler JSON files
-        for file_path in data_dir.glob('company_profiles_v3*.json'):
+        prof_files = []
+        for d in search_dirs:
+            prof_files.extend(list(d.glob('company_profiles_v3*.json')))
+        for file_path in prof_files:
             try:
                 stat = file_path.stat()
                 
@@ -2013,11 +2032,21 @@ def get_intelligence_stats():
     """Get aggregate intelligence statistics."""
     try:
         project_root = Path(__file__).parent.parent.parent
-        data_dir = project_root / 'data'
+        # VPS stores datasets under /data; local analysis often stores under /intelligence
+        search_dirs = []
+        if (project_root / 'data').exists():
+            search_dirs.append(project_root / 'data')
+        if (project_root / 'intelligence').exists():
+            search_dirs.append(project_root / 'intelligence')
         
         # Find most recent intelligence file (prioritize Gemini over v2)
-        gemini_files = sorted(data_dir.glob('company_intelligence_gemini_*.json'), reverse=True)
-        v2_files = sorted(data_dir.glob('company_intelligence_v2_*.json'), reverse=True)
+        gemini_files = []
+        v2_files = []
+        for d in search_dirs:
+            gemini_files.extend(list(d.glob('company_intelligence_gemini_*.json')))
+            v2_files.extend(list(d.glob('company_intelligence_v2_*.json')))
+        gemini_files = sorted(gemini_files, reverse=True)
+        v2_files = sorted(v2_files, reverse=True)
         
         # Use Gemini if available, otherwise fall back to v2
         files = gemini_files if gemini_files else v2_files
@@ -2077,6 +2106,182 @@ def get_intelligence_stats():
             'timestamp': data.get('timestamp')
         })
         
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# ==================== PROFILE + SENTIMENT SUMMARY (FOR INTELLIGENCE UI) ====================
+
+def _intel_search_dirs(project_root: Path) -> list[Path]:
+    """Search dirs that may contain intelligence/profiler JSON files (VPS uses data/, local often uses intelligence/)."""
+    dirs: list[Path] = []
+    d1 = project_root / 'data'
+    d2 = project_root / 'intelligence'
+    if d1.exists():
+        dirs.append(d1)
+    if d2.exists():
+        dirs.append(d2)
+    return dirs
+
+
+def _latest_matching_file(search_dirs: list[Path], glob_pat: str, name_contains: str = '') -> Path | None:
+    candidates: list[Path] = []
+    for d in search_dirs:
+        candidates.extend(list(d.glob(glob_pat)))
+    if name_contains:
+        candidates = [p for p in candidates if name_contains.lower() in p.name.lower()]
+    if not candidates:
+        return None
+    candidates.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+    return candidates[0]
+
+
+def _iter_companies_obj(companies_obj):
+    """Yield (company_name, company_data) pairs from either dict or list formats."""
+    if isinstance(companies_obj, dict):
+        for k, v in companies_obj.items():
+            yield k, v
+    elif isinstance(companies_obj, list):
+        for item in companies_obj:
+            if isinstance(item, dict):
+                name = item.get('company_name') or item.get('name')
+                if name:
+                    yield name, item
+
+
+def _is_aboutish(page_type: str) -> bool:
+    s = (page_type or '').lower()
+    keys = ['about', 'company', 'our-story', 'mission', 'values', 'sustainability', 'esg', 'environment']
+    return any(k in s for k in keys)
+
+
+def _website_sentiment_from_profile(company_profile: dict) -> dict:
+    """Compute sentiment metrics from profile website pages (mirrors exporter logic)."""
+    website = (company_profile.get('text_data') or {}).get('website') or {}
+    pages = website.get('pages') or []
+    about_pages = [p for p in pages if isinstance(p, dict) and _is_aboutish(p.get('page_type', ''))]
+    if not about_pages:
+        about_pages = pages
+    combined = ' '.join([p.get('text', '') for p in about_pages if isinstance(p, dict) and p.get('text')])
+    text_len = len(combined)
+
+    if TEXTBLOB_AVAILABLE and combined:
+        blob = TextBlob(combined)
+        polarity = float(blob.sentiment.polarity)
+        subjectivity = float(blob.sentiment.subjectivity)
+    else:
+        polarity = 0.0
+        subjectivity = 0.0
+
+    return {
+        'num_pages_total': len(pages),
+        'num_pages_aboutish': len(about_pages),
+        'text_len': text_len,
+        'polarity': polarity,
+        'subjectivity': subjectivity,
+    }
+
+
+@app.route('/ships/api/intelligence/company-profiles/summary')
+def get_company_profiles_summary():
+    """Aggregate latest company profiles + website sentiment (and merge intel counts when available)."""
+    try:
+        project_root = Path(__file__).parent.parent.parent
+        search_dirs = _intel_search_dirs(project_root)
+
+        scope = (request.args.get('scope') or '').strip().lower()  # e.g. 'wasp', 'non_wasp'
+        limit = int(request.args.get('limit', 30))
+        limit = max(1, min(limit, 200))
+
+        profile_file = _latest_matching_file(search_dirs, 'company_profiles_v3_structured_*.json', name_contains=scope)
+        if profile_file is None and scope:
+            profile_file = _latest_matching_file(search_dirs, 'company_profiles_v3_structured_*.json', name_contains=scope.replace('_', ''))
+
+        if profile_file is None:
+            return jsonify({'error': 'No profile data found', 'file': None, 'total': 0, 'companies': []}), 404
+
+        with open(profile_file, 'r', encoding='utf-8') as f:
+            profile_data = json.load(f)
+
+        # Optional intelligence merge (latest file)
+        intel_file = _latest_matching_file(search_dirs, 'company_intelligence_gemini_*.json', name_contains=scope) \
+            or _latest_matching_file(search_dirs, 'company_intelligence_v2_*.json', name_contains=scope)
+        if intel_file is None and scope:
+            intel_file = _latest_matching_file(search_dirs, 'company_intelligence_gemini_*.json', name_contains=scope.replace('_', '')) \
+                or _latest_matching_file(search_dirs, 'company_intelligence_v2_*.json', name_contains=scope.replace('_', ''))
+
+        intel_map = {}
+        if intel_file and intel_file.exists():
+            try:
+                with open(intel_file, 'r', encoding='utf-8') as f:
+                    intel_data = json.load(f)
+                for cname, cdata in _iter_companies_obj(intel_data.get('companies', {})):
+                    total_findings = 0
+                    by_cat = {}
+                    for cat, cat_data in (cdata.get('intelligence', {}) or {}).items():
+                        if isinstance(cat_data, dict):
+                            cnt = int(cat_data.get('results_count', 0) or 0)
+                            by_cat[cat] = cnt
+                            total_findings += cnt
+                    intel_map[cname] = {'total_findings': total_findings, 'categories': by_cat}
+            except Exception:
+                intel_map = {}
+
+        companies_out = []
+        for cname, prof in _iter_companies_obj(profile_data.get('companies', {})):
+            if not isinstance(prof, dict):
+                continue
+
+            attrs = prof.get('attributes', {}) or {}
+            labels = prof.get('labels', {}) or {}
+            wiki = (prof.get('text_data') or {}).get('wikipedia') or {}
+            website = (prof.get('text_data') or {}).get('website') or {}
+
+            sent = _website_sentiment_from_profile(prof)
+            intel = intel_map.get(cname, {'total_findings': 0, 'categories': {}})
+
+            companies_out.append({
+                'company_name': cname,
+                'attributes': {
+                    'vessel_count': attrs.get('vessel_count'),
+                    'avg_emissions_tons': attrs.get('avg_emissions_tons'),
+                    'avg_co2_per_distance': attrs.get('avg_co2_per_distance'),
+                    'avg_wasp_fit_score': attrs.get('avg_wasp_fit_score'),
+                    'primary_ship_types': attrs.get('primary_ship_types') or [],
+                },
+                'labels': labels,
+                'wikipedia': {
+                    'title': wiki.get('title'),
+                    'length': wiki.get('length'),
+                    'summary': wiki.get('summary', '')[:500] if isinstance(wiki.get('summary'), str) else '',
+                },
+                'website': {
+                    'pages_count': website.get('pages_count', 0),
+                    'total_length': website.get('total_length', 0),
+                },
+                'sentiment': sent,
+                'intelligence': intel,
+            })
+
+        companies_out.sort(
+            key=lambda x: (
+                x.get('sentiment', {}).get('text_len', 0) or 0,
+                x.get('intelligence', {}).get('total_findings', 0) or 0,
+            ),
+            reverse=True,
+        )
+        companies_out = companies_out[:limit]
+
+        return jsonify({
+            'file': profile_file.name,
+            'file_modified': datetime.fromtimestamp(profile_file.stat().st_mtime).isoformat(),
+            'timestamp': profile_data.get('timestamp'),
+            'total': int(profile_data.get('total', len(profile_data.get('companies', {})))),
+            'scope': scope or None,
+            'intelligence_file': intel_file.name if intel_file else None,
+            'companies': companies_out,
+        })
+
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
