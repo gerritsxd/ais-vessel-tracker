@@ -333,6 +333,83 @@ class CompanyProfilerV3:
         return token_hits >= 1
 
 
+    def _search_duckduckgo_html(self, query: str, timeout: int = 20) -> list[str]:
+        """Lightweight DuckDuckGo HTML search (often works when other sources fail)."""
+        try:
+            from urllib.parse import quote
+            url = f"https://duckduckgo.com/html/?q={quote(query)}"
+            resp = self.session.get(url, timeout=timeout)
+            if resp.status_code != 200:
+                return []
+            soup = BeautifulSoup(resp.text, 'html.parser')
+            urls = []
+            for a in soup.find_all('a', class_='result__a', limit=8):
+                href = a.get('href')
+                if href and href.startswith('http'):
+                    urls.append(href)
+            return urls
+        except Exception:
+            return []
+
+    def _pick_official_site_from_search(self, company_name: str, candidate_urls: list[str]) -> str | None:
+        """Pick a likely official homepage from search results using our validation heuristic."""
+        for url in candidate_urls:
+            try:
+                # normalize to scheme://netloc
+                parsed = urlparse(url)
+                if not parsed.scheme or not parsed.netloc:
+                    continue
+                base = f"{parsed.scheme}://{parsed.netloc}".rstrip('/')
+
+                # skip obvious non-official sources
+                if any(x in base.lower() for x in ['linkedin.com', 'facebook.com', 'twitter.com', 'wikipedia.org', 'crunchbase.com']):
+                    continue
+
+                r = self.session.get(base, timeout=10, allow_redirects=True)
+                if r.status_code != 200:
+                    continue
+                soup = BeautifulSoup(r.text, 'html.parser')
+                for tag in soup(['script', 'style', 'nav', 'header', 'footer', 'aside', 'form', 'button', 'iframe', 'svg']):
+                    tag.decompose()
+                txt = soup.get_text(separator=' ', strip=True)
+                cleaned = self._clean_text_advanced(txt)
+                if self._looks_like_correct_company_site(company_name, cleaned):
+                    return r.url.rstrip('/')
+            except Exception:
+                continue
+        return None
+
+    def _discover_internal_key_links(self, base_url: str) -> list[str]:
+        """Discover internal links that look like About/Mission/Sustainability pages."""
+        try:
+            r = self.session.get(base_url, timeout=10, allow_redirects=True)
+            if r.status_code != 200:
+                return []
+            soup = BeautifulSoup(r.text, 'html.parser')
+            links = set()
+            keywords = ['about', 'company', 'our-story', 'mission', 'values', 'sustainability', 'esg', 'environment']
+
+            for a in soup.find_all('a', href=True):
+                href = a.get('href')
+                if not href:
+                    continue
+                href, _ = urldefrag(href)
+                abs_url = urljoin(r.url, href)
+                if not abs_url.startswith('http'):
+                    continue
+                # same site only
+                if urlparse(abs_url).netloc != urlparse(r.url).netloc:
+                    continue
+                low = abs_url.lower()
+                if any(k in low for k in keywords):
+                    links.add(abs_url.rstrip('/'))
+
+            # return a small prioritized set
+            return sorted(list(links))[:12]
+        except Exception:
+            return []
+
+
     def _crawl_website_key_pages(self, company_name: str) -> Dict[str, Any]:
         """Crawl ONLY key pages: About, Services, Fleet, Sustainability"""
         try:
@@ -358,8 +435,18 @@ class CompanyProfilerV3:
             
             # Prefer official website via Wikidata (if available)
             official = self._get_official_website_from_wikidata(company_name)
-            if official:
-                base_urls = [official]
+            # If we still don't have a good official base URL, try DuckDuckGo HTML search
+            if not base_urls or not base_urls[0]:
+                pass
+            else:
+                # keep
+                pass
+
+            if not official:
+                ddg_urls = self._search_duckduckgo_html(f"{company_name} shipping company official website")
+                picked = self._pick_official_site_from_search(company_name, ddg_urls)
+                if picked:
+                    base_urls = [picked]
 
             # Key page paths to try
             key_paths = [
@@ -372,12 +459,27 @@ class CompanyProfilerV3:
                 '/sustainability',
                 '/environment',
             ]
+
+            # Also discover internal key links from the homepage (more robust than fixed paths)
+            try:
+                discovered = self._discover_internal_key_links(base_urls[0]) if base_urls else []
+                # Convert discovered links to paths (we'll fetch by full URL later)
+            except Exception:
+                discovered = []
             
             pages_data = []
             for base_url in base_urls[:1]:  # Try first URL only
-                for path in key_paths[:self.max_pages_per_site]:
+                # Build fetch targets: fixed paths + discovered internal links
+                fetch_targets = []
+                for path in key_paths:
+                    fetch_targets.append(base_url + path)
+                # discovered already includes absolute URLs
+                for u in (discovered or []):
+                    if u not in fetch_targets:
+                        fetch_targets.append(u)
+
+                for url in fetch_targets[:self.max_pages_per_site]:
                     try:
-                        url = base_url + path
                         resp = self.session.get(url, timeout=10, allow_redirects=True)
                         
                         if resp.status_code != 200:
@@ -398,7 +500,7 @@ class CompanyProfilerV3:
                             if not self._looks_like_correct_company_site(company_name, cleaned):
                                 continue
                             pages_data.append({
-                                'page_type': path.strip('/') or 'home',
+                                'page_type': (urlparse(resp.url).path.strip('/') or 'home') if resp.url else (urlparse(url).path.strip('/') or 'home'),
                                 'url': resp.url,
                                 'text': cleaned[:2000],  # Max 2K per page
                                 'length': len(cleaned)
