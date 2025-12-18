@@ -7,6 +7,7 @@ Addresses V2 weaknesses: adds labels, structure, and preprocessing
 import sqlite3
 import requests
 import json
+import os
 import time
 import re
 import sys
@@ -15,6 +16,15 @@ from datetime import datetime
 from pathlib import Path
 from urllib.parse import quote, urlparse, urljoin, urldefrag
 from bs4 import BeautifulSoup
+
+# Optional Gemini (for official website resolution)
+try:
+    import google.generativeai as genai
+    GEMINI_AVAILABLE = True
+except Exception:
+    genai = None
+    GEMINI_AVAILABLE = False
+
 import random
 from typing import Dict, List, Any
 
@@ -410,43 +420,173 @@ class CompanyProfilerV3:
             return []
 
 
-    def _crawl_website_key_pages(self, company_name: str) -> Dict[str, Any]:
-        """Crawl ONLY key pages: About, Services, Fleet, Sustainability"""
-        try:
-            # Try to find official website
-            domain_guess = company_name.lower().split()[0].replace('.', '').replace(',', '')
-            base_urls = [
-                f"https://www.{domain_guess}.com",
-                f"https://{domain_guess}.com",
-            ]
-            
-            # Known companies
-            known_domains = {
-                'maersk': 'https://www.maersk.com',
-                'msc': 'https://www.msc.com',
-                'cma': 'https://www.cma-cgm.com',
-                'cosco': 'https://www.cosco-shipping.com',
-            }
-            
-            for key, url in known_domains.items():
-                if key in company_name.lower():
-                    base_urls = [url]
-                    break
-            
-            # Prefer official website via Wikidata (if available)
-            official = self._get_official_website_from_wikidata(company_name)
-            # If we still don't have a good official base URL, try DuckDuckGo HTML search
-            if not base_urls or not base_urls[0]:
-                pass
-            else:
-                # keep
-                pass
+    def _website_cache_path(self) -> Path:
+        """Path to JSON cache for company->official website mapping (gitignored via data/)."""
+        return Path('data') / 'company_official_websites_cache.json'
 
+    def _load_website_cache(self) -> dict:
+        try:
+            p = self._website_cache_path()
+            if p.exists():
+                return json.loads(p.read_text(encoding='utf-8'))
+        except Exception:
+            pass
+        return {}
+
+    def _save_website_cache(self, cache: dict) -> None:
+        try:
+            p = self._website_cache_path()
+            p.parent.mkdir(exist_ok=True)
+            p.write_text(json.dumps(cache, indent=2, ensure_ascii=False), encoding='utf-8')
+        except Exception:
+            pass
+
+    def _read_gemini_key_for_websites(self) -> str | None:
+        """Prefer WASP key file if present; otherwise general gemini key. Env var overrides."""
+        env_key = os.environ.get('GEMINI_API_KEY')
+        if env_key:
+            return env_key.strip()
+
+        # Prefer dedicated WASP key if present (works for both, but lets you separate quotas)
+        key_files = [
+            Path('config') / 'gemini_api_key_wasp.txt',
+            Path('config') / 'gemini_api_key.txt',
+        ]
+        for k in key_files:
+            try:
+                if k.exists():
+                    val = k.read_text().strip()
+                    if val and val != 'your-api-key-here':
+                        return val
+            except Exception:
+                continue
+        return None
+
+    def _resolve_official_website_with_gemini(self, company_name: str) -> str | None:
+        """Ask Gemini for the official website (cached). Returns base URL or None."""
+        if not GEMINI_AVAILABLE:
+            return None
+
+        key = self._read_gemini_key_for_websites()
+        if not key:
+            return None
+
+        cache = self._load_website_cache()
+        cached = cache.get(company_name)
+        if isinstance(cached, dict) and cached.get('official_website'):
+            return str(cached['official_website']).rstrip('/')
+
+        try:
+            genai.configure(api_key=key)
+            model = genai.GenerativeModel('gemini-2.0-flash')
+
+            prompt = f"""
+Return the official website URL for this shipping/maritime company.
+
+Company name: {company_name}
+
+Rules:
+- Return ONLY valid JSON.
+- Must be the company's official website homepage (not LinkedIn, not Wikipedia, not a news site).
+- If you are unsure, return null.
+
+JSON schema:
+{{
+  \"official_website\": \"https://example.com\" | null
+}}
+""".strip()
+
+            resp = model.generate_content(prompt)
+            raw = (resp.text or '').strip()
+            # strip code fences if any
+            if '```' in raw:
+                raw = raw.split('```')[1]
+                raw = raw.split('```')[0].strip()
+
+            data = json.loads(raw)
+            url = data.get('official_website')
+            if not url or not isinstance(url, str):
+                cache[company_name] = {
+                    'official_website': None,
+                    'source': 'gemini',
+                    'timestamp': datetime.now().isoformat(),
+                }
+                self._save_website_cache(cache)
+                return None
+
+            url = url.strip().rstrip('/')
+            if not url.startswith('http'):
+                return None
+
+            # Reject obvious non-officials
+            if any(x in url.lower() for x in ['linkedin.com', 'facebook.com', 'twitter.com', 'wikipedia.org']):
+                return None
+
+            # Verify homepage content matches company
+            try:
+                r = self.session.get(url, timeout=10, allow_redirects=True)
+                if r.status_code == 200:
+                    soup = BeautifulSoup(r.text, 'html.parser')
+                    for tag in soup(['script', 'style', 'nav', 'header', 'footer', 'aside', 'form', 'button', 'iframe', 'svg']):
+                        tag.decompose()
+                    txt = soup.get_text(separator=' ', strip=True)
+                    cleaned = self._clean_text_advanced(txt)
+                    if not self._looks_like_correct_company_site(company_name, cleaned):
+                        return None
+                    url = r.url.rstrip('/')
+            except Exception:
+                # If verification fails, don't cache as valid
+                return None
+
+            cache[company_name] = {
+                'official_website': url,
+                'source': 'gemini',
+                'timestamp': datetime.now().isoformat(),
+            }
+            self._save_website_cache(cache)
+            return url
+
+        except Exception:
+            # quota / 429 / parsing issues -> just fall back
+            return None
+
+
+
+    def _crawl_website_key_pages(self, company_name: str) -> Dict[str, Any]:
+        """Crawl ONLY key pages: About/Mission/Values/Sustainability (official site)."""
+        try:
+            # 1) Resolve official website with best-effort order
+            official = self._resolve_official_website_with_gemini(company_name)
             if not official:
+                official = self._get_official_website_from_wikidata(company_name)
+
+            base_urls = []
+            if official:
+                base_urls = [official.rstrip('/')]
+            else:
+                # Known companies
+                known_domains = {
+                    'maersk': 'https://www.maersk.com',
+                    'msc': 'https://www.msc.com',
+                    'cma': 'https://www.cma-cgm.com',
+                    'cosco': 'https://www.cosco-shipping.com',
+                }
+                for key, url in known_domains.items():
+                    if key in company_name.lower():
+                        base_urls = [url]
+                        break
+
+            # 2) DuckDuckGo HTML fallback if still unknown
+            if not base_urls:
                 ddg_urls = self._search_duckduckgo_html(f"{company_name} shipping company official website")
                 picked = self._pick_official_site_from_search(company_name, ddg_urls)
                 if picked:
                     base_urls = [picked]
+
+            # 3) Last resort: domain guess
+            if not base_urls:
+                domain_guess = company_name.lower().split()[0].replace('.', '').replace(',', '')
+                base_urls = [f"https://www.{domain_guess}.com", f"https://{domain_guess}.com"]
 
             # Key page paths to try
             key_paths = [
@@ -454,109 +594,73 @@ class CompanyProfilerV3:
                 '/about',
                 '/about-us',
                 '/company',
-                '/services',
-                '/fleet',
+                '/our-company',
+                '/our-story',
+                '/mission',
+                '/values',
                 '/sustainability',
                 '/environment',
+                '/esg',
             ]
 
-            # Also discover internal key links from the homepage (more robust than fixed paths)
-            try:
-                discovered = self._discover_internal_key_links(base_urls[0]) if base_urls else []
-                # Convert discovered links to paths (we'll fetch by full URL later)
-            except Exception:
-                discovered = []
-            
             pages_data = []
-            for base_url in base_urls[:1]:  # Try first URL only
-                # Build fetch targets: fixed paths + discovered internal links
+
+            for base_url in base_urls[:1]:
+                # internal discovery (helps many sites)
+                discovered = self._discover_internal_key_links(base_url)
+
                 fetch_targets = []
                 for path in key_paths:
-                    fetch_targets.append(base_url + path)
-                # discovered already includes absolute URLs
-                for u in (discovered or []):
+                    fetch_targets.append(base_url.rstrip('/') + path)
+                for u in discovered:
                     if u not in fetch_targets:
                         fetch_targets.append(u)
 
                 for url in fetch_targets[:self.max_pages_per_site]:
                     try:
                         resp = self.session.get(url, timeout=10, allow_redirects=True)
-                        
                         if resp.status_code != 200:
                             continue
-                        
+
                         soup = BeautifulSoup(resp.text, 'html.parser')
-                        
-                        # Remove noise elements
-                        for tag in soup(['script', 'style', 'nav', 'header', 'footer', 'aside', 
+                        for tag in soup(['script', 'style', 'nav', 'header', 'footer', 'aside',
                                         'form', 'button', 'iframe', 'svg']):
                             tag.decompose()
-                        
+
                         text = soup.get_text(separator=' ', strip=True)
                         cleaned = self._clean_text_advanced(text)
-                        
+
                         if len(cleaned) > 200:
-                            # Reject obviously wrong websites (bad domain guesses)
                             if not self._looks_like_correct_company_site(company_name, cleaned):
                                 continue
                             pages_data.append({
                                 'page_type': (urlparse(resp.url).path.strip('/') or 'home') if resp.url else (urlparse(url).path.strip('/') or 'home'),
-                                'url': resp.url,
-                                'text': cleaned[:2000],  # Max 2K per page
-                                'length': len(cleaned)
+                                'url': resp.url or url,
+                                'text': cleaned[:2000],
+                                'length': len(cleaned),
                             })
-                        
+
                         self._delay()
-                        
+
                     except Exception:
                         continue
-                
+
                 if pages_data:
-                    break  # Found working domain
-            
+                    break
+
             if pages_data:
                 return {
                     'pages': pages_data,
                     'pages_count': len(pages_data),
-                    'source': 'website_crawl'
+                    'source': 'website_crawl',
                 }
-            
-            # FALLBACK: Try Google Search if URL guessing failed
-            if GOOGLE_SEARCH_AVAILABLE:
-                try:
-                    from googlesearch import search as google_search
-                    query = f"{company_name} shipping company official website"
-                    
-                    for url in google_search(query, num_results=3, sleep_interval=2, lang='en'):
-                        # Skip directories and social media
-                        if any(x in url.lower() for x in ['linkedin', 'facebook', 'twitter', 'wikipedia']):
-                            continue
-                        
-                        try:
-                            resp = self.session.get(url, timeout=10, allow_redirects=True)
-                            if resp.status_code == 200:
-                                soup = BeautifulSoup(resp.text, 'html.parser')
-                                for tag in soup(['script', 'style', 'nav', 'header', 'footer']):
-                                    tag.decompose()
-                                text = soup.get_text(separator=' ', strip=True)
-                                cleaned = self._clean_text_advanced(text)
-                                
-                                if len(cleaned) > 200:
-                                    return {
-                                        'pages': [{'page_type': 'home', 'text': cleaned[:2000], 'length': len(cleaned)}],
-                                        'pages_count': 1,
-                                        'source': 'google_search_fallback'
-                                    }
-                        except:
-                            continue
-                except:
-                    pass
-            
+
             return {'error': 'no_pages_found'}
-            
+
         except Exception as e:
             return {'error': str(e)}
-    
+
+
     def profile_company_structured(self, company_meta: Dict) -> Dict[str, Any]:
         """Create ML-ready structured profile"""
         company_name = company_meta['name']
