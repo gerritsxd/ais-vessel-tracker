@@ -763,8 +763,6 @@ function percent01(value) {
             <SignalBar label="Sustainability orientation" value={selectedCompany.sustainability} mode="01" />
             <SignalBar label="Innovation orientation" value={selectedCompany.innovation} mode="01" />
             <SignalBar label="Economic orientation" value={selectedCompany.economic} mode="01" />
-            <SignalBar label="High engagement" value={selectedCompany.high_engagement} mode="01" />
-            <SignalBar label="Operational barriers" value={selectedCompany.operational_barriers} mode="01" />
             <SignalBar label="Risk sentiment" value={selectedCompany.sentiment_risk} mode="pm1" />
 
           </div>
@@ -803,8 +801,6 @@ function percent01(value) {
         { key: "sustainability", label: "Sustainability orientation", mode: "01" },
         { key: "innovation", label: "Innovation orientation", mode: "01" },
         { key: "economic", label: "Economic orientation", mode: "01" },
-        { key: "high_engagement", label: "High engagement", mode: "01" },
-        { key: "operational_barriers", label: "Operational barriers", mode: "01" },
         { key: "sentiment_risk", label: "Risk sentiment", mode: "pm1" },
       ].map((signal) => {
         const a = selectedCompany[signal.key];

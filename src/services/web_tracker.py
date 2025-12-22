@@ -127,6 +127,28 @@ SHIP_TYPE_NAMES = {
     99: "Other Type, no additional info"
 }
 
+# function for final customer page
+
+def load_ml_companies():
+    """
+    Load ML adoption scores for companies.
+    Expected columns: company_name, adoption_score
+    """
+    project_root = Path(__file__).parent.parent.parent
+    ml_path = project_root / "frontend" / "public" / "data" / "company_with_waps_score.csv"
+ 
+    companies = {}
+    try:
+        import csv
+        with open(ml_path, newline='', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                companies[row["company_name"].strip()] = float(row["waps_adoption_score"])
+    except Exception as e:
+        print(f"[ML] Failed to load ML companies: {e}")
+
+    return companies
+
 
 def get_ship_type_name(ship_type_code):
     """Convert ship type code to human-readable name."""
@@ -360,24 +382,7 @@ class VesselTrackerWebSocket:
 
 
 # Flask routes
-@app.route('/ships/')
-def serve_index():
-    """Serve the React frontend entry point."""
-    return send_from_directory(str(frontend_dist), 'index.html')
 
-@app.route('/ships/<path:path>')
-def serve_frontend(path):
-    """Serve static files or React frontend for SPA routing."""
-    # Allow API routes to pass through (handled by other routes or return 404)
-    if path.startswith('api/'):
-        return jsonify({'error': 'API endpoint not found'}), 404
-        
-    # Try to serve static file if it exists in dist
-    if (frontend_dist / path).exists():
-        return send_from_directory(str(frontend_dist), path)
-        
-    # Otherwise serve index.html for client-side routing
-    return send_from_directory(str(frontend_dist), 'index.html')
 
 # @app.route('/ships/')
 # def index():
@@ -487,6 +492,86 @@ def get_vessels():
     
     return jsonify(vessels)
 
+@app.route('/ships/api/target-vessels')
+def get_target_vessels():
+    """
+    Return vessels belonging ONLY to ML-scored companies,
+    enriched with company adoption score.
+    """
+
+    ml_companies = load_ml_companies()
+    if not ml_companies:
+        return jsonify([])
+
+    project_root = Path(__file__).parent.parent.parent
+    db_path = project_root / DB_NAME
+
+    conn = None
+    results = []
+
+    try:
+        conn = sqlite3.connect(db_path, timeout=30)
+        conn.execute('PRAGMA journal_mode=WAL')
+        cursor = conn.cursor()
+
+        placeholders = ",".join("?" for _ in ml_companies)
+
+        query = f"""
+            SELECT
+                mmsi,
+                name,
+                ship_type,
+                length,
+                beam,
+                imo,
+                flag_state,
+                signatory_company
+            FROM vessels_static
+            WHERE signatory_company IN ({placeholders})
+        """
+
+        cursor.execute(query, list(ml_companies.keys()))
+        rows = cursor.fetchall()
+
+        for r in rows:
+            (
+                mmsi,
+                name,
+                ship_type,
+                length,
+                beam,
+                imo,
+                flag_state,
+                company
+            ) = r
+
+            results.append({
+                "mmsi": mmsi,
+                "name": name or "Unknown",
+                "ship_type": ship_type,
+                "length": length,
+                "beam": beam,
+                "imo": imo,
+                "flag_state": flag_state or "Unknown",
+                "signatory_company": company,
+                "company_adoption_score": ml_companies.get(company)
+            })
+            print("ML companies (sample):")
+            for c in list(ml_companies.keys())[:10]:
+                print("-", repr(c))
+
+
+    except Exception as e:
+        print(f"[Target Vessels] Error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+    finally:
+        if conn:
+            conn.close()
+
+    return jsonify(results)
+
+
 
 @app.route('/ships/api/stats')
 def get_stats():
@@ -496,6 +581,8 @@ def get_stats():
         'vessels_with_position': len(vessel_positions),
         'tracking_active': tracking_active
     })
+
+
 
 
 # @app.route('/ships/database')
