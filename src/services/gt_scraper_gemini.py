@@ -39,7 +39,8 @@ class GTScraperGemini:
             api_key = self.load_api_key()
         
         genai.configure(api_key=api_key)
-        self.model = genai.GenerativeModel('gemini-pro')
+        # Use gemini-2.0-flash (stable, fast, free tier)
+        self.model = genai.GenerativeModel('gemini-2.0-flash')
     
     def load_api_key(self) -> str:
         """Load Gemini API key from config file.
