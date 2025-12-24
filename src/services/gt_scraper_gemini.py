@@ -42,18 +42,29 @@ class GTScraperGemini:
         self.model = genai.GenerativeModel('gemini-pro')
     
     def load_api_key(self) -> str:
-        """Load Gemini API key from config file."""
+        """Load Gemini API key from config file.
+        Tries gemini_api_key_gt.txt first, then falls back to gemini_api_key.txt
+        """
         project_root = Path(__file__).parent.parent.parent
-        config_path = project_root / 'config' / 'gemini_api_key.txt'
+        
+        # Try GT-specific key first
+        config_path = project_root / 'config' / 'gemini_api_key_gt.txt'
         
         if not config_path.exists():
-            # Try alternative location
+            # Fall back to regular key
+            config_path = project_root / 'config' / 'gemini_api_key.txt'
+        
+        if not config_path.exists():
+            # Try WASP key as last resort
             config_path = project_root / 'config' / 'gemini_api_key_wasp.txt'
         
         if not config_path.exists():
             raise FileNotFoundError(
-                f"Gemini API key not found! Create: {config_path}\n"
-                "Get key from: https://aistudio.google.com/app/apikey"
+                f"Gemini API key not found!\n"
+                f"Create one of these files:\n"
+                f"  - config/gemini_api_key_gt.txt (preferred for GT scraping)\n"
+                f"  - config/gemini_api_key.txt (fallback)\n"
+                f"\nGet key from: https://aistudio.google.com/app/apikey"
             )
         
         api_key = config_path.read_text().strip()
@@ -61,6 +72,7 @@ class GTScraperGemini:
         if not api_key or api_key == "your-api-key-here":
             raise ValueError(f"Invalid API key in: {config_path}")
         
+        print(f"✓ Using API key from: {config_path.name}")
         return api_key
     
     def load_cache(self):
