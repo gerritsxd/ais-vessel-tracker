@@ -99,19 +99,20 @@ def copy_wasp_data(conn):
         return 0
     
     # Copy DWT and GT from WASP table
+    # SQLite doesn't support table aliases in UPDATE, so we use subqueries
     cursor.execute('''
-        UPDATE vessels_static v
+        UPDATE vessels_static
         SET 
-            dwt = (SELECT dwt FROM wind_propulsion_mmsi w WHERE w.mmsi = v.mmsi),
-            gt = (SELECT gt FROM wind_propulsion_mmsi w WHERE w.mmsi = v.mmsi),
+            dwt = (SELECT dwt FROM wind_propulsion_mmsi WHERE wind_propulsion_mmsi.mmsi = vessels_static.mmsi),
+            gt = (SELECT gt FROM wind_propulsion_mmsi WHERE wind_propulsion_mmsi.mmsi = vessels_static.mmsi),
             dwt_source = 'wasp',
             gt_source = 'wasp',
             dwt_updated_at = datetime('now'),
             gt_updated_at = datetime('now')
         WHERE EXISTS (
-            SELECT 1 FROM wind_propulsion_mmsi w WHERE w.mmsi = v.mmsi
+            SELECT 1 FROM wind_propulsion_mmsi WHERE wind_propulsion_mmsi.mmsi = vessels_static.mmsi
         )
-        AND (v.dwt IS NULL OR v.gt IS NULL)
+        AND (dwt IS NULL OR gt IS NULL)
     ''')
     
     count = cursor.rowcount
@@ -145,22 +146,24 @@ def copy_mrv_gt_data(conn):
         return 0
     
     # Copy GT from MRV table (only if not already set)
+    # SQLite doesn't support FROM clause in UPDATE, so we use a subquery
     cursor.execute('''
-        UPDATE vessels_static v
+        UPDATE vessels_static
         SET 
-            gt = CAST(e.gross_tonnage AS INTEGER),
+            gt = CAST((SELECT gross_tonnage FROM eu_mrv_emissions WHERE eu_mrv_emissions.imo = vessels_static.imo) AS INTEGER),
             gt_source = CASE 
-                WHEN v.gt_source IS NULL THEN 'mrv'
-                WHEN v.gt_source = 'wasp' THEN 'wasp'  -- Keep WASP source if already set
+                WHEN gt_source IS NULL THEN 'mrv'
+                WHEN gt_source = 'wasp' THEN 'wasp'  -- Keep WASP source if already set
                 ELSE 'mrv'
             END,
             gt_updated_at = datetime('now')
-        FROM eu_mrv_emissions e
-        WHERE v.imo = e.imo 
-          AND e.gross_tonnage IS NOT NULL
-          AND e.gross_tonnage != ''
-          AND e.gross_tonnage != 'N/A'
-          AND v.gt IS NULL
+        WHERE imo IN (
+            SELECT imo FROM eu_mrv_emissions 
+            WHERE gross_tonnage IS NOT NULL
+              AND gross_tonnage != ''
+              AND gross_tonnage != 'N/A'
+        )
+        AND gt IS NULL
     ''')
     
     count = cursor.rowcount
