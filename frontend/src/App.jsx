@@ -2,7 +2,7 @@ import { Routes, Route } from 'react-router-dom'
 import Navbar from './components/Navbar'
 import Hero from './components/Hero'
 import InfoCards from './components/InfoCards' 
-import VesselDatabase from './components/VesselDatabase'  
+import VesselDatabase from './pages/VesselDatabase'  
 import VesselMap from './pages/Map'  // Add this import
 import Intelligence from './pages/Intelligence'
 import MLinsights from './pages/MLinsights'
