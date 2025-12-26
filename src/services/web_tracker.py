@@ -53,6 +53,22 @@ def ensure_econowind_column(conn):
         pass
 
 
+def ensure_technical_fit_score_column(conn):
+    """Ensure the technical_fit_score column exists in vessels_static table."""
+    try:
+        cursor = conn.cursor()
+        cursor.execute("PRAGMA table_info(vessels_static)")
+        columns = {row[1] for row in cursor.fetchall()}
+        if "technical_fit_score" not in columns:
+            cursor.execute(
+                "ALTER TABLE vessels_static ADD COLUMN technical_fit_score REAL DEFAULT NULL"
+            )
+            conn.commit()
+    except sqlite3.OperationalError:
+        # Table may not exist yet. Ignore so API can fail gracefully.
+        pass
+
+
 API_KEY_FILE = "config/aisstream_keys"
 WEBSOCKET_URL = "wss://stream.aisstream.io/v0/stream"
 MAX_MMSI_PER_CONNECTION = 50
@@ -423,6 +439,7 @@ def get_vessels():
     try:
         conn = sqlite3.connect(db_path, timeout=60)
         conn.execute('PRAGMA journal_mode=WAL')
+        ensure_technical_fit_score_column(conn)
         cursor = conn.cursor()
         
         # FAST approach: Get latest positions first (simple indexed query)
@@ -1335,6 +1352,7 @@ def get_combined_vessel_data():
     try:
         conn = sqlite3.connect(db_path, timeout=30)
         ensure_econowind_column(conn)
+        ensure_technical_fit_score_column(conn)
         cursor = conn.cursor()
         
         # Ensure indexes exist for performance
