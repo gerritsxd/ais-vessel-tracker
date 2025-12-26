@@ -2669,6 +2669,49 @@ def get_ml_wasp_data():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/ships/api/wind-alignment/<int:mmsi>')
+def get_wind_alignment(mmsi):
+    """Get wind alignment analysis results for a vessel."""
+    project_root = Path(__file__).parent.parent.parent
+    db_path = project_root / "data" / DB_NAME
+    if not db_path.exists():
+        db_path = project_root / DB_NAME
+    
+    try:
+        from src.services.wind_analysis import WindAnalysisService
+        service = WindAnalysisService(db_path=db_path, verbose=False)
+        results = service.get_vessel_results(mmsi)
+        
+        if results:
+            return jsonify(results)
+        else:
+            return jsonify({'error': 'No wind alignment data found for this vessel'}), 404
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/ships/api/wind-alignment/top')
+def get_top_wind_alignment_vessels():
+    """Get vessels with highest wind assistance potential."""
+    limit = request.args.get('limit', 100, type=int)
+    
+    project_root = Path(__file__).parent.parent.parent
+    db_path = project_root / "data" / DB_NAME
+    if not db_path.exists():
+        db_path = project_root / DB_NAME
+    
+    try:
+        from src.services.wind_analysis import WindAnalysisService
+        service = WindAnalysisService(db_path=db_path, verbose=False)
+        results = service.get_top_vessels_by_potential(limit=limit)
+        
+        return jsonify(results)
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 if __name__ == '__main__':
     # Start tracking in background
     tracking_thread = threading.Thread(target=start_tracking, daemon=True)
