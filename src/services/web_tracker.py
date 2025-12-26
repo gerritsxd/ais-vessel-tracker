@@ -708,11 +708,18 @@ def get_vessel_route(mmsi):
         if not db_path.exists():
             return jsonify({'error': 'Database not found'}), 404
         
-        conn = sqlite3.connect(str(db_path), timeout=30)
+        # Use a separate connection with higher timeout for concurrent access
+        # WAL mode allows multiple readers, but we need sufficient timeout
+        # This allows route queries to run concurrently with vessel loading queries
+        conn = sqlite3.connect(str(db_path), timeout=60)
         conn.execute('PRAGMA journal_mode=WAL')
+        conn.execute('PRAGMA synchronous=NORMAL')  # Faster reads, still safe with WAL
+        conn.execute('PRAGMA temp_store=MEMORY')  # Use memory for temp tables
+        conn.execute('PRAGMA cache_size=-64000')  # 64MB cache for faster queries
         cursor = conn.cursor()
         
-        # First check if vessel has any positions at all
+        # Use index hint to ensure we use the mmsi+timestamp index
+        # First check if vessel has any positions at all (quick count)
         cursor.execute('SELECT COUNT(*) FROM vessel_positions WHERE mmsi = ?', (mmsi,))
         total_count = cursor.fetchone()[0]
         
@@ -722,8 +729,8 @@ def get_vessel_route(mmsi):
         
         print(f"[Route] Found {total_count:,} total positions for MMSI {mmsi}, filtering for last {hours} hours")
         
+        # Optimized query: Use index on (mmsi, timestamp) and limit early
         # Try to get positions from the last N hours
-        # SQLite datetime() can handle ISO format strings, but we'll try multiple approaches
         cursor.execute('''
             SELECT latitude, longitude, sog, cog, timestamp
             FROM vessel_positions
@@ -738,6 +745,7 @@ def get_vessel_route(mmsi):
         # If no recent data, try to get the most recent positions regardless of time
         if not positions:
             print(f"[Route] No positions in last {hours}h, fetching most recent positions")
+            # Use DESC with LIMIT then reverse - faster than fetching all and sorting
             cursor.execute('''
                 SELECT latitude, longitude, sog, cog, timestamp
                 FROM vessel_positions

@@ -298,16 +298,21 @@ export default function VesselMap() {
     // Clear any pending request
     if (routeFetchTimeout.current) clearTimeout(routeFetchTimeout.current);
     
-    // Throttle requests
-    routeFetchTimeout.current = setTimeout(() => {
+    // Function to fetch route with retry logic
+    const fetchRoute = (retryCount = 0) => {
       // Use provided includeWind parameter, or fall back to current state
       const shouldIncludeWind = includeWind !== null ? includeWind : showWindData;
       const windParam = shouldIncludeWind ? '&wind=true' : '';
       const url = `/ships/api/vessel/${vessel.mmsi}/route?hours=${routeHours}${windParam}`;
-      console.log('Fetching route:', url);
+      console.log('Fetching route:', url, retryCount > 0 ? `(retry ${retryCount})` : '');
       
-      fetch(url)
+      // Add timeout to fetch (60 seconds)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 60000);
+      
+      fetch(url, { signal: controller.signal })
         .then(res => {
+          clearTimeout(timeoutId);
           if (!res.ok) {
             throw new Error(`HTTP error! status: ${res.status}`);
           }
@@ -333,11 +338,27 @@ export default function VesselMap() {
           }
         })
         .catch((error) => {
-          console.error('Route fetch error:', error);
-          setRouteLoading(false);
-          setRouteData([]);
+          clearTimeout(timeoutId);
+          if (error.name === 'AbortError') {
+            console.warn('Route fetch timeout, retrying...');
+          } else {
+            console.error('Route fetch error:', error);
+          }
+          
+          // Retry up to 2 times if it's a timeout or network error
+          if (retryCount < 2 && (error.name === 'AbortError' || error.message.includes('timeout'))) {
+            setTimeout(() => fetchRoute(retryCount + 1), 1000 * (retryCount + 1));
+          } else {
+            setRouteLoading(false);
+            setRouteData([]);
+          }
         });
-    }, 300); // 300ms delay
+    };
+    
+    // Throttle initial request slightly to avoid overwhelming during vessel load
+    routeFetchTimeout.current = setTimeout(() => {
+      fetchRoute();
+    }, 100); // Reduced from 300ms to 100ms for faster response
   }, [routeHours, showWindData]);
   
   const handleVesselHover = useCallback((vessel) => {
