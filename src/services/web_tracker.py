@@ -1346,11 +1346,17 @@ def get_combined_vessel_data():
     min_co2 = request.args.get('min_co2', type=float)
     
     project_root = Path(__file__).parent.parent.parent
-    db_path = project_root / DB_NAME
+    # Try data/ subdirectory first, then root
+    db_path = project_root / "data" / DB_NAME
+    if not db_path.exists():
+        db_path = project_root / DB_NAME
     
     conn = None
     try:
-        conn = sqlite3.connect(db_path, timeout=30)
+        if not db_path.exists():
+            return jsonify({'error': f'Database not found: {db_path}'}), 500
+        
+        conn = sqlite3.connect(str(db_path), timeout=30)
         ensure_econowind_column(conn)
         ensure_technical_fit_score_column(conn)
         cursor = conn.cursor()
@@ -1389,7 +1395,10 @@ def get_combined_vessel_data():
         
         return jsonify(results)
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        import traceback
+        error_msg = f"{str(e)}\n{traceback.format_exc()}"
+        print(f"ERROR in get_combined_vessel_data: {error_msg}")
+        return jsonify({'error': str(e), 'details': error_msg}), 500
     finally:
         if conn:
             conn.close()
