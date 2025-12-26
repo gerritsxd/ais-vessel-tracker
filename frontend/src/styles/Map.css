@@ -703,6 +703,21 @@
   animation: ripple-pulse 3s ease-out infinite 1.5s;
 }
 
+/* Wind Indicators */
+.wind-indicator {
+  background: transparent !important;
+  border: none !important;
+}
+
+.wind-arrow {
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+  transition: transform 0.2s ease;
+}
+
+.wind-arrow:hover {
+  transform: scale(1.2);
+}
+
 .route-marker {
   width: 16px;
   height: 16px;

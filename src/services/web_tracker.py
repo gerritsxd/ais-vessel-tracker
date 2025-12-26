@@ -638,13 +638,16 @@ def filter_route_outliers(positions, max_speed_knots=60, max_jump_km=500, max_ti
 def get_vessel_route(mmsi):
     """Get position history for a specific vessel with outlier filtering."""
     hours = request.args.get('hours', default=24, type=int)
+    include_wind = request.args.get('wind', default='false').lower() == 'true'
     
     project_root = Path(__file__).parent.parent.parent
-    db_path = project_root / DB_NAME
+    db_path = project_root / "data" / DB_NAME
+    if not db_path.exists():
+        db_path = project_root / DB_NAME
     
     conn = None
     try:
-        conn = sqlite3.connect(db_path, timeout=30)
+        conn = sqlite3.connect(str(db_path), timeout=30)
         conn.execute('PRAGMA journal_mode=WAL')
         cursor = conn.cursor()
         
@@ -671,6 +674,43 @@ def get_vessel_route(mmsi):
         
         # Apply intelligent outlier filtering
         filtered_route = filter_route_outliers(route)
+        
+        # Add wind data if requested
+        if include_wind and filtered_route:
+            try:
+                from src.services.wind_analysis import WindDataFetcher, WindAlignmentAnalyzer
+                wind_fetcher = WindDataFetcher(verbose=False)
+                analyzer = WindAlignmentAnalyzer()
+                
+                for point in filtered_route:
+                    if point.get('cog') is not None:
+                        wind_data = wind_fetcher.fetch_wind_data(
+                            point['lat'],
+                            point['lon'],
+                            point['timestamp']
+                        )
+                        
+                        if wind_data:
+                            point['wind_speed'] = wind_data['wind_speed']
+                            point['wind_direction'] = wind_data['wind_direction']
+                            
+                            # Calculate alignment
+                            alignment_angle = analyzer.calculate_alignment_angle(
+                                point['cog'],
+                                wind_data['wind_direction']
+                            )
+                            point['wind_alignment_angle'] = alignment_angle
+                            point['wind_assistance_score'] = analyzer.calculate_wind_assistance_score(alignment_angle)
+                            point['favorable_wind'] = analyzer.is_favorable_wind(alignment_angle)
+                        else:
+                            point['wind_speed'] = None
+                            point['wind_direction'] = None
+                            point['wind_alignment_angle'] = None
+                            point['wind_assistance_score'] = None
+                            point['favorable_wind'] = None
+            except Exception as e:
+                # If wind fetching fails, continue without wind data
+                print(f"Wind data fetch error: {e}")
         
         return jsonify(filtered_route)
     finally:

@@ -78,7 +78,8 @@ export default function VesselMap() {
   const [waspFilterActive, setWaspFilterActive] = useState(false);
   const [routeData, setRouteData] = useState(null);
   const [routeLoading, setRouteLoading] = useState(false);
-  const [routeHours, setRouteHours] = useState(6); 
+  const [routeHours, setRouteHours] = useState(6);
+  const [showWindData, setShowWindData] = useState(true); 
 
 
   // ---- REFS ----
@@ -298,7 +299,8 @@ export default function VesselMap() {
     
     // Throttle requests
     routeFetchTimeout.current = setTimeout(() => {
-      fetch(`/ships/api/vessel/${vessel.mmsi}/route?hours=${routeHours}`)
+      const windParam = showWindData ? '&wind=true' : '';
+      fetch(`/ships/api/vessel/${vessel.mmsi}/route?hours=${routeHours}${windParam}`)
         .then(res => res.json())
         .then(data => {
           setRouteLoading(false);
@@ -318,7 +320,7 @@ export default function VesselMap() {
           setRouteData([]);
         });
     }, 300); // 300ms delay
-  }, [routeHours]);
+  }, [routeHours, showWindData]);
   
   const handleVesselHover = useCallback((vessel) => {
     if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
@@ -757,7 +759,14 @@ function WindyEmbed({ opacity }) {
         <label>Route History:</label>
         <select
           value={routeHours}
-          onChange={(e) => setRouteHours(parseInt(e.target.value))}
+          onChange={(e) => {
+            setRouteHours(parseInt(e.target.value));
+            // Reload route with new hours if vessel is selected
+            if (selectedVessel) {
+              const vessel = vessels.find(v => v.mmsi === selectedVessel);
+              if (vessel) handleVesselClick(vessel);
+            }
+          }}
         >
           <option value={6}>Last 6h</option>
           <option value={12}>Last 12h</option>
@@ -766,6 +775,36 @@ function WindyEmbed({ opacity }) {
           <option value={72}>Last 72h</option>
         </select>
         </div>
+        
+        <motion.button
+          onClick={() => {
+            setShowWindData(!showWindData);
+            // Reload route with wind data toggle if vessel is selected
+            if (selectedVessel) {
+              const vessel = vessels.find(v => v.mmsi === selectedVessel);
+              if (vessel) handleVesselClick(vessel);
+            }
+          }}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          style={{
+            padding: '10px 20px',
+            borderRadius: '8px',
+            background: showWindData
+              ? 'linear-gradient(135deg, #51cf66 0%, #40c057 100%)'
+              : 'linear-gradient(135deg, #555 0%, #333 100%)',
+            color: '#fff',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            border: showWindData ? '2px solid #51cf66' : '2px solid #555',
+            fontSize: '13px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}
+        >
+          {showWindData ? '✓' : '○'} Wind Analysis on Routes
+        </motion.button>
 
 
           {showWindLayer && (
@@ -979,7 +1018,7 @@ function WindyEmbed({ opacity }) {
         )}
         {/* Route History Rendering - Memoized */}
         {routeData && routeData.length > 1 && (
-          <RouteDisplay routeData={routeData} />
+          <RouteDisplay routeData={routeData} showWindData={showWindData} />
         )}
 
 
@@ -1156,24 +1195,115 @@ function WindyEmbed({ opacity }) {
   );
 }
 
-// Memoized Route Display Component
-const RouteDisplay = React.memo(({ routeData }) => {
-  const routePositions = useMemo(
-    () => routeData.map(p => [p.lat, p.lon]),
-    [routeData]
-  );
+// Memoized Route Display Component with Wind Visualization
+const RouteDisplay = React.memo(({ routeData, showWindData }) => {
+  // Create color-coded route segments based on wind favorability
+  const routeSegments = useMemo(() => {
+    if (!routeData || routeData.length < 2) return [];
+    
+    const segments = [];
+    for (let i = 0; i < routeData.length - 1; i++) {
+      const point1 = routeData[i];
+      const point2 = routeData[i + 1];
+      
+      // Determine color based on wind favorability
+      let color = "#00eaff"; // Default cyan
+      let weight = 4;
+      
+      if (showWindData && point1.favorable_wind !== undefined) {
+        if (point1.favorable_wind === true) {
+          color = "#51cf66"; // Green - favorable wind
+          weight = 5;
+        } else if (point1.favorable_wind === false) {
+          color = "#ff6b6b"; // Red - unfavorable wind
+          weight = 4;
+        } else {
+          color = "#868e96"; // Gray - no wind data
+          weight = 3;
+        }
+      }
+      
+      segments.push({
+        positions: [[point1.lat, point1.lon], [point2.lat, point2.lon]],
+        color,
+        weight,
+        point: point1, // Store point data for popup
+        index: i
+      });
+    }
+    
+    return segments;
+  }, [routeData, showWindData]);
 
   return (
     <>
-      <Polyline
-        positions={routePositions}
-        pathOptions={{
-          color: "#00eaff",
-          weight: 4,
-          opacity: 0.9,
-          dashArray: "4 6",
-        }}
-      />
+      {/* Render color-coded route segments */}
+      {routeSegments.map((segment, idx) => (
+        <Polyline
+          key={idx}
+          positions={segment.positions}
+          pathOptions={{
+            color: segment.color,
+            weight: segment.weight,
+            opacity: 0.8,
+            dashArray: segment.point.favorable_wind === true ? "0" : "4 6",
+          }}
+        />
+      ))}
+      
+      {/* Wind direction indicators (if wind data available) */}
+      {showWindData && routeData.some(p => p.wind_direction !== undefined && p.wind_direction !== null) && (
+        <>
+          {routeData.map((point, idx) => {
+            // Show wind indicator every 5th point to avoid clutter
+            if (idx % 5 !== 0 || !point.wind_direction) return null;
+            
+            return (
+              <Marker
+                key={`wind-${idx}`}
+                position={[point.lat, point.lon]}
+                icon={L.divIcon({
+                  className: "wind-indicator",
+                  html: `
+                    <div class="wind-arrow" style="transform: rotate(${point.wind_direction}deg);">
+                      <svg width="20" height="20" viewBox="0 0 20 20">
+                        <path d="M10 2 L10 18 M10 2 L6 6 M10 2 L14 6" 
+                              stroke="${point.favorable_wind ? '#51cf66' : '#ff6b6b'}" 
+                              stroke-width="2" 
+                              fill="none"/>
+                      </svg>
+                    </div>
+                  `,
+                  iconSize: [20, 20],
+                  iconAnchor: [10, 10],
+                })}
+              >
+                <Popup>
+                  <div style={{ fontSize: '12px', minWidth: '150px' }}>
+                    <strong>Wind Data</strong><br/>
+                    Speed: {point.wind_speed?.toFixed(1) || 'N/A'} m/s<br/>
+                    Direction: {point.wind_direction?.toFixed(0) || 'N/A'}°<br/>
+                    Vessel COG: {point.cog?.toFixed(0) || 'N/A'}°<br/>
+                    {point.wind_alignment_angle !== undefined && (
+                      <>
+                        Alignment: {point.wind_alignment_angle.toFixed(1)}°<br/>
+                        Score: {point.wind_assistance_score?.toFixed(0) || 'N/A'}/100<br/>
+                        {point.favorable_wind ? (
+                          <span style={{ color: '#51cf66' }}>✓ Favorable</span>
+                        ) : (
+                          <span style={{ color: '#ff6b6b' }}>✗ Unfavorable</span>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </Popup>
+              </Marker>
+            );
+          })}
+        </>
+      )}
+      
+      {/* Start marker */}
       <Marker
         position={[routeData[0].lat, routeData[0].lon]}
         icon={L.divIcon({
@@ -1183,6 +1313,8 @@ const RouteDisplay = React.memo(({ routeData }) => {
           iconAnchor: [9, 9],
         })}
       />
+      
+      {/* End marker */}
       <Marker
         position={[routeData[routeData.length - 1].lat, routeData[routeData.length - 1].lon]}
         icon={L.divIcon({
