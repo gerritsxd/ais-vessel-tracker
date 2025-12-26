@@ -1215,6 +1215,37 @@ function WindyEmbed({ opacity }) {
   );
 }
 
+// Viewport handler component (must be inside MapContainer to use useMap hook)
+function ViewportHandlerComponent({ onViewportChange }) {
+  const map = useMap();
+  const timeoutRef = useRef(null);
+  
+  useEffect(() => {
+    const handleMoveEnd = () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      timeoutRef.current = setTimeout(() => {
+        try {
+          const bounds = map.getBounds();
+          onViewportChange(bounds);
+        } catch (e) {
+          console.error('Error getting bounds:', e);
+        }
+      }, 1000);
+    };
+    
+    map.on('moveend', handleMoveEnd);
+    map.on('zoomend', handleMoveEnd);
+    
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      map.off('moveend', handleMoveEnd);
+      map.off('zoomend', handleMoveEnd);
+    };
+  }, [map, onViewportChange]);
+  
+  return null;
+}
+
 // Memoized Route Display Component with Wind Visualization
 const RouteDisplay = React.memo(({ routeData, showWindData }) => {
   // Create color-coded route segments based on wind favorability
