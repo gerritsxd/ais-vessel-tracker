@@ -416,7 +416,11 @@
 }
 
 .vessels-table tbody tr.has-emissions {
-  background: linear-gradient(90deg, rgba(81, 207, 102, 0.03) 0%, transparent 100%);
+  background: linear-gradient(90deg, rgba(81, 207, 102, 0.08) 0%, transparent 100%);
+}
+
+.vessels-table tbody tr.has-emissions td {
+  color: #ffffff !important;
 }
 
 /* Badges */
@@ -465,7 +469,7 @@
 
 .type-other {
   background: linear-gradient(135deg, #00d4ff 0%, #00b4d8 100%);
-  color: #0b2545;
+  color: #ffffff;
 }
 
 .score-badge {
@@ -487,7 +491,8 @@
 
 .score-badge.medium {
   background: linear-gradient(135deg, #ffd43b 0%, #fab005 100%);
-  color: #3d2f00;
+  color: #ffffff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 .score-badge.low {
@@ -501,18 +506,21 @@
 }
 
 .co2-value {
-  color: #ff6b6b;
+  color: #ff9999;
   font-weight: 600;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 
 .efficiency-good {
-  color: #51cf66;
+  color: #90ee90;
   font-weight: 600;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 
 .efficiency-bad {
-  color: #ff6b6b;
+  color: #ff9999;
   font-weight: 600;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 
 /* Loading & Empty States */
@@ -1062,18 +1070,21 @@
 }
 
 .co2-value {
-  color: #ff6b6b;
+  color: #ff9999;
   font-weight: 600;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 
 .efficiency-good {
-  color: #51cf66;
+  color: #90ee90;
   font-weight: 600;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 
 .efficiency-bad {
-  color: #ff6b6b;
+  color: #ff9999;
   font-weight: 600;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 
 /* Loading & Empty States */
