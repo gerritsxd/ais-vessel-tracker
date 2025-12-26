@@ -79,14 +79,15 @@
 .stat-value {
   font-size: 2.5rem;
   font-weight: 700;
-  color: #0b2545;
+  color: #ffffff;
   margin-bottom: 0.5rem;
   font-variant-numeric: tabular-nums;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .stat-label {
   font-size: 0.875rem;
-  color: #284b63;
+  color: rgba(255, 255, 255, 0.9);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   font-weight: 600;
@@ -112,7 +113,7 @@
   left: 1rem;
   top: 50%;
   transform: translateY(-50%);
-  color: #284b63;
+  color: rgba(255, 255, 255, 0.9);
   pointer-events: none;
 }
 
@@ -236,7 +237,7 @@
 .filter-group label {
   font-size: 0.75rem;
   font-weight: 700;
-  color: #284b63;
+  color: rgba(255, 255, 255, 0.9);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -247,8 +248,8 @@
   border: 2px solid rgba(0, 119, 182, 0.2);
   border-radius: 12px;
   font-size: 0.875rem;
-  background: var(--surface-1, rgba(255,255,255,0.06));
-  color: #0b2545;
+  background: var(--surface-1, rgba(255,255,255,0.1));
+  color: #ffffff;
   transition: all 0.3s ease;
 }
 
@@ -321,7 +322,7 @@
 
 .card-header h3 {
   font-size: 1.125rem;
-  color: #0b2545;
+  color: #ffffff;
   margin: 0;
   line-height: 1.3;
 }
@@ -337,7 +338,7 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  color: #284b63;
+  color: rgba(255, 255, 255, 0.9);
   font-size: 0.875rem;
 }
 
@@ -522,7 +523,7 @@
   align-items: center;
   justify-content: center;
   padding: 4rem 2rem;
-  color: #284b63;
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .loading-icon {
@@ -653,7 +654,7 @@
 .detail-item label {
   font-size: 0.75rem;
   font-weight: 700;
-  color: #284b63;
+  color: rgba(255, 255, 255, 0.9);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -783,7 +784,7 @@
 
 .stat-label {
   font-size: 0.875rem;
-  color: #284b63;
+  color: rgba(255, 255, 255, 0.9);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -806,7 +807,7 @@
   left: 1rem;
   top: 50%;
   transform: translateY(-50%);
-  color: #284b63;
+  color: rgba(255, 255, 255, 0.9);
   pointer-events: none;
 }
 
@@ -876,7 +877,7 @@
 .filter-group label {
   font-size: 0.75rem;
   font-weight: 600;
-  color: #284b63;
+  color: rgba(255, 255, 255, 0.9);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -1083,7 +1084,7 @@
   align-items: center;
   justify-content: center;
   padding: 4rem 2rem;
-  color: #284b63;
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .loading-spinner {
@@ -1102,7 +1103,7 @@
 }
 
 .empty-state p {
-  color: #284b63;
+  color: rgba(255, 255, 255, 0.9);
 }
 
 /* Modal */
@@ -1193,7 +1194,7 @@
 .detail-item label {
   font-size: 0.75rem;
   font-weight: 600;
-  color: #284b63;
+  color: rgba(255, 255, 255, 0.9);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }

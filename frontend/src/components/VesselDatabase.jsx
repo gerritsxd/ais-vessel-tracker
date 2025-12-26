@@ -240,16 +240,18 @@ const debouncedApplyFilters = useRef(
   const getScoreBadge = (score) => {
     if (score == null || score === '') return { text: 'N/A', class: 'na' };
     const numScore = Number(score);
-    if (numScore >= 5) return { text: numScore, class: 'high' };
-    if (numScore >= 3) return { text: numScore, class: 'medium' };
-    return { text: numScore, class: 'low' };
+    // Technical fit score is 0-100 scale
+    if (numScore >= 80) return { text: Math.round(numScore), class: 'high' };
+    if (numScore >= 60) return { text: Math.round(numScore), class: 'medium' };
+    if (numScore >= 40) return { text: Math.round(numScore), class: 'medium-low' };
+    return { text: Math.round(numScore), class: 'low' };
   };
 
   const exportToCSV = () => {
-    const headers = ['MMSI', 'Name', 'Type', 'Length', 'Flag', 'Company', 'CO2', 'Fit Score'];
+    const headers = ['MMSI', 'Name', 'Type', 'Length', 'Flag', 'Company', 'CO2', 'Technical Fit'];
     const rows = filteredVessels.map(v => [
       v.mmsi, v.name, getShipTypeBadge(v.ship_type).name, v.length, v.flag_state,
-      v.signatory_company, v.total_co2_emissions, v.econowind_fit_score
+      v.signatory_company, v.total_co2_emissions, v.technical_fit_score
     ]);
     
     const csv = [headers, ...rows].map(row => row.join(',')).join('\n');
@@ -601,7 +603,7 @@ const debouncedApplyFilters = useRef(
           <div className="cards-grid">
             {filteredVessels.slice(0, 50).map((vessel, idx) => {
               const typeInfo = getShipTypeBadge(vessel.ship_type);
-              const scoreInfo = getScoreBadge(vessel.econowind_fit_score);
+              const scoreInfo = getScoreBadge(vessel.technical_fit_score);
               const hasEmissions = vessel.total_co2_emissions != null;
 
               return (
@@ -671,13 +673,13 @@ const debouncedApplyFilters = useRef(
                   <th onClick={() => handleSort('signatory_company')}>Company</th>
                   <th onClick={() => handleSort('total_co2_emissions')}>CO₂</th>
                   <th onClick={() => handleSort('avg_co2_per_distance')}>CO₂/nm</th>
-                  <th onClick={() => handleSort('econowind_fit_score')}>Score</th>
+                  <th onClick={() => handleSort('technical_fit_score')}>Technical Fit</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredVessels.map((vessel, idx) => {
                   const typeInfo = getShipTypeBadge(vessel.ship_type);
-                  const scoreInfo = getScoreBadge(vessel.econowind_fit_score);
+                  const scoreInfo = getScoreBadge(vessel.technical_fit_score);
                   const hasEmissions = vessel.total_co2_emissions != null;
 
                   return (
@@ -774,7 +776,7 @@ const debouncedApplyFilters = useRef(
                     { label: 'Company', value: selectedVessel.signatory_company || 'Unknown' },
                     { label: 'CO₂ Emissions', value: formatNumber(selectedVessel.total_co2_emissions) + ' t', highlight: true },
                     { label: 'Fuel Consumption', value: formatNumber(selectedVessel.total_fuel_consumption) + ' t' },
-                    { label: 'Fit Score', value: getScoreBadge(selectedVessel.econowind_fit_score).text, score: true }
+                    { label: 'Technical Fit', value: getScoreBadge(selectedVessel.technical_fit_score).text, score: true }
                   ].map((item, idx) => (
                     <motion.div
                       key={item.label}
@@ -786,7 +788,7 @@ const debouncedApplyFilters = useRef(
                       <label>{item.label}</label>
                       <span className={item.highlight ? 'co2-value' : ''}>
                         {item.score ? (
-                          <span className={`score-badge ${getScoreBadge(selectedVessel.econowind_fit_score).class}`}>
+                          <span className={`score-badge ${getScoreBadge(selectedVessel.technical_fit_score).class}`}>
                             {item.value}
                           </span>
                         ) : item.value}
