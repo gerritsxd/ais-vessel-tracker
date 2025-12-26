@@ -336,30 +336,73 @@ export default function VesselMap() {
     }, 200);
   }, []);
   
-  // ---- INITIAL LOAD ----
-  useEffect(() => {
-    const loadVessels = async () => {
-      try {
-        console.log('Loading vessels from API...');
-        const res = await fetch('/ships/api/vessels');
-        if (!res.ok) {
-          throw new Error(`HTTP error: ${res.status}`);
-        }
-        const data = await res.json();
-        console.log(`Loaded ${data.length} vessels`);
-        if (Array.isArray(data)) {
-          setVessels(data);
-        } else {
-          console.error('API returned non-array:', data);
-        }
-      } catch (error) {
-        console.error('Error loading vessels:', error);
-        // Retry after 5 seconds on failure
-        setTimeout(loadVessels, 5000);
+  // ---- VIEWPORT-BASED VESSEL LOADING ----
+  const loadVesselsForViewport = useCallback(async (bounds = null) => {
+    try {
+      let url = '/ships/api/vessels?limit=2000';
+      
+      // Add viewport bounds if provided
+      if (bounds) {
+        const { _southWest, _northEast } = bounds;
+        url += `&min_lat=${_southWest.lat}&max_lat=${_northEast.lat}&min_lon=${_southWest.lng}&max_lon=${_northEast.lng}`;
       }
-    };
-    loadVessels();
+      
+      // Add filters to URL
+      if (waspFilterActive) {
+        url += '&wind_assisted=true';
+      }
+      if (filters.type !== 'all' && !isNaN(parseInt(filters.type))) {
+        url += `&ship_type=${filters.type}`;
+      }
+      
+      console.log('Loading vessels from API...', bounds ? '(viewport filtered)' : '(all)');
+      const res = await fetch(url);
+      if (!res.ok) {
+        throw new Error(`HTTP error: ${res.status}`);
+      }
+      const data = await res.json();
+      console.log(`Loaded ${data.length} vessels`);
+      if (Array.isArray(data)) {
+        setVessels(data);
+      } else {
+        console.error('API returned non-array:', data);
+      }
+    } catch (error) {
+      console.error('Error loading vessels:', error);
+    }
+  }, [waspFilterActive, filters.type]);
+
+  // Initial load - load all vessels (no viewport filter on first load)
+  useEffect(() => {
+    loadVesselsForViewport(null);
   }, []);
+
+// Viewport handler component
+function ViewportHandler({ onViewportChange }) {
+  const map = useMap();
+  const timeoutRef = useRef(null);
+  
+  useEffect(() => {
+    const handleMoveEnd = () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      timeoutRef.current = setTimeout(() => {
+        const bounds = map.getBounds();
+        onViewportChange(bounds);
+      }, 1000);
+    };
+    
+    map.on('moveend', handleMoveEnd);
+    map.on('zoomend', handleMoveEnd);
+    
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      map.off('moveend', handleMoveEnd);
+      map.off('zoomend', handleMoveEnd);
+    };
+  }, [map, onViewportChange]);
+  
+  return null;
+}
 
 
 

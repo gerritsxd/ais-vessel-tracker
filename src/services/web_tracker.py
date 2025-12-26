@@ -407,12 +407,34 @@ def serve_frontend(path):
 
 @app.route('/ships/api/vessels')
 def get_vessels():
-    """Get all tracked vessels including Atlantic (database) vessels with recent positions."""
+    """
+    Get vessels optimized for map display.
+    Supports viewport filtering and server-side filtering for performance.
+    """
+    # Get optional viewport bounds (only load vessels in visible area)
+    min_lat = request.args.get('min_lat', type=float)
+    max_lat = request.args.get('max_lat', type=float)
+    min_lon = request.args.get('min_lon', type=float)
+    max_lon = request.args.get('max_lon', type=float)
+    limit = request.args.get('limit', 2000, type=int)  # Max vessels to return
+    
+    # Get optional filters
+    ship_type = request.args.get('ship_type', type=int)
+    wind_assisted_only = request.args.get('wind_assisted', default='false').lower() == 'true'
+    
     vessels = []
     seen_mmsi = set()
     
-    # First: Add real-time AIS vessels (in-memory)
+    # First: Add real-time AIS vessels (in-memory) - these are always included
     for mmsi, static in vessel_static_data.items():
+        # Apply filters
+        if wind_assisted_only and static.get('wind_assisted', 0) != 1:
+            continue
+        
+        if ship_type is not None:
+            if not static.get('ship_type') or static['ship_type'] < ship_type or static['ship_type'] >= ship_type + 10:
+                continue
+        
         vessel_info = {
             'mmsi': mmsi,
             'name': static['name'],
@@ -426,53 +448,80 @@ def get_vessels():
         
         # Add position if available
         if mmsi in vessel_positions:
-            vessel_info.update(vessel_positions[mmsi])
+            pos = vessel_positions[mmsi]
+            # Apply viewport filter
+            if min_lat is not None:
+                if pos.get('lat') < min_lat or pos.get('lat') > max_lat:
+                    continue
+                if pos.get('lon') < min_lon or pos.get('lon') > max_lon:
+                    continue
+            vessel_info.update(pos)
         
         vessels.append(vessel_info)
         seen_mmsi.add(mmsi)
+        
+        if len(vessels) >= limit:
+            return jsonify(vessels)
     
-    # Second: Add recent database vessels (Atlantic, etc.) with last known positions
+    # Second: Add recent database vessels with viewport filtering
     project_root = Path(__file__).parent.parent.parent
-    db_path = project_root / DB_NAME
+    db_path = project_root / "data" / DB_NAME
+    if not db_path.exists():
+        db_path = project_root / DB_NAME
     
     conn = None
     try:
-        conn = sqlite3.connect(db_path, timeout=60)
+        conn = sqlite3.connect(str(db_path), timeout=60)
         conn.execute('PRAGMA journal_mode=WAL')
         ensure_technical_fit_score_column(conn)
         cursor = conn.cursor()
         
-        # FAST approach: Get latest positions first (simple indexed query)
-        # Then join with vessel info - avoids complex nested queries
-        cursor.execute('''
+        # Build query with viewport filtering
+        query = '''
             SELECT p.mmsi, p.latitude, p.longitude, p.sog, p.cog, MAX(p.timestamp) as timestamp
             FROM vessel_positions p
             WHERE p.timestamp >= datetime('now', '-6 hours')
-            GROUP BY p.mmsi
-            ORDER BY timestamp DESC
-            LIMIT 3000
-        ''')
+        '''
+        params = []
+        
+        # Add viewport filter if provided
+        if min_lat is not None:
+            query += ' AND p.latitude >= ? AND p.latitude <= ? AND p.longitude >= ? AND p.longitude <= ?'
+            params.extend([min_lat, max_lat, min_lon, max_lon])
+        
+        query += ' GROUP BY p.mmsi ORDER BY timestamp DESC LIMIT ?'
+        params.append(limit - len(vessels))
+        
+        cursor.execute(query, params)
         recent_positions = {row[0]: {'lat': row[1], 'lon': row[2], 'sog': row[3], 'cog': row[4], 'timestamp': row[5]} 
                           for row in cursor.fetchall()}
         
         if not recent_positions:
             return jsonify(vessels)
         
-        # Get vessel info for those MMSIs (fast lookup by primary key)
+        # Get vessel info for those MMSIs
         mmsi_list = ','.join(map(str, recent_positions.keys()))
-        cursor.execute(f'''
+        
+        vessel_query = f'''
             SELECT v.mmsi, v.name, v.ship_type, e.ship_type as detailed_ship_type, v.length, v.beam,
                    v.imo, v.call_sign, v.flag_state, v.wind_assisted, e.gross_tonnage,
                    v.technical_fit_score
             FROM vessels_static v
             LEFT JOIN eu_mrv_emissions e ON v.imo = e.imo
             WHERE v.mmsi IN ({mmsi_list})
-        ''')
+        '''
         
+        # Add filters
+        if wind_assisted_only:
+            vessel_query += ' AND v.wind_assisted = 1'
+        if ship_type is not None:
+            vessel_query += f' AND v.ship_type >= {ship_type} AND v.ship_type < {ship_type + 10}'
+        
+        cursor.execute(vessel_query)
         db_vessels = cursor.fetchall()
         
         for vessel in db_vessels:
-            mmsi, name, ship_type, detailed_type, length, beam, imo, call_sign, flag, wind_assisted, gt, technical_fit_score = vessel
+            mmsi, name, ship_type_val, detailed_type, length, beam, imo, call_sign, flag, wind_assisted_val, gt, technical_fit_score = vessel
             
             # Skip if already in real-time data
             if mmsi in seen_mmsi:
@@ -485,14 +534,14 @@ def get_vessels():
             vessels.append({
                 'mmsi': mmsi,
                 'name': name or 'Unknown',
-                'ship_type': ship_type,
+                'ship_type': ship_type_val,
                 'detailed_ship_type': detailed_type,
                 'length': length,
                 'beam': beam,
                 'imo': imo,
                 'call_sign': call_sign,
                 'flag_state': flag or 'Unknown',
-                'wind_assisted': wind_assisted or 0,
+                'wind_assisted': wind_assisted_val or 0,
                 'gross_tonnage': gt,
                 'technical_fit_score': technical_fit_score,
                 'lat': pos.get('lat'),
@@ -501,6 +550,9 @@ def get_vessels():
                 'cog': pos.get('cog'),
                 'timestamp': pos.get('timestamp')
             })
+            
+            if len(vessels) >= limit:
+                break
             
     except Exception as e:
         print(f"Error loading database vessels: {e}")
