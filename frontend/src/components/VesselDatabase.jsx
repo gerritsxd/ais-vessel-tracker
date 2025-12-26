@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence, useMotionValue, animate } from 'framer-motion';
 import {
   Search,
@@ -96,9 +96,11 @@ const fetchVessels = async () => {
     let allResults = [];
     let hasMore = true;
 
+    // Fetch all data first, then render once
     while (hasMore) {
       const response = await fetch(
-        `${API_BASE}/ships/api/vessels/combined?limit=${limit}&offset=${offset}`
+        `${API_BASE}/ships/api/vessels/combined?limit=${limit}&offset=${offset}`,
+        { cache: 'default' } // Use browser cache
       );
 
       if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
@@ -110,12 +112,10 @@ const fetchVessels = async () => {
       } else {
         allResults = [...allResults, ...data];
         offset += limit;
-
-        // Optional: update UI progressively to avoid user staring at blank page
-        setVessels([...allResults]);
       }
     }
 
+    // Set vessels only once at the end - prevents multiple re-renders
     setVessels(allResults);
     setFilteredVessels(allResults);
   } catch (error) {

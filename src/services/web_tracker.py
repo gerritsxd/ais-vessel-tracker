@@ -1338,12 +1338,31 @@ def get_emissions_stats():
             conn.close()
 
 
+# Simple in-memory cache for vessel data (5 minute TTL)
+_vessel_cache = {}
+_vessel_cache_time = {}
+
 @app.route('/ships/api/vessels/combined')
 def get_combined_vessel_data():
     """Get vessels with both AIS and emissions data."""
+    import time
+    
     limit = request.args.get('limit', 100, type=int)
     offset = request.args.get('offset', 0, type=int)
     min_co2 = request.args.get('min_co2', type=float)
+    
+    # Create cache key
+    cache_key = f"{limit}_{offset}_{min_co2}"
+    current_time = time.time()
+    
+    # Check cache (5 minute TTL)
+    if cache_key in _vessel_cache:
+        cache_time = _vessel_cache_time.get(cache_key, 0)
+        if current_time - cache_time < 300:  # 5 minutes
+            response = jsonify(_vessel_cache[cache_key])
+            response.headers['X-Cache'] = 'HIT'
+            response.headers['Cache-Control'] = 'public, max-age=300'
+            return response
     
     project_root = Path(__file__).parent.parent.parent
     # Try data/ subdirectory first, then root
@@ -1393,7 +1412,20 @@ def get_combined_vessel_data():
         columns = [description[0] for description in cursor.description]
         results = [dict(zip(columns, row)) for row in rows]
         
-        return jsonify(results)
+        # Cache the results
+        _vessel_cache[cache_key] = results
+        _vessel_cache_time[cache_key] = current_time
+        
+        # Clean old cache entries (older than 10 minutes)
+        for key in list(_vessel_cache_time.keys()):
+            if current_time - _vessel_cache_time[key] > 600:
+                _vessel_cache.pop(key, None)
+                _vessel_cache_time.pop(key, None)
+        
+        response = jsonify(results)
+        response.headers['X-Cache'] = 'MISS'
+        response.headers['Cache-Control'] = 'public, max-age=300'
+        return response
     except Exception as e:
         import traceback
         error_msg = f"{str(e)}\n{traceback.format_exc()}"
