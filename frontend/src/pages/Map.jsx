@@ -1059,6 +1059,10 @@ function WindyEmbed({ opacity }) {
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
         )}
+        
+        {/* Viewport handler for loading vessels */}
+        <ViewportHandler onViewportChange={loadVesselsForViewport} />
+        
         {/* Route History Rendering - Memoized */}
         {routeData && routeData.length > 1 && (
           <RouteDisplay routeData={routeData} showWindData={showWindData} />
