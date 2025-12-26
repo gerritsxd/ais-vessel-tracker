@@ -289,7 +289,8 @@ export default function VesselMap() {
   }, [vessels, memoizedFilteredVessels]);
   
   // ---- EVENT HANDLERS ----
-  const handleVesselClick = useCallback((vessel) => {
+  const handleVesselClick = useCallback((vessel, includeWind = null) => {
+    console.log('Vessel clicked:', vessel.mmsi, 'includeWind:', includeWind);
     setSelectedVessel(vessel.mmsi);
     setRouteLoading(true);
     setRouteData(null);
@@ -299,23 +300,40 @@ export default function VesselMap() {
     
     // Throttle requests
     routeFetchTimeout.current = setTimeout(() => {
-      const windParam = showWindData ? '&wind=true' : '';
-      fetch(`/ships/api/vessel/${vessel.mmsi}/route?hours=${routeHours}${windParam}`)
-        .then(res => res.json())
+      // Use provided includeWind parameter, or fall back to current state
+      const shouldIncludeWind = includeWind !== null ? includeWind : showWindData;
+      const windParam = shouldIncludeWind ? '&wind=true' : '';
+      const url = `/ships/api/vessel/${vessel.mmsi}/route?hours=${routeHours}${windParam}`;
+      console.log('Fetching route:', url);
+      
+      fetch(url)
+        .then(res => {
+          if (!res.ok) {
+            throw new Error(`HTTP error! status: ${res.status}`);
+          }
+          return res.json();
+        })
         .then(data => {
+          console.log('Route data received:', data?.length || 0, 'points');
           setRouteLoading(false);
-          if (data?.length > 1) {
+          if (data && Array.isArray(data) && data.length > 1) {
             setRouteData(data);
             // auto-fit route
             if (mapRef.current) {
-              const bounds = L.latLngBounds(data.map(p => [p.lat, p.lon]));
-              mapRef.current.fitBounds(bounds, { padding: [50, 50] });
+              try {
+                const bounds = L.latLngBounds(data.map(p => [p.lat, p.lon]));
+                mapRef.current.flyToBounds(bounds, { padding: [50, 50], duration: 1 });
+              } catch (e) {
+                console.error('Error fitting bounds:', e);
+              }
             }
           } else {
+            console.log('No route data or insufficient points');
             setRouteData([]);
           }
         })
-        .catch(() => {
+        .catch((error) => {
+          console.error('Route fetch error:', error);
           setRouteLoading(false);
           setRouteData([]);
         });
@@ -794,11 +812,16 @@ function WindyEmbed({ opacity }) {
         
         <motion.button
           onClick={() => {
-            setShowWindData(!showWindData);
+            const newWindDataState = !showWindData;
+            console.log('Toggling wind data:', newWindDataState);
+            setShowWindData(newWindDataState);
             // Reload route with wind data toggle if vessel is selected
             if (selectedVessel) {
               const vessel = vessels.find(v => v.mmsi === selectedVessel);
-              if (vessel) handleVesselClick(vessel);
+              if (vessel) {
+                // Pass the new wind data state directly to avoid stale closure
+                handleVesselClick(vessel, newWindDataState);
+              }
             }
           }}
           whileHover={{ scale: 1.05 }}
@@ -1019,7 +1042,6 @@ function WindyEmbed({ opacity }) {
           zoom={7}
           className="leaflet-map"
           zoomControl={true}
-          ref={mapRef}
         >
         {darkMode ? (
           <TileLayer
@@ -1032,6 +1054,9 @@ function WindyEmbed({ opacity }) {
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
         )}
+        
+        {/* Capture map instance for parent component */}
+        <MapInstanceHandler mapRef={mapRef} />
         
         {/* Viewport handler for loading vessels */}
         <ViewportHandlerComponent onViewportChange={loadVesselsForViewport} />
@@ -1213,6 +1238,19 @@ function WindyEmbed({ opacity }) {
       </motion.div>
     </div>
   );
+}
+
+// Map instance handler - captures Leaflet map instance for parent component
+function MapInstanceHandler({ mapRef }) {
+  const map = useMap();
+  
+  useEffect(() => {
+    if (mapRef) {
+      mapRef.current = map;
+    }
+  }, [map, mapRef]);
+  
+  return null;
 }
 
 // Viewport handler component (must be inside MapContainer to use useMap hook)
