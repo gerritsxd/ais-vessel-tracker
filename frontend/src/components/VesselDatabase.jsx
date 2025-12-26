@@ -695,6 +695,7 @@ const debouncedApplyFilters = useRef(
               </thead>
               <tbody>
                 {filteredVessels.map((vessel, idx) => {
+                  // Pre-compute badges once - colors will be correct immediately
                   const typeInfo = getShipTypeBadge(vessel.ship_type);
                   const scoreInfo = getScoreBadge(vessel.technical_fit_score);
                   const hasEmissions = vessel.total_co2_emissions != null;
@@ -702,9 +703,8 @@ const debouncedApplyFilters = useRef(
                   return (
                     <motion.tr
                       key={vessel.mmsi}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: Math.min(idx * 0.02, 1) }}
+                      initial={{ opacity: 1 }}
+                      animate={{ opacity: 1 }}
                       className={hasEmissions ? 'has-emissions' : ''}
                       onClick={() => setSelectedVessel(vessel)}
                       whileHover={{ backgroundColor: 'rgba(0, 119, 182, 0.08)', scale: 1.01 }}
