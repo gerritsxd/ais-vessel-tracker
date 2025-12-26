@@ -705,6 +705,9 @@ def get_vessel_route(mmsi):
     
     conn = None
     try:
+        if not db_path.exists():
+            return jsonify({'error': 'Database not found'}), 404
+        
         conn = sqlite3.connect(str(db_path), timeout=30)
         conn.execute('PRAGMA journal_mode=WAL')
         cursor = conn.cursor()
@@ -715,62 +718,89 @@ def get_vessel_route(mmsi):
             WHERE mmsi = ?
               AND timestamp >= datetime('now', '-' || ? || ' hours')
             ORDER BY timestamp ASC
+            LIMIT 1000
         ''', (mmsi, hours))
         
         positions = cursor.fetchall()
         
+        if not positions:
+            return jsonify([])
+        
         # Build raw route
         route = []
         for p in positions:
-            route.append({
-                'lat': p[0],
-                'lon': p[1],
-                'sog': p[2],
-                'cog': p[3],
-                'timestamp': p[4]
-            })
+            if p[0] is not None and p[1] is not None:  # lat and lon must exist
+                route.append({
+                    'lat': p[0],
+                    'lon': p[1],
+                    'sog': p[2],
+                    'cog': p[3],
+                    'timestamp': p[4]
+                })
+        
+        if not route:
+            return jsonify([])
         
         # Apply intelligent outlier filtering
         filtered_route = filter_route_outliers(route)
         
-        # Add wind data if requested
+        # Add wind data if requested (limit to avoid timeout)
         if include_wind and filtered_route:
             try:
                 from src.services.wind_analysis import WindDataFetcher, WindAlignmentAnalyzer
                 wind_fetcher = WindDataFetcher(verbose=False)
                 analyzer = WindAlignmentAnalyzer()
                 
-                for point in filtered_route:
-                    if point.get('cog') is not None:
-                        wind_data = wind_fetcher.fetch_wind_data(
-                            point['lat'],
-                            point['lon'],
-                            point['timestamp']
-                        )
-                        
-                        if wind_data:
-                            point['wind_speed'] = wind_data['wind_speed']
-                            point['wind_direction'] = wind_data['wind_direction']
-                            
-                            # Calculate alignment
-                            alignment_angle = analyzer.calculate_alignment_angle(
-                                point['cog'],
-                                wind_data['wind_direction']
+                # Limit wind data fetching to avoid timeout (every 3rd point)
+                for i, point in enumerate(filtered_route):
+                    if i % 3 == 0 and point.get('cog') is not None:
+                        try:
+                            wind_data = wind_fetcher.fetch_wind_data(
+                                point['lat'],
+                                point['lon'],
+                                point['timestamp']
                             )
-                            point['wind_alignment_angle'] = alignment_angle
-                            point['wind_assistance_score'] = analyzer.calculate_wind_assistance_score(alignment_angle)
-                            point['favorable_wind'] = analyzer.is_favorable_wind(alignment_angle)
-                        else:
+                            
+                            if wind_data:
+                                point['wind_speed'] = wind_data['wind_speed']
+                                point['wind_direction'] = wind_data['wind_direction']
+                                
+                                # Calculate alignment
+                                alignment_angle = analyzer.calculate_alignment_angle(
+                                    point['cog'],
+                                    wind_data['wind_direction']
+                                )
+                                point['wind_alignment_angle'] = alignment_angle
+                                point['wind_assistance_score'] = analyzer.calculate_wind_assistance_score(alignment_angle)
+                                point['favorable_wind'] = analyzer.is_favorable_wind(alignment_angle)
+                            else:
+                                point['wind_speed'] = None
+                                point['wind_direction'] = None
+                                point['wind_alignment_angle'] = None
+                                point['wind_assistance_score'] = None
+                                point['favorable_wind'] = None
+                        except Exception as e:
+                            # Skip wind data for this point if it fails
                             point['wind_speed'] = None
                             point['wind_direction'] = None
-                            point['wind_alignment_angle'] = None
-                            point['wind_assistance_score'] = None
                             point['favorable_wind'] = None
+                    
+                    # Copy wind data to adjacent points (interpolate)
+                    if i > 0 and filtered_route[i-1].get('wind_direction') is not None:
+                        point['wind_speed'] = filtered_route[i-1].get('wind_speed')
+                        point['wind_direction'] = filtered_route[i-1].get('wind_direction')
+                        point['wind_alignment_angle'] = filtered_route[i-1].get('wind_alignment_angle')
+                        point['wind_assistance_score'] = filtered_route[i-1].get('wind_assistance_score')
+                        point['favorable_wind'] = filtered_route[i-1].get('favorable_wind')
             except Exception as e:
                 # If wind fetching fails, continue without wind data
                 print(f"Wind data fetch error: {e}")
         
         return jsonify(filtered_route)
+    except Exception as e:
+        import traceback
+        print(f"Route fetch error: {e}\n{traceback.format_exc()}")
+        return jsonify({'error': str(e)}), 500
     finally:
         if conn:
             conn.close()
