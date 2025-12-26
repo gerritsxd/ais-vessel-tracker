@@ -13,7 +13,8 @@ import {
   Download,
   Eye,
   Zap,
-  Globe
+  Globe,
+  HelpCircle
 } from 'lucide-react';
 import '../styles/Database.css';
 
@@ -673,7 +674,22 @@ const debouncedApplyFilters = useRef(
                   <th onClick={() => handleSort('signatory_company')}>Company</th>
                   <th onClick={() => handleSort('total_co2_emissions')}>CO₂</th>
                   <th onClick={() => handleSort('avg_co2_per_distance')}>CO₂/nm</th>
-                  <th onClick={() => handleSort('technical_fit_score')}>Technical Fit</th>
+                  <th onClick={() => handleSort('technical_fit_score')}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', justifyContent: 'center' }}>
+                      Technical Fit
+                      <HelpCircle 
+                        size={14} 
+                        className="info-icon"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowFitScoreInfo(!showFitScoreInfo);
+                        }}
+                        style={{ cursor: 'pointer', opacity: 0.7 }}
+                        onMouseEnter={(e) => e.target.style.opacity = '1'}
+                        onMouseLeave={(e) => e.target.style.opacity = '0.7'}
+                      />
+                    </div>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -825,6 +841,74 @@ const debouncedApplyFilters = useRef(
                     </motion.a>
                   )}
                 </motion.div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Technical Fit Score Info Tooltip */}
+      <AnimatePresence>
+        {showFitScoreInfo && (
+          <motion.div
+            className="fit-score-info-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setShowFitScoreInfo(false)}
+          >
+            <motion.div
+              className="fit-score-info-tooltip"
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="tooltip-header">
+                <h3>Technical Fit Score</h3>
+                <button 
+                  onClick={() => setShowFitScoreInfo(false)}
+                  className="tooltip-close"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+              <div className="tooltip-content">
+                <p style={{ marginBottom: '1rem', color: 'rgba(255, 255, 255, 0.9)' }}>
+                  The Technical Fit Score (0-100) evaluates how suitable a vessel is for wind propulsion installation based on vessel characteristics.
+                </p>
+                <div className="score-breakdown">
+                  <div className="breakdown-item">
+                    <strong>Length Score (40 points)</strong>
+                    <p>Optimal range: 150-200m. Based on actual WASP vessel patterns.</p>
+                  </div>
+                  <div className="breakdown-item">
+                    <strong>Ship Type Score (30 points)</strong>
+                    <p>Cargo, Tanker, and Ro-Ro vessels score highest based on WASP installations.</p>
+                  </div>
+                  <div className="breakdown-item">
+                    <strong>Length/Beam Ratio (20 points)</strong>
+                    <p>Optimal ratio: 5.0-7.0 (WASP vessels average 6.59).</p>
+                  </div>
+                  <div className="breakdown-item">
+                    <strong>Flag State Bonus (2 points)</strong>
+                    <p>Bonus for flags with high WASP adoption (NL, DK, NO, etc.).</p>
+                  </div>
+                  <div className="breakdown-item">
+                    <strong>Text Match Bonus (10 points)</strong>
+                    <p>Bonus if detailed ship type matches known WASP vessel categories.</p>
+                  </div>
+                </div>
+                <div className="score-interpretation" style={{ marginTop: '1rem', padding: '1rem', background: 'rgba(0, 119, 182, 0.1)', borderRadius: '8px' }}>
+                  <strong>Score Interpretation:</strong>
+                  <ul style={{ marginTop: '0.5rem', paddingLeft: '1.5rem', color: 'rgba(255, 255, 255, 0.9)' }}>
+                    <li><strong>80-100:</strong> Excellent candidate</li>
+                    <li><strong>60-79:</strong> Good candidate</li>
+                    <li><strong>40-59:</strong> Moderate suitability</li>
+                    <li><strong>20-39:</strong> Low suitability</li>
+                    <li><strong>0-19:</strong> Poor suitability</li>
+                  </ul>
+                </div>
               </div>
             </motion.div>
           </motion.div>

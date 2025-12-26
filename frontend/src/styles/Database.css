@@ -1309,3 +1309,128 @@
     width: 100%;
   }
 }
+
+/* Technical Fit Score Info Tooltip */
+.fit-score-info-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.fit-score-info-tooltip {
+  background: linear-gradient(135deg, rgba(11, 37, 69, 0.95) 0%, rgba(0, 119, 182, 0.95) 100%);
+  border-radius: 20px;
+  padding: 0;
+  max-width: 600px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  border: 2px solid rgba(0, 119, 182, 0.3);
+}
+
+.tooltip-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.tooltip-header h3 {
+  margin: 0;
+  color: #ffffff;
+  font-size: 1.5rem;
+}
+
+.tooltip-close {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tooltip-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.tooltip-content {
+  padding: 1.5rem;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.score-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.breakdown-item {
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  border-left: 3px solid #0077b6;
+}
+
+.breakdown-item strong {
+  display: block;
+  color: #ffffff;
+  margin-bottom: 0.5rem;
+  font-size: 0.95rem;
+}
+
+.breakdown-item p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.score-interpretation {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: rgba(0, 119, 182, 0.1);
+  border-radius: 8px;
+}
+
+.score-interpretation strong {
+  color: #ffffff;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.score-interpretation ul {
+  margin-top: 0.5rem;
+  padding-left: 1.5rem;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.score-interpretation li {
+  margin-bottom: 0.25rem;
+  line-height: 1.6;
+}
+
+.info-icon {
+  transition: all 0.2s ease;
+}
+
+.info-icon:hover {
+  transform: scale(1.1);
+}
