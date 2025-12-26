@@ -712,19 +712,52 @@ def get_vessel_route(mmsi):
         conn.execute('PRAGMA journal_mode=WAL')
         cursor = conn.cursor()
         
+        # First check if vessel has any positions at all
+        cursor.execute('SELECT COUNT(*) FROM vessel_positions WHERE mmsi = ?', (mmsi,))
+        total_count = cursor.fetchone()[0]
+        
+        if total_count == 0:
+            print(f"[Route] No positions found for MMSI {mmsi}")
+            return jsonify([])
+        
+        print(f"[Route] Found {total_count:,} total positions for MMSI {mmsi}, filtering for last {hours} hours")
+        
+        # Try to get positions from the last N hours
+        # SQLite datetime() can handle ISO format strings, but we'll try multiple approaches
         cursor.execute('''
             SELECT latitude, longitude, sog, cog, timestamp
             FROM vessel_positions
             WHERE mmsi = ?
-              AND timestamp >= datetime('now', '-' || ? || ' hours')
+              AND datetime(timestamp) >= datetime('now', '-' || ? || ' hours')
             ORDER BY timestamp ASC
             LIMIT 1000
         ''', (mmsi, hours))
         
         positions = cursor.fetchall()
         
+        # If no recent data, try to get the most recent positions regardless of time
         if not positions:
+            print(f"[Route] No positions in last {hours}h, fetching most recent positions")
+            cursor.execute('''
+                SELECT latitude, longitude, sog, cog, timestamp
+                FROM vessel_positions
+                WHERE mmsi = ?
+                ORDER BY timestamp DESC
+                LIMIT 1000
+            ''', (mmsi,))
+            positions = cursor.fetchall()
+            # Reverse to get chronological order
+            positions = list(reversed(positions))
+            if positions:
+                # Get the oldest timestamp to show how old the data is
+                oldest_ts = positions[0][4]
+                print(f"[Route] Using historical data, oldest timestamp: {oldest_ts}")
+        
+        if not positions:
+            print(f"[Route] No positions found for MMSI {mmsi} after all attempts")
             return jsonify([])
+        
+        print(f"[Route] Returning {len(positions)} positions for MMSI {mmsi}")
         
         # Build raw route
         route = []
