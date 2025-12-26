@@ -445,7 +445,8 @@ def get_vessels():
         mmsi_list = ','.join(map(str, recent_positions.keys()))
         cursor.execute(f'''
             SELECT v.mmsi, v.name, v.ship_type, e.ship_type as detailed_ship_type, v.length, v.beam,
-                   v.imo, v.call_sign, v.flag_state, v.wind_assisted, e.gross_tonnage
+                   v.imo, v.call_sign, v.flag_state, v.wind_assisted, e.gross_tonnage,
+                   v.technical_fit_score
             FROM vessels_static v
             LEFT JOIN eu_mrv_emissions e ON v.imo = e.imo
             WHERE v.mmsi IN ({mmsi_list})
@@ -454,7 +455,7 @@ def get_vessels():
         db_vessels = cursor.fetchall()
         
         for vessel in db_vessels:
-            mmsi, name, ship_type, detailed_type, length, beam, imo, call_sign, flag, wind_assisted, gt = vessel
+            mmsi, name, ship_type, detailed_type, length, beam, imo, call_sign, flag, wind_assisted, gt, technical_fit_score = vessel
             
             # Skip if already in real-time data
             if mmsi in seen_mmsi:
@@ -476,6 +477,7 @@ def get_vessels():
                 'flag_state': flag or 'Unknown',
                 'wind_assisted': wind_assisted or 0,
                 'gross_tonnage': gt,
+                'technical_fit_score': technical_fit_score,
                 'lat': pos.get('lat'),
                 'lon': pos.get('lon'),
                 'sog': pos.get('sog'),
@@ -1347,7 +1349,7 @@ def get_combined_vessel_data():
                    e.company_name as mrv_company, e.total_co2_emissions,
                    e.total_fuel_consumption, e.total_distance_travelled,
                    e.avg_co2_per_distance, e.reporting_period,
-                   e.econowind_fit_score
+                   e.econowind_fit_score, v.technical_fit_score
             FROM vessels_static v
             INNER JOIN eu_mrv_emissions e ON v.imo = e.imo
             WHERE e.total_co2_emissions IS NOT NULL
