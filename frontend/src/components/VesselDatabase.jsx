@@ -70,6 +70,7 @@ export default function VesselDatabase() {
   const [showFilters, setShowFilters] = useState(false);
   const [selectedVessel, setSelectedVessel] = useState(null);
   const [viewMode, setViewMode] = useState('table');
+  const [showFitScoreInfo, setShowFitScoreInfo] = useState(false);
 
   useEffect(() => {
     fetchVessels();
