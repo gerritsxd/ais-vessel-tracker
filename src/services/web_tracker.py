@@ -499,25 +499,31 @@ def get_vessels():
         if not recent_positions:
             return jsonify(vessels)
         
-        # Get vessel info for those MMSIs
-        mmsi_list = ','.join(map(str, recent_positions.keys()))
+        # Get vessel info for those MMSIs (use parameterized query to avoid SQL injection)
+        mmsi_list = list(recent_positions.keys())
+        if not mmsi_list:
+            return jsonify(vessels)
         
+        placeholders = ','.join(['?'] * len(mmsi_list))
         vessel_query = f'''
             SELECT v.mmsi, v.name, v.ship_type, e.ship_type as detailed_ship_type, v.length, v.beam,
                    v.imo, v.call_sign, v.flag_state, v.wind_assisted, e.gross_tonnage,
                    v.technical_fit_score
             FROM vessels_static v
             LEFT JOIN eu_mrv_emissions e ON v.imo = e.imo
-            WHERE v.mmsi IN ({mmsi_list})
+            WHERE v.mmsi IN ({placeholders})
         '''
+        
+        query_params = mmsi_list[:]
         
         # Add filters
         if wind_assisted_only:
             vessel_query += ' AND v.wind_assisted = 1'
         if ship_type is not None:
-            vessel_query += f' AND v.ship_type >= {ship_type} AND v.ship_type < {ship_type + 10}'
+            vessel_query += ' AND v.ship_type >= ? AND v.ship_type < ?'
+            query_params.extend([ship_type, ship_type + 10])
         
-        cursor.execute(vessel_query)
+        cursor.execute(vessel_query, query_params)
         db_vessels = cursor.fetchall()
         
         for vessel in db_vessels:

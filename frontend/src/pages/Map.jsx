@@ -375,34 +375,7 @@ export default function VesselMap() {
   // Initial load - load all vessels (no viewport filter on first load)
   useEffect(() => {
     loadVesselsForViewport(null);
-  }, []);
-
-// Viewport handler component
-function ViewportHandler({ onViewportChange }) {
-  const map = useMap();
-  const timeoutRef = useRef(null);
-  
-  useEffect(() => {
-    const handleMoveEnd = () => {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      timeoutRef.current = setTimeout(() => {
-        const bounds = map.getBounds();
-        onViewportChange(bounds);
-      }, 1000);
-    };
-    
-    map.on('moveend', handleMoveEnd);
-    map.on('zoomend', handleMoveEnd);
-    
-    return () => {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      map.off('moveend', handleMoveEnd);
-      map.off('zoomend', handleMoveEnd);
-    };
-  }, [map, onViewportChange]);
-  
-  return null;
-}
+  }, [loadVesselsForViewport]);
 
 
 
@@ -1061,7 +1034,7 @@ function WindyEmbed({ opacity }) {
         )}
         
         {/* Viewport handler for loading vessels */}
-        <ViewportHandler onViewportChange={loadVesselsForViewport} />
+        <ViewportHandlerComponent onViewportChange={loadVesselsForViewport} />
         
         {/* Route History Rendering - Memoized */}
         {routeData && routeData.length > 1 && (
