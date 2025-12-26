@@ -1,0 +1,13 @@
+[Unit]
+Description=Run Wind Analysis Daily
+Requires=ais-wind-analysis.service
+
+[Timer]
+# Run daily at 2 AM
+OnCalendar=daily
+OnCalendar=*-*-* 02:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+

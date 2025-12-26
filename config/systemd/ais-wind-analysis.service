@@ -1,0 +1,16 @@
+[Unit]
+Description=Wind Alignment Analysis Service
+After=network.target
+
+[Service]
+Type=oneshot
+User=erik
+WorkingDirectory=/var/www/apihub
+ExecStart=/var/www/apihub/venv/bin/python /var/www/apihub/src/utils/run_wind_analysis.py --all
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ais-wind-analysis
+
+[Install]
+WantedBy=multi-user.target
+
