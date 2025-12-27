@@ -262,16 +262,21 @@ const debouncedApplyFilters = useRef(
     };
 
     const headers = ['MMSI', 'Name', 'Type', 'Length', 'Flag', 'Company', 'CO2', 'Technical Fit'];
-    const rows = filteredVessels.map(v => [
-      v.mmsi || '',
-      v.name || '',
-      getShipTypeBadge(v.ship_type).name || '',
-      v.length || '',
-      v.flag_state || '',
-      v.signatory_company || v.mrv_company || '',
-      v.total_co2_emissions || '',
-      v.technical_fit_score || ''
-    ]);
+    const rows = filteredVessels.map(v => {
+      // Try multiple possible company field names
+      const company = v.signatory_company || v.mrv_company || v.company_name || v.company || '';
+      
+      return [
+        v.mmsi || '',
+        v.name || '',
+        getShipTypeBadge(v.ship_type).name || '',
+        v.length || '',
+        v.flag_state || '',
+        company,
+        v.total_co2_emissions || '',
+        v.technical_fit_score || ''
+      ];
+    });
     
     const csv = [headers, ...rows]
       .map(row => row.map(escapeCSV).join(','))
