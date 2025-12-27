@@ -250,19 +250,40 @@ const debouncedApplyFilters = useRef(
   };
 
   const exportToCSV = () => {
+    // Properly escape CSV fields (handles commas, quotes, dollar signs, etc.)
+    const escapeCSV = (value) => {
+      if (value === null || value === undefined) return '';
+      const str = String(value);
+      // If field contains comma, quote, or newline, wrap in quotes and escape quotes
+      if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+
     const headers = ['MMSI', 'Name', 'Type', 'Length', 'Flag', 'Company', 'CO2', 'Technical Fit'];
     const rows = filteredVessels.map(v => [
-      v.mmsi, v.name, getShipTypeBadge(v.ship_type).name, v.length, v.flag_state,
-      v.signatory_company, v.total_co2_emissions, v.technical_fit_score
+      v.mmsi || '',
+      v.name || '',
+      getShipTypeBadge(v.ship_type).name || '',
+      v.length || '',
+      v.flag_state || '',
+      v.signatory_company || v.mrv_company || '',
+      v.total_co2_emissions || '',
+      v.technical_fit_score || ''
     ]);
     
-    const csv = [headers, ...rows].map(row => row.join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
+    const csv = [headers, ...rows]
+      .map(row => row.map(escapeCSV).join(','))
+      .join('\n');
+    
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = 'vessels.csv';
     a.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -721,7 +742,7 @@ const debouncedApplyFilters = useRef(
                       </td>
                       <td>{vessel.length || 'N/A'}</td>
                       <td>{vessel.flag_state || 'Unknown'}</td>
-                      <td>${vessel.signatory_company || vessel.mrv_company || 'Unknown'}</td>
+                      <td>{vessel.signatory_company || vessel.mrv_company || 'Unknown'}</td>
                       <td className="co2-value">
                         {vessel.total_co2_emissions 
                           ? formatNumber(vessel.total_co2_emissions) + ' t'
