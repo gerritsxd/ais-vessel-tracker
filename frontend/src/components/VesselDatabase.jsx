@@ -161,12 +161,15 @@ const fetchVessels = async () => {
 
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
-      filtered = filtered.filter(v =>
-        v.name?.toLowerCase().includes(term) ||
-        v.mmsi?.toString().includes(term) ||
-        v.imo?.toString().includes(term) ||
-        v.signatory_company?.toLowerCase().includes(term)
-      );
+      filtered = filtered.filter(v => {
+        const company = (v.signatory_company || v.mrv_company || v.company_name || v.company || '').toLowerCase();
+        return (
+          v.name?.toLowerCase().includes(term) ||
+          v.mmsi?.toString().includes(term) ||
+          v.imo?.toString().includes(term) ||
+          company.includes(term)
+        );
+      });
     }
 
     if (filters.minLength) filtered = filtered.filter(v => v.length >= parseInt(filters.minLength));
