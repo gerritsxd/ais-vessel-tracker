@@ -7,6 +7,8 @@ import io from 'socket.io-client';
 import 'leaflet/dist/leaflet.css';
 import '../styles/Map.css';
 import VesselSidebar from '../components/VesselSidebar.jsx';
+import { Ship, MapPin, Scale, Wind, Activity,Sun, SlidersHorizontal, Moon, X} from "lucide-react";
+
 
 // Animated Number Component
 function AnimatedNumber({ value }) {
@@ -486,7 +488,9 @@ function WindyEmbed({ opacity }) {
               transition={{ delay: 0.3, duration: 0.6 }}
               whileHover={{ y: -5, boxShadow: '0 10px 30px rgba(0, 119, 182, 0.3)' }}
             >
-              <div className="stat-icon">🚢</div>
+              <div className="stat-icon">
+              <Ship size={28} strokeWidth={1.8} />
+            </div>
               <div className="stat-content">
                 <div className="stat-value">
                   <AnimatedNumber value={stats.total} />
@@ -502,7 +506,9 @@ function WindyEmbed({ opacity }) {
               transition={{ delay: 0.4, duration: 0.6 }}
               whileHover={{ y: -5, boxShadow: '0 10px 30px rgba(0, 180, 216, 0.3)' }}
             >
-              <div className="stat-icon">📍</div>
+              <div className="stat-icon">
+              <MapPin size={28} strokeWidth={1.8} />
+            </div>
               <div className="stat-content">
                 <div className="stat-value">
                   <AnimatedNumber value={stats.active} />
@@ -518,7 +524,9 @@ function WindyEmbed({ opacity }) {
               transition={{ delay: 0.5, duration: 0.6 }}
               whileHover={{ y: -5, boxShadow: '0 10px 30px rgba(255, 165, 0, 0.3)' }}
             >
-              <div className="stat-icon">⚖️</div>
+              <div className="stat-icon">
+              <Scale size={28} strokeWidth={1.8} />
+            </div>
               <div className="stat-content">
                 <div className="stat-value">
                   <AnimatedNumber value={stats.withGT} />
@@ -534,7 +542,9 @@ function WindyEmbed({ opacity }) {
             transition={{ delay: 0.55, duration: 0.6 }}
             whileHover={{ y: -5, boxShadow: '0 10px 30px rgba(34, 197, 94, 0.3)' }}
           >
-            <div className="stat-icon">🌬️</div>
+            <div className="stat-icon">
+              <Wind size={28} strokeWidth={1.8} />
+            </div>
             <div className="stat-content">
               <div className="stat-value">
                 <AnimatedNumber value={stats.wasp} />
@@ -542,47 +552,21 @@ function WindyEmbed({ opacity }) {
               <div className="stat-label">Wind-Assisted</div>
             </div>
           </motion.div>
-
-
-            <motion.div
-              className="stat-card"
-              initial={{ y: 20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.5, duration: 0.6 }}
-              whileHover={{ y: -5, boxShadow: '0 10px 30px rgba(16, 185, 129, 0.3)' }}
-            >
-              <div className="stat-icon">
-                <motion.div
-                  animate={isConnected ? { scale: [1, 1.2, 1] } : {}}
-                  transition={{ duration: 2, repeat: Infinity }}
-                >
-                  {isConnected ? '📡' : '⏸️'}
-                </motion.div>
-              </div>
-              <div className="stat-content">
-                <div className="stat-value" style={{ fontSize: '1.2rem' }}>
-                  {isConnected ? 'LIVE' : 'Offline'}
-                </div>
-                <div className="stat-label">Connection Status</div>
-              </div>
-            </motion.div>
           </div>
         </div>
 
-        {/* Filters */}
-        <motion.div
-          className="map-filters"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.6, duration: 0.6 }}
-        >
-        
+        {/* Filters & Controls */}
+      <motion.div
+        className="map-filters map-controls"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.6, duration: 0.6 }}
+      >
 
-          <motion.div
-          className="filter-wrapper"
-          whileHover={{ scale: 1.02 }}
-        >
-          <label>🧬 Detailed Type</label>
+        {/* ---------- FILTERS ---------- */}
+
+        <motion.div className="filter-wrapper" whileHover={{ scale: 1.02 }}>
+          <label>Detailed type</label>
           <select
             value={filters.detailedType}
             onChange={(e) =>
@@ -605,225 +589,120 @@ function WindyEmbed({ opacity }) {
           </select>
         </motion.div>
 
-
-          <motion.div
-            className="filter-wrapper"
-            whileHover={{ scale: 1.02 }}
+        <motion.div className="filter-wrapper" whileHover={{ scale: 1.02 }}>
+          <label>Vessel size</label>
+          <select
+            value={filters.size}
+            onChange={(e) =>
+              setFilters(prev => ({ ...prev, size: e.target.value }))
+            }
           >
-            <label>📏 Vessel Size</label>
-            <select
-              value={filters.size}
-              onChange={(e) => setFilters(prev => ({ ...prev, size: e.target.value }))}
-            >
-              <option value="all">All Sizes</option>
-              <option value="large">Large (≥200m)</option>
-              <option value="medium">Medium (100-200m)</option>
-            </select>
-          </motion.div>
-
-          <motion.div
-            className="filter-wrapper"
-            whileHover={{ scale: 1.02 }}
-          >
-            <label>⚖️ Gross Tonnage</label>
-            <select
-              value={filters.gtCategory}
-              onChange={(e) => setFilters(prev => ({ ...prev, gtCategory: e.target.value }))}
-            >
-              <option value="all">All GT</option>
-              <option value="le100">≤ 100 GT</option>
-              <option value="gt100">{'>'} 100 GT</option>
-              <option value="gt1000">{'>'} 1,000 GT</option>
-              <option value="gt5000">{'>'} 5,000 GT</option>
-            </select>
-          </motion.div>
-
-
-          <motion.button
-            className="wasp-toggle"
-            onClick={() => setWaspFilterActive(!waspFilterActive)}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            style={{
-              background: waspFilterActive 
-                ? 'linear-gradient(135deg, #ff00ff 0%, #cc00cc 100%)'
-                : 'linear-gradient(135deg, #00ff00 0%, #00cc00 100%)',
-              border: waspFilterActive ? '3px solid #ff00ff' : '3px solid #00ff00',
-              boxShadow: waspFilterActive 
-                ? '0 0 20px rgba(255, 0, 255, 0.5)'
-                : '0 0 20px rgba(0, 255, 0, 0.5)',
-              padding: '12px 24px',
-              borderRadius: '8px',
-              fontSize: '14px',
-              fontWeight: 'bold',
-              cursor: 'pointer',
-              transition: 'all 0.3s',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px'
-            }}
-          >
-            🌬️ {waspFilterActive ? 'SHOW ALL VESSELS' : 'WIND-ASSISTED ONLY'}
-          </motion.button>
-
-          <motion.button
-          className="darkmode-toggle"
-          onClick={() => setDarkMode(prev => !prev)}
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          style={{
-            background: darkMode
-              ? 'linear-gradient(135deg, #222 0%, #000 100%)'
-              : 'linear-gradient(135deg, #ffffff 0%, #dddddd 100%)',
-            border: darkMode ? '3px solid #555' : '3px solid #ccc',
-            color: darkMode ? '#fff' : '#000',
-            boxShadow: darkMode
-              ? '0 0 20px rgba(255,255,255,0.15)'
-              : '0 0 20px rgba(0,0,0,0.15)',
-            padding: '12px 24px',
-            borderRadius: '8px',
-            fontSize: '14px',
-            fontWeight: 'bold',
-            cursor: 'pointer',
-            transition: 'all 0.3s',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px'
-          }}
-        >
-          {darkMode ? '🌙 Dark Mode' : '☀️ Light Mode'}
-        </motion.button>
-
-
-          <motion.button
-            className="wind-toggle"
-            onClick={() => setShowWindLayer(!showWindLayer)}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            style={{
-              background: showWindLayer 
-                ? 'linear-gradient(135deg, #ff6600 0%, #cc5200 100%)'
-                : 'linear-gradient(135deg, #00d4ff 0%, #0099cc 100%)',
-              border: showWindLayer ? '3px solid #ff6600' : '3px solid #00d4ff',
-              boxShadow: showWindLayer 
-                ? '0 0 20px rgba(255, 102, 0, 0.5)'
-                : '0 0 20px rgba(0, 212, 255, 0.5)',
-              padding: '12px 24px',
-              borderRadius: '8px',
-              fontSize: '14px',
-              fontWeight: 'bold',
-              cursor: 'pointer',
-              transition: 'all 0.3s',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px'
-            }}
-          >
-            💨 {showWindLayer ? 'HIDE WIND DATA' : 'SHOW WIND DATA'}
-          </motion.button>
-
-          <motion.button
-          className="advanced-filter-toggle"
-          onClick={() => setShowAdvanced(prev => !prev)}
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          style={{
-            padding: '10px 20px',
-            borderRadius: '8px',
-            background: showAdvanced
-              ? 'linear-gradient(135deg, #ff6600, #cc5200)'
-              : 'linear-gradient(135deg, #555, #333)',
-            color: '#fff',
-            fontWeight: 'bold',
-            cursor: 'pointer'
-          }}
-        >
-          ⚙️ Advanced Filters
-        </motion.button>
-
-        <div className="route-selector">
-        <label>Route History:</label>
-        <select
-          value={routeHours}
-          onChange={(e) => setRouteHours(parseInt(e.target.value))}
-        >
-          <option value={6}>Last 6h</option>
-          <option value={12}>Last 12h</option>
-          <option value={24}>Last 24h</option>
-          <option value={48}>Last 48h</option>
-          <option value={72}>Last 72h</option>
-        </select>
-        </div>
-
-
-          {showWindLayer && (
-            <motion.div
-              className="wind-opacity-control"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              style={{ display: 'flex', alignItems: 'center', gap: '10px' }}
-            >
-              <label style={{ fontSize: '0.9rem', color: '#aaa' }}>Wind Opacity:</label>
-              <input
-                type="range"
-                min="0"
-                max="100"
-                value={windOpacity}
-                onChange={(e) => setWindOpacity(parseInt(e.target.value))}
-                style={{ width: '120px', cursor: 'pointer' }}
-              />
-              <span style={{ fontWeight: 'bold', color: '#00d4ff', minWidth: '45px' }}>
-                {windOpacity}%
-              </span>
-            </motion.div>
-          )}
+            <option value="all">All sizes</option>
+            <option value="large">Large (≥200 m)</option>
+            <option value="medium">Medium (100–200 m)</option>
+          </select>
         </motion.div>
+
+        <motion.div className="filter-wrapper" whileHover={{ scale: 1.02 }}>
+          <label>Gross tonnage</label>
+          <select
+            value={filters.gtCategory}
+            onChange={(e) =>
+              setFilters(prev => ({ ...prev, gtCategory: e.target.value }))
+            }
+          >
+            <option value="all">All GT</option>
+            <option value="le100">≤ 100 GT</option>
+            <option value="gt100">&gt; 100 GT</option>
+            <option value="gt1000">&gt; 1,000 GT</option>
+            <option value="gt5000">&gt; 5,000 GT</option>
+          </select>
+        </motion.div>
+
+        {/* ---------- TOGGLES ---------- */}
+
+        <button
+          className={`btn-toggle ${waspFilterActive ? "active" : ""}`}
+          onClick={() => setWaspFilterActive(prev => !prev)}
+        >
+          <Wind size={16} />
+          Wind-assisted only
+        </button>
+
+        <button
+          className={`btn-toggle ${showWindLayer ? "active" : ""}`}
+          onClick={() => setShowWindLayer(prev => !prev)}
+        >
+          <Activity size={16} />
+          Wind data
+        </button>
+
+        <button
+        className="btn-secondary"
+        onClick={() => setDarkMode(prev => !prev)}
+      >
+        {darkMode ? <Sun size={16} /> : <Moon size={16} />}
+        {darkMode ? "Light mode" : "Dark mode"}
+      </button>
+
+
+        {/* ---------- ADVANCED FILTERS ---------- */}
+
+        <button
+          className={`btn-toggle ${showAdvanced ? "active" : ""}`}
+          onClick={() => setShowAdvanced(prev => !prev)}
+        >
+          <SlidersHorizontal size={16} />
+          Advanced filters
+        </button>
+
+        {/* ---------- WIND OPACITY ---------- */}
+
+        {showWindLayer && (
+          <motion.div
+            className="wind-opacity-control"
+            initial={{ opacity: 0, x: -12 }}
+            animate={{ opacity: 1, x: 0 }}
+          >
+            <label>Wind opacity</label>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              value={windOpacity}
+              onChange={(e) => setWindOpacity(parseInt(e.target.value))}
+            />
+            <span>{windOpacity}%</span>
+          </motion.div>
+        )}
+      </motion.div>
       </motion.div>
 
       <AnimatePresence>
         {showAdvanced && (
-        <motion.div
-              className="advanced-filters-panel"
-              initial={{ x: 300, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              exit={{ x: 300, opacity: 0 }}
-              transition={{ duration: 0.3 }}
-              style={{
-                position: 'absolute',
-                top: '120px',     // adjust if needed
-                right: '20px',
-                width: '300px',
-                maxHeight: '80vh',
-                overflowY: 'auto',
-                zIndex: 2000,
-                background: 'rgba(0,0,0,0.85)',
-                borderRadius: '12px',
-                padding: '20px',
-                color: '#fff',
-                backdropFilter: 'blur(8px)',
-                boxShadow: '0 0 20px rgba(0,0,0,0.5)',
-              }}
+          <motion.div
+            className="advanced-filters-panel glass"
+            initial={{ x: 320, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: 320, opacity: 0 }}
+            transition={{ duration: 0.3 }}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-            <h3 style={{ margin: 0 }}>Advanced Filters</h3>
-            <button
-              onClick={() => setShowAdvanced(false)}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: '#fff',
-                fontSize: '18px',
-                cursor: 'pointer'
-              }}
-            >
-              ✖
-            </button>
-          </div>
+            <div className="advanced-header">
+              <h3>Advanced filters</h3>
+              <button
+                className="icon-button"
+                onClick={() => setShowAdvanced(false)}
+              >
+                <X size={18} />
+              </button>
+            </div>
 
-          <p style={{ fontSize: '0.8rem', opacity: 0.8, marginBottom: '10px' }}>
-            Showing <strong>{filteredVessels.length}</strong> of <strong>{vessels.length}</strong> vessels
-          </p>
-          <div style={{ height: '1px', background: 'rgba(255,255,255,0.2)', marginBottom: '12px' }}></div>
+            <p className="advanced-meta">
+              Showing <strong>{filteredVessels.length}</strong> of{" "}
+              <strong>{vessels.length}</strong> vessels
+            </p>
+
+            <div className="advanced-divider" />
 
             {/* Length */}
             <label>Length (m)</label>
@@ -836,7 +715,9 @@ function WindyEmbed({ opacity }) {
                 setFilters(prev => ({ ...prev, lengthMax: parseInt(e.target.value) }))
               }
             />
-            <div>{filters.lengthMin} – {filters.lengthMax} m</div>
+            <div className="range-readout">
+              {filters.lengthMin} – {filters.lengthMax} m
+            </div>
 
             {/* Beam */}
             <label>Beam (m)</label>
@@ -849,10 +730,12 @@ function WindyEmbed({ opacity }) {
                 setFilters(prev => ({ ...prev, beamMax: parseInt(e.target.value) }))
               }
             />
-            <div>{filters.beamMin} – {filters.beamMax} m</div>
+            <div className="range-readout">
+              {filters.beamMin} – {filters.beamMax} m
+            </div>
 
-            {/* GT Range */}
-            <label>Gross Tonnage (GT)</label>
+            {/* GT */}
+            <label>Gross tonnage (GT)</label>
             <input
               type="range"
               min="0"
@@ -862,10 +745,12 @@ function WindyEmbed({ opacity }) {
                 setFilters(prev => ({ ...prev, gtMax: parseInt(e.target.value) }))
               }
             />
-            <div>{filters.gtMin} – {filters.gtMax} GT</div>
+            <div className="range-readout">
+              {filters.gtMin} – {filters.gtMax} GT
+            </div>
 
             {/* Speed */}
-            <label>Speed (knots)</label>
+            <label>Speed (kn)</label>
             <input
               type="range"
               min="0"
@@ -875,10 +760,12 @@ function WindyEmbed({ opacity }) {
                 setFilters(prev => ({ ...prev, speedMax: parseInt(e.target.value) }))
               }
             />
-            <div>{filters.speedMin} – {filters.speedMax} kn</div>
+            <div className="range-readout">
+              {filters.speedMin} – {filters.speedMax} kn
+            </div>
 
             {/* Checkboxes */}
-            <div style={{ marginTop: '15px' }}>
+            <div className="checkbox-group">
               <label>
                 <input
                   type="checkbox"
@@ -886,12 +773,10 @@ function WindyEmbed({ opacity }) {
                   onChange={(e) =>
                     setFilters(prev => ({ ...prev, hasIMO: e.target.checked }))
                   }
-                />{' '}
-                Has IMO Number
+                />
+                Has IMO number
               </label>
-            </div>
 
-            <div>
               <label>
                 <input
                   type="checkbox"
@@ -899,13 +784,13 @@ function WindyEmbed({ opacity }) {
                   onChange={(e) =>
                     setFilters(prev => ({ ...prev, hasGT: e.target.checked }))
                   }
-                />{' '}
-                Has GT Data
+                />
+                Has GT data
               </label>
             </div>
 
-            {/* Reset */}
-            <motion.button
+            <button
+              className="btn-toggle danger"
               onClick={() =>
                 setFilters(prev => ({
                   ...prev,
@@ -921,22 +806,13 @@ function WindyEmbed({ opacity }) {
                   hasGT: false
                 }))
               }
-              style={{
-                marginTop: '20px',
-                padding: '10px 20px',
-                background: '#ff4444',
-                color: '#fff',
-                borderRadius: '8px',
-                cursor: 'pointer'
-              }}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
             >
-              Reset Advanced Filters
-            </motion.button>
+              Reset advanced filters
+            </button>
           </motion.div>
         )}
       </AnimatePresence>
+
 
       {/* Map Container */}
       <motion.div
@@ -1080,14 +956,10 @@ function WindyEmbed({ opacity }) {
         style={{ maxHeight: "45vh", overflowY: "auto" }}   // <-- prevents huge legend
       >
         <h3 className="legend-title">
-          <motion.span
-            animate={{ rotate: [0, 10, 0] }}
-            transition={{ duration: 2, repeat: Infinity }}
-          >
-            ⚓
-          </motion.span>{" "}
-          Legend
-        </h3>
+        <Ship size={16} style={{ marginRight: 6 }} />
+        Legend
+      </h3>
+
 
         {[
           ['Bulk carrier', '#8B4513'],
