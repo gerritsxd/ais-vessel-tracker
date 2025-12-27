@@ -750,7 +750,7 @@ const debouncedApplyFilters = useRef(
                       </td>
                       <td>{vessel.length || 'N/A'}</td>
                       <td>{vessel.flag_state || 'Unknown'}</td>
-                      <td>{vessel.signatory_company || vessel.mrv_company || 'Unknown'}</td>
+                      <td>{(vessel.signatory_company || vessel.mrv_company || vessel.company_name || vessel.company || 'Unknown')}</td>
                       <td className="co2-value">
                         {vessel.total_co2_emissions 
                           ? formatNumber(vessel.total_co2_emissions) + ' t'
@@ -819,7 +819,7 @@ const debouncedApplyFilters = useRef(
                   {[
                     { label: 'Length', value: `${selectedVessel.length || 'N/A'} m` },
                     { label: 'Flag State', value: selectedVessel.flag_state || 'Unknown' },
-                    { label: 'Company', value: selectedVessel.signatory_company || 'Unknown' },
+                    { label: 'Company', value: (selectedVessel.signatory_company || selectedVessel.mrv_company || selectedVessel.company_name || selectedVessel.company || 'Unknown') },
                     { label: 'CO₂ Emissions', value: formatNumber(selectedVessel.total_co2_emissions) + ' t', highlight: true },
                     { label: 'Fuel Consumption', value: formatNumber(selectedVessel.total_fuel_consumption) + ' t' },
                     { label: 'Technical Fit', value: getScoreBadge(selectedVessel.technical_fit_score).text, score: true }
