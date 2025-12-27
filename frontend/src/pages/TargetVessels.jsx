@@ -1,24 +1,7 @@
 import { motion } from "framer-motion";
 import "../styles/TargetVessels.css";
 import { useEffect, useState } from "react";
-
-
-// helpers
-
-const SHIP_TYPE_MAP = {
-  70: "Cargo",
-  71: "Cargo",
-  72: "Cargo",
-  80: "Tanker",
-  81: "Tanker",
-  60: "Passenger",
-  30: "Fishing",
-  99: "Other",
-};
-
-function shipTypeLabel(code) {
-  return SHIP_TYPE_MAP[code] ?? `Type ${code}`;
-}
+import { loadCSV } from "../utils/loadCSV";
 
 
 
@@ -38,26 +21,56 @@ const [loading, setLoading] = useState(true);
 const [error, setError] = useState(null);
 
 useEffect(() => {
-  async function fetchVessels() {
+  async function loadData() {
     try {
-      const res = await fetch("/ships/api/target-vessels");
+      setLoading(true);
 
-      if (!res.ok) {
-        throw new Error(`API error: ${res.status}`);
-      }
+      // 1. Load technical-fit vessels
+      const techRows = await loadCSV("/data/technical_fit_ships.csv");
 
-      const data = await res.json();
-      setVessels(data);
+      // 2. Load ML company adoption scores
+      const mlRows = await loadCSV("/data/company_adoption_scores.csv");
+
+      // 3. Build company → social score map
+      const companyScoreMap = Object.fromEntries(
+        mlRows.map(row => [
+          row.Company?.trim(),
+          Number(row["Adoption Score"]),
+        ])
+      );
+
+      // 4. Combine vessel + company scores
+      const combinedVessels = techRows.map(row => {
+        const company = row.Company?.trim() || null;
+
+        return {
+          mmsi: row.MMSI,
+          name: row.Name,
+          length: row.Length ? Number(row.Length) : null,
+          flag_state: row.Flag,
+          signatory_company: company,
+          co2: row.CO2 ? Number(row.CO2) : null,
+          technical_fit_score: row["Technical Fit"]
+            ? Number(row["Technical Fit"])
+            : null,
+          company_adoption_score: company
+            ? companyScoreMap[company] ?? null
+            : null,
+        };
+      });
+
+      setVessels(combinedVessels);
     } catch (err) {
       console.error(err);
-      setError(err.message);
+      setError("Failed to load vessel data");
     } finally {
       setLoading(false);
     }
   }
 
-  fetchVessels();
+  loadData();
 }, []);
+
 
 const rankedVessels = vessels
   .map(v => ({
@@ -134,9 +147,7 @@ const rankedVessels = vessels
                         <span className="tv-vessel">
                             <strong>{vessel.name}</strong>
                             <small>
-                            {shipTypeLabel(vessel.ship_type)}
                             {vessel.length && ` · ${vessel.length} m`}
-                            {vessel.beam && ` × ${vessel.beam} m`}
                             {vessel.flag_state && ` · ${vessel.flag_state}`}
                             </small>
                         </span>
