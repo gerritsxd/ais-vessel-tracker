@@ -40,7 +40,7 @@ useEffect(() => {
       // 2. Load ML company adoption scores
       const mlRows = await loadCSV("/data/companies_with_waps_score.csv");
 
-      // 3. Build company → social score map
+      // 3. Build company â†’ social score map
       const companyScoreMap = Object.fromEntries(
         mlRows
           .filter(row => row.company_name)
@@ -221,7 +221,7 @@ const rankedVessels = vessels
                         <div className="tv-score-block">
                           <span className="tv-score-label">Combined</span>
                           <span className="tv-score-value primary">
-                            {vessel.combined_score == null ? "—" : vessel.combined_score.toFixed(1)}
+                            {vessel.combined_score == null ? "â€”" : vessel.combined_score.toFixed(1)}
                           </span>
                         </div>
 
@@ -229,14 +229,14 @@ const rankedVessels = vessels
                           <div className="tv-score-block">
                             <span className="tv-score-label">Social</span>
                             <span className="tv-score-value">
-                              {vessel.company_adoption_score == null ? "—" : vessel.company_adoption_score.toFixed(1)}
+                              {vessel.company_adoption_score == null ? "â€”" : vessel.company_adoption_score.toFixed(1)}
                             </span>
                           </div>
 
                           <div className="tv-score-block">
                             <span className="tv-score-label">Technical</span>
                             <span className="tv-score-value muted">
-                              {vessel.technical_fit_score == null ? "—" : vessel.technical_fit_score.toFixed(1)}
+                              {vessel.technical_fit_score == null ? "â€”" : vessel.technical_fit_score.toFixed(1)}
                             </span>
                           </div>
                         </div>
