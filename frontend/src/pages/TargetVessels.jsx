@@ -62,22 +62,22 @@ useEffect(() => {
 
       // 4. Combine vessel + company scores
       const combinedVessels = techRows.map(row => {
-        // Handle both API response format (capitalized) and CSV format (if fallback)
-        const companyRaw = (row.Company || row.company || '').trim() || null;
+        const companyRaw =
+          row.Company && row.Company.trim() !== "" ? row.Company.trim() : null;
+
         const company = normalizeCompany(companyRaw);
 
         return {
-          mmsi: row.MMSI || row.mmsi,
-          name: row.Name || row.name || 'Unknown',
-          ship_type: row.Type || row.type || 'Cargo',
-          length: row.Length || row.length ? Number(row.Length || row.length) : null,
-          flag_state: row.Flag || row.flag_state || null,
+          mmsi: row.MMSI,
+          name: row.Name,
+          ship_type: row.Type, // now a STRING like "Cargo"
+          length: row.Length ? Number(row.Length) : null,
+          flag_state: row.Flag || null,
           signatory_company: companyRaw,
-          co2: row.CO2 || row.co2 ? Number(row.CO2 || row.co2) : null,
+          co2: row.CO2 ? Number(row.CO2) : null,
           technical_fit_score:
-            (row["Technical Fit"] !== undefined && row["Technical Fit"] !== "") ||
-            (row.technical_fit_score !== undefined && row.technical_fit_score !== "")
-              ? Number(row["Technical Fit"] || row.technical_fit_score)
+            row["Technical Fit"] !== undefined && row["Technical Fit"] !== ""
+              ? Number(row["Technical Fit"])
               : null,
           company_adoption_score:
             company && companyScoreMap[company]
