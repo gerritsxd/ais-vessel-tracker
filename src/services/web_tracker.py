@@ -2838,6 +2838,124 @@ def get_ml_wasp_data():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/ships/api/target-vessels/technical-fit')
+def get_technical_fit_vessels():
+    """Get vessels with technical fit scores for TargetVessels page."""
+    project_root = Path(__file__).parent.parent.parent
+    db_path = project_root / "data" / DB_NAME
+    if not db_path.exists():
+        db_path = project_root / DB_NAME
+    
+    conn = None
+    try:
+        if not db_path.exists():
+            return jsonify({'error': 'Database not found'}), 404
+        
+        conn = sqlite3.connect(str(db_path), timeout=30)
+        conn.execute('PRAGMA journal_mode=WAL')
+        ensure_technical_fit_score_column(conn)
+        cursor = conn.cursor()
+        
+        # Get vessels with technical fit scores and emissions data
+        cursor.execute('''
+            SELECT 
+                v.mmsi,
+                v.name,
+                v.detailed_ship_type,
+                v.length,
+                v.flag_state,
+                COALESCE(v.signatory_company, e.company_name) as company,
+                e.total_co2_emissions,
+                v.technical_fit_score
+            FROM vessels_static v
+            INNER JOIN eu_mrv_emissions e ON v.imo = e.imo
+            WHERE v.technical_fit_score IS NOT NULL
+              AND e.total_co2_emissions IS NOT NULL
+            ORDER BY v.technical_fit_score DESC, e.total_co2_emissions DESC
+            LIMIT 5000
+        ''')
+        
+        rows = cursor.fetchall()
+        results = []
+        for row in rows:
+            results.append({
+                'MMSI': row[0],
+                'Name': row[1] or 'Unknown',
+                'Type': row[2] or 'Cargo',
+                'Length': row[3],
+                'Flag': row[4] or 'Unknown',
+                'Company': row[5] or '',
+                'CO2': row[6],
+                'Technical Fit': row[7]
+            })
+        
+        return jsonify(results)
+    except Exception as e:
+        import traceback
+        print(f"Error in get_technical_fit_vessels: {e}\n{traceback.format_exc()}")
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if conn:
+            conn.close()
+
+
+@app.route('/ships/api/target-vessels/company-scores')
+def get_company_waps_scores():
+    """Get company WAPS adoption scores for TargetVessels page."""
+    project_root = Path(__file__).parent.parent.parent
+    db_path = project_root / "data" / DB_NAME
+    if not db_path.exists():
+        db_path = project_root / DB_NAME
+    
+    conn = None
+    try:
+        if not db_path.exists():
+            return jsonify({'error': 'Database not found'}), 404
+        
+        conn = sqlite3.connect(str(db_path), timeout=30)
+        conn.execute('PRAGMA journal_mode=WAL')
+        cursor = conn.cursor()
+        
+        # Get companies with WASP adoption status
+        # Check if they have wind-assisted vessels
+        cursor.execute('''
+            SELECT DISTINCT
+                COALESCE(v.signatory_company, e.company_name) as company_name,
+                CASE WHEN v.wind_assisted = 1 THEN 1 ELSE 0 END as waps_adopted
+            FROM eu_mrv_emissions e
+            LEFT JOIN vessels_static v ON e.imo = v.imo
+            WHERE COALESCE(v.signatory_company, e.company_name) IS NOT NULL
+              AND COALESCE(v.signatory_company, e.company_name) != ''
+        ''')
+        
+        company_adoption = {}
+        for row in cursor.fetchall():
+            company = row[0]
+            if company not in company_adoption:
+                company_adoption[company] = 0
+            if row[1] == 1:
+                company_adoption[company] = 1
+        
+        # For now, return companies with adoption status
+        # TODO: Add ML scores when available
+        results = []
+        for company, adopted in company_adoption.items():
+            results.append({
+                'company_name': company,
+                'waps_adopted': adopted,
+                'waps_score_percentile': 50.0  # Placeholder - should come from ML model
+            })
+        
+        return jsonify(results)
+    except Exception as e:
+        import traceback
+        print(f"Error in get_company_waps_scores: {e}\n{traceback.format_exc()}")
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if conn:
+            conn.close()
+
+
 @app.route('/ships/api/wind-alignment/<int:mmsi>')
 def get_wind_alignment(mmsi):
     """Get wind alignment analysis results for a vessel."""

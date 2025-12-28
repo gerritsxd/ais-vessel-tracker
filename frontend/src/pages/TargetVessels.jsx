@@ -34,11 +34,15 @@ useEffect(() => {
     try {
       setLoading(true);
 
-      // 1. Load technical-fit vessels
-      const techRows = await loadCSV("/data/technical_fit_ships.csv");
+      // 1. Load technical-fit vessels from API
+      const techRes = await fetch("/ships/api/target-vessels/technical-fit");
+      if (!techRes.ok) throw new Error("Failed to load technical fit data");
+      const techRows = await techRes.json();
 
-      // 2. Load ML company adoption scores
-      const mlRows = await loadCSV("/data/companies_with_waps_score.csv");
+      // 2. Load ML company adoption scores from API
+      const mlRes = await fetch("/ships/api/target-vessels/company-scores");
+      if (!mlRes.ok) throw new Error("Failed to load company scores");
+      const mlRows = await mlRes.json();
 
       // 3. Build company → social score map
       const companyScoreMap = Object.fromEntries(
