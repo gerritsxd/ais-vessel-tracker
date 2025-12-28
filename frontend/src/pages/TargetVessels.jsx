@@ -24,7 +24,6 @@ function normalizeCompany(name) {
 
 
 export default function TargetVessels() {
-//api call
 const [vessels, setVessels] = useState([]);
 const [loading, setLoading] = useState(true);
 const [error, setError] = useState(null);
