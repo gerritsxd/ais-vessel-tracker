@@ -2932,18 +2932,51 @@ def get_company_waps_scores():
         for row in cursor.fetchall():
             company = row[0]
             if company not in company_adoption:
-                company_adoption[company] = 0
+                company_adoption[company] = {'adopted': 0, 'probability': None}
             if row[1] == 1:
-                company_adoption[company] = 1
+                company_adoption[company]['adopted'] = 1
         
-        # For now, return companies with adoption status
-        # TODO: Add ML scores when available
+        # Try to load ML predictions if available
+        predictions_file = project_root / 'data' / 'company_predictions.json'
+        ml_scores = {}
+        if predictions_file.exists():
+            try:
+                import json
+                with open(predictions_file, 'r', encoding='utf-8') as f:
+                    predictions_data = json.load(f)
+                predictions = predictions_data.get('predictions', {})
+                
+                # Match predictions to companies (normalize names for matching)
+                for pred_company, pred_data in predictions.items():
+                    # Try to match by normalized name
+                    normalized_pred = pred_company.lower().strip()
+                    for db_company in company_adoption.keys():
+                        normalized_db = db_company.lower().strip()
+                        if normalized_pred == normalized_db or normalized_pred in normalized_db or normalized_db in normalized_pred:
+                            wasp_pred = pred_data.get('wasp_adoption', {})
+                            if wasp_pred:
+                                # Convert probability (0-1) to percentile (0-100)
+                                probability = wasp_pred.get('probability', 0.5)
+                                ml_scores[db_company] = probability * 100
+                            break
+            except Exception as e:
+                print(f"Error loading ML predictions: {e}")
+        
+        # Build results
         results = []
-        for company, adopted in company_adoption.items():
+        for company, data in company_adoption.items():
+            # Use ML score if available, otherwise use adoption status as proxy
+            if company in ml_scores:
+                score = ml_scores[company]
+            elif data['adopted'] == 1:
+                score = 75.0  # Adopters get higher score
+            else:
+                score = 25.0  # Non-adopters get lower score
+            
             results.append({
                 'company_name': company,
-                'waps_adopted': adopted,
-                'waps_score_percentile': 50.0  # Placeholder - should come from ML model
+                'waps_adopted': data['adopted'],
+                'waps_score_percentile': score
             })
         
         return jsonify(results)
