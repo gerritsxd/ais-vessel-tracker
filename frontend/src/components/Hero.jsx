@@ -1,8 +1,12 @@
 // Hero.jsx
 import { motion } from "framer-motion";
 import "../styles/Hero.css";
+import { useNavigate } from "react-router-dom";
+
 
 export default function Hero() {
+  const navigate = useNavigate();
+
   return (
     
   <section className="hero">
@@ -44,13 +48,20 @@ export default function Hero() {
         </motion.p>
 
         <div className="hero-actions">
-          <button className="btn btn-primary motion">
-            Explore platform
-          </button>
-          <button className="btn glass btn-secondary motion">
-            View methodology
-          </button>
-        </div>
+        <button
+          className="btn btn-primary motion"
+          onClick={() => navigate("/target-vessels")}
+        >
+          Explore platform
+        </button>
+
+        <button
+          className="btn glass btn-secondary motion"
+          onClick={() => navigate("/ML-insights")}
+        >
+          View methodology
+        </button>
+      </div>
 
         <p className="hero-proof">
           Built on live AIS data · Trained on global vessel activity

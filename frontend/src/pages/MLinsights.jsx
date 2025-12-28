@@ -1,7 +1,14 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { loadCSV } from "../utils/loadCSV";
-import "../styles/MLinsights.css";
+import "../styles/MLInsights.css";
+import {
+  FileText,
+  ScanSearch,
+  Scale,
+  BarChart3
+} from "lucide-react";
+
 
 function interpretSignal(value) {
   if (value > 0.6) return "Strongly positive";
@@ -19,36 +26,130 @@ function getSignalColor(value) {
   return "#ef4444";
 }
 
+function getPresenceColor01(v01) {
+  const v = Math.max(0, Math.min(1, v01));
+  // map 0..1 → -0.2..+1 so 0 stays neutral-ish (grey), not negative/red
+  // tweak -0.2 if you want 0 to be perfectly neutral
+  const mapped = -0.2 + v * 1.2;
+  return getSignalColor(mapped);
+}
+
+
 export default function MLInsights() {
   const [data, setData] = useState([]);
   const [selectedCompany, setSelectedCompany] = useState(null);
   const [compareCompany, setCompareCompany] = useState(null);
   const [compareMode, setCompareMode] = useState(false);
   const [viewMode, setViewMode] = useState("list"); // "list" or "grid"
+  const clamp01 = (x) => Math.max(0, Math.min(1, x));
+  function AdoptionTag({ adopted }) {
+  return (
+    <span className={`ml-adoption-tag ${adopted ? "adopted" : "not-adopted"}`}>
+      {adopted ? "WAPS adopter" : "Not adopted"}
+    </span>
+  );
+}
+
+function percent01(value) {
+  // expects 0..1-ish
+  return clamp01(value) * 100;
+}
+
 
   useEffect(() => {
-    loadCSV("/data/score_breakdown.csv")
+    loadCSV("/data/companies_with_waps_score.csv")
       .then(raw => {
         console.log("Raw CSV data:", raw[0]); // Debug log
         const parsed = raw.map(row => {
-          // More robust parsing - handle different possible column names
-          const total = Number(row.total || row.WAPS_score_normalized || 0);
-          const topic = Number(row.topic_signal || row.topic_weighted || 0);
-          const sentiment = Number(row.sentiment_signal || row.sentiment_weighted || 0);
-          const tag = Number(row.tag_signal || row.tag_weighted || 0);
-          const technical = Number(row.technical_fit || row.technical_weighted || 0);
-          
-          return {
-            company_name: row.company_name,
-            total: isNaN(total) ? 0 : Math.max(-2, Math.min(2, total)), // Clamp to reasonable range
-            topic_signal: isNaN(topic) ? 0 : Math.max(-1, Math.min(1, topic)),
-            sentiment_signal: isNaN(sentiment) ? 0 : Math.max(-1, Math.min(1, sentiment)),
-            tag_signal: isNaN(tag) ? 0 : Math.max(-1, Math.min(1, tag)),
-            technical_fit: isNaN(technical) ? 0 : Math.max(-1, Math.min(1, technical)),
-          };
-        });
+        const num = (v, fallback = 0) => {
+          const n = Number(v);
+          return Number.isFinite(n) ? n : fallback;
+        };
+
+        // Core identifiers
+        const company_name = row.company_name;
+
+        // Adoption score outputs
+        const adoption_percentile = num(row.waps_score_percentile, 0);
+        const adoption_score = num(row.waps_adoption_score, 0);
+        const waps_rank = num(row.waps_rank, 0);
+        const waps_adopted = num(row.waps_adopted, 0); // 1 or 0
+
+        // Normalized feature scores (0–1-ish, depending on your pipeline)
+        const sustainability = num(row.sustainability_orientation_score, 0);
+        const innovation = num(row.innovation_orientation_score, 0);
+        const economic = num(row.economic_orientation_score, 0);
+
+        const operational_barriers = num(row.operational_barriers_score, 0);
+        const financial_barriers = num(row.financial_barriers_score, 0);
+        const knowledge_gap = num(row.knowledge_gap_score, 0);
+
+        const high_engagement = num(row.high_engagement_score, 0);
+        const medium_engagement = num(row.medium_engagement_score, 0);
+        const low_engagement = num(row.low_engagement_score, 0);
+
+        // Sentiment
+        const finbert_compound = num(row.finbert_compound, 0);
+        const sentiment_risk = num(row.sentiment_risk, 0);
+        const sentiment_cost = num(row.sentiment_cost, 0);
+        const sentiment_sustainability = num(row.sentiment_sustainability, 0);
+        const sentiment_innovation = num(row.sentiment_innovation, 0);
+
+        // Metadata
+        const n_chunks = num(row.n_chunks, 0);
+        const avg_nonzero_tags_per_chunk = num(row.avg_nonzero_tags_per_chunk, 0);
+
+        // Z features used in your logistic regression score (important for methodology section later)
+        const z = {
+          sustainability: num(row.sustainability_orientation_score_z, 0),
+          innovation: num(row.innovation_orientation_score_z, 0),
+          economic: num(row.economic_orientation_score_z, 0),
+          high_engagement: num(row.high_engagement_score_z, 0),
+          operational_barriers: num(row.operational_barriers_score_z, 0),
+          sentiment_risk: num(row.sentiment_risk_z, 0),
+        };
+
+        return {
+          company_name,
+
+          // what we rank by on THIS page (we can change later, but this is clean)
+          adoption_percentile,
+          adoption_score,
+          waps_rank,
+          waps_adopted,
+
+          // signals for the page
+          sustainability,
+          innovation,
+          economic,
+
+          operational_barriers,
+          financial_barriers,
+          knowledge_gap,
+
+          high_engagement,
+          medium_engagement,
+          low_engagement,
+
+          finbert_compound,
+          sentiment_risk,
+          sentiment_cost,
+          sentiment_sustainability,
+          sentiment_innovation,
+
+          n_chunks,
+          avg_nonzero_tags_per_chunk,
+
+          // keep z features for transparency/tooltips later
+          z,
+        };
+      });
+
         console.log("Parsed data:", parsed[0]); // Debug log
-        const sorted = parsed.sort((a, b) => b.total - a.total);
+        const sorted = parsed.sort((a, b) => b.adoption_percentile - a.adoption_percentile);
+        setData(sorted);
+        if (sorted.length > 0) setSelectedCompany(sorted[0]);
+
         setData(sorted);
         if (sorted.length > 0) {
           setSelectedCompany(sorted[0]);
@@ -59,30 +160,58 @@ export default function MLInsights() {
       });
   }, []);
 
-  function SignalBar({ label, value, showLabel = true }) {
-    const percentage = Math.min(Math.max((value + 1) * 50, 0), 100);
-    const color = getSignalColor(value);
+  function SignalBar({ label, value, mode = "pm1" }) {
+  let left, width, color;
 
-    return (
-      <div className="ml-bar">
-        {showLabel && (
-          <div className="ml-bar-header">
-            <span>{label}</span>
-            <span className="ml-bar-value" style={{ color }}>{value.toFixed(2)}</span>
-          </div>
-        )}
-        <div className="ml-bar-track">
-          <div
-            className="ml-bar-fill"
-            style={{ 
-              width: `${percentage}%`,
-              background: `linear-gradient(90deg, ${color}, ${color}dd)`
-            }}
-          />
-        </div>
-      </div>
-    );
+  if (mode === "01") {
+    // Presence scale: 0 = neutral, 1 = strong presence
+    const v = clamp01(value);
+
+    left = "50%";               // always start from neutral
+    width = `${v * 50}%`;       // grow to the right only
+    color = getSignalColor(v);  // color by intensity, not polarity
+
+  } else {
+    // Bipolar sentiment scale: -1 .. +1
+    const normalized = Math.max(-1, Math.min(1, value));
+    const magnitude = Math.abs(normalized);
+
+    left =
+      normalized >= 0
+        ? "50%"
+        : `${50 - magnitude * 50}%`;
+
+    width = `${magnitude * 50}%`;
+    color = getSignalColor(normalized);
+
   }
+
+  return (
+    <div className="ml-bar">
+      <div className="ml-bar-header">
+        <span>{label}</span>
+        <span className="ml-bar-value" style={{ color }}>
+          {value.toFixed(2)}
+        </span>
+      </div>
+      <div className="ml-bar-track">
+        <div className="ml-bar-neutral-line" />
+
+        <div
+          className="ml-bar-fill"
+          style={{
+            left,
+            width,
+            background: color,
+          }}
+        />
+      </div>
+
+
+    </div>
+  );
+}
+
 
   const handleCompanyClick = (company) => {
     if (compareMode) {
@@ -113,12 +242,11 @@ export default function MLInsights() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.15, duration: 0.7 }}
         >
-          A prototype model that translates social-science theory into
-          interpretable signals for technology adoption.
+           Scores reflect relative alignment with known adopter patterns, not linear progress toward adoption.
         </motion.p>
 
         <div className="ml-proof-row">
-          <span>80 companies analyzed</span>
+          <span>52 companies analyzed</span>
           <span>·</span>
           <span>Social-practice-based tags</span>
           <span>·</span>
@@ -128,51 +256,62 @@ export default function MLInsights() {
         </div>
       </section>
 
-      {/* BRIDGE */}
-      <section className="ml-bridge container">
-        <div className="ml-bridge-content glass">
-          <p>
-            Rather than predicting behavior from abstract metrics,
-            this model is grounded in qualitative research and
-            social-practice theory, designed to support
-            strategic decision-making rather than automated judgment.
-          </p>
-        </div>
-      </section>
-
-      {/* LEGITIMACY - MOVED UP */}
+      {/* LEGITIMACY */}
       <section className="ml-legitimacy container">
         <div className="ml-legitimacy-box glass">
           <h2 className="ml-section-title">How to read this data</h2>
 
           <p>
-            The adoption alignment score is not a prediction of future behavior.
-            It is a composite indicator derived from qualitative research,
-            social-science theory, and interpretable machine-learning techniques.
+            The adoption readiness score shown on this page is not a prediction of
+            future behavior. It is a comparative indicator derived from qualitative
+            research, social-science theory, and interpretable machine-learning methods.
           </p>
 
           <div className="ml-legitimacy-points">
             <div className="ml-legitimacy-point">
               <div className="ml-legitimacy-icon">→</div>
               <div>
-                <strong>Scores are relative</strong>
-                <p>Values are normalized to enable comparison across companies, not absolute ranking.</p>
+                <strong>Scores are relative and comparative</strong>
+                <p>
+                  Values are normalized to enable comparison across companies.
+                  A higher score reflects stronger alignment with known adoption patterns,
+                  not a higher likelihood of adoption.
+                </p>
               </div>
             </div>
 
             <div className="ml-legitimacy-point">
               <div className="ml-legitimacy-icon">→</div>
               <div>
-                <strong>Signals are interpretive</strong>
-                <p>Topic, sentiment, and tag signals reflect discourse and orientation, not internal decision-making.</p>
+                <strong>Signals are derived from public discourse</strong>
+                <p>
+                  The model analyzes how companies publicly frame sustainability,
+                  innovation, engagement, and barriers in relation to wind-assisted
+                  propulsion. It does not assess internal strategy or technical readiness.
+                </p>
               </div>
             </div>
 
             <div className="ml-legitimacy-point">
               <div className="ml-legitimacy-icon">→</div>
               <div>
-                <strong>Prototype scope</strong>
-                <p>Analysis is based on publicly available company texts and a limited sample of firms.</p>
+                <strong>Zero values are meaningful</strong>
+                <p>
+                  A score of 0 does not indicate missing data, but an absence of
+                  adoption-relevant discourse in public-facing materials.
+                </p>
+              </div>
+            </div>
+
+            <div className="ml-legitimacy-point">
+              <div className="ml-legitimacy-icon">→</div>
+              <div>
+                <strong>Prototype and exploratory scope</strong>
+                <p>
+                  Results are based on a limited sample of companies and publicly
+                  available texts. The model is intended for exploration and
+                  prioritization, not automated decision-making.
+                </p>
               </div>
             </div>
           </div>
@@ -183,6 +322,7 @@ export default function MLInsights() {
           </p>
         </div>
       </section>
+
 
       {/* STATS OVERVIEW */}
       {data.length > 0 && (
@@ -211,9 +351,9 @@ export default function MLInsights() {
             >
               <div className="ml-stat-label">High adoption potential</div>
               <div className="ml-stat-value">
-                {data.filter(c => c.total > 0.5).length}
+                {data.filter(c => c.adoption_percentile >= 75).length}
               </div>
-              <div className="ml-stat-detail">Score &gt; 0.5</div>
+              <div className="ml-stat-detail">Score ≥ 75</div>
             </motion.div>
 
             <motion.div 
@@ -224,9 +364,12 @@ export default function MLInsights() {
               transition={{ delay: 0.2 }}
               whileHover={{ y: -6 }}
             >
-              <div className="ml-stat-label">Avg sentiment signal</div>
+              <div className="ml-stat-label">Avg sustainability framing sentiment</div>
               <div className="ml-stat-value">
-                {(data.reduce((sum, c) => sum + c.sentiment_signal, 0) / data.length).toFixed(2)}
+                {(
+                  data.reduce((sum, c) => sum + c.finbert_compound, 0) / data.length
+                ).toFixed(2)
+                }
               </div>
               <div className="ml-stat-detail">Across all companies</div>
             </motion.div>
@@ -239,27 +382,44 @@ export default function MLInsights() {
               transition={{ delay: 0.3 }}
               whileHover={{ y: -6 }}
             >
-              <div className="ml-stat-label">Avg technical fit</div>
+              <div className="ml-stat-label">Economic prevalence</div>
               <div className="ml-stat-value">
-                {(data.reduce((sum, c) => sum + c.technical_fit, 0) / data.length).toFixed(2)}
+                {(
+                  data.reduce((sum, c) => sum + c.economic, 0) / data.length
+                ).toFixed(2)
+                }
               </div>
-              <div className="ml-stat-detail">Fleet compatibility</div>
+              <div className="ml-stat-detail">Importance of economic factors</div>
             </motion.div>
           </div>
 
           {/* SIGNAL DISTRIBUTION BARS */}
+
           <div className="ml-stats-distribution glass">
-            <h3>Signal strength distribution</h3>
+            <h2 className="ml-section-title">Signals the model detects</h2>
+              <p>
+                The model does not assess technical readiness or internal strategy.
+                It analyzes how companies publicly frame sustainability, innovation,
+                engagement, and barriers in relation to wind-assisted propulsion.
+              </p>
+              <p className="ml-note">
+                Low or zero scores indicate limited public discourse — not opposition
+                or lack of internal activity. Counts reflect how often strong adoption-aligned signals appear in public company texts.
+              </p>
+
             {[
-              { key: "topic_signal", label: "Topic alignment" },
-              { key: "sentiment_signal", label: "Sentiment" },
-              { key: "tag_signal", label: "Practice tags" },
-              { key: "technical_fit", label: "Technical fit" },
-            ].map((signal) => {
-              const positive = data.filter(c => c[signal.key] > 0.2).length;
-              const neutral = data.filter(c => c[signal.key] >= -0.2 && c[signal.key] <= 0.2).length;
-              const negative = data.filter(c => c[signal.key] < -0.2).length;
+              { key: "sustainability", label: "Sustainability orientation" },
+              { key: "innovation", label: "Innovation orientation" },
+              { key: "economic", label: "Economic orientation" },
+              { key: "high_engagement", label: "High engagement" },
+            ]
+            .map((signal) => {
+              const positive = data.filter(c => c[signal.key] >= 0.6).length;
+              const neutral = data.filter(c => c[signal.key] >= 0.3 && c[signal.key] < 0.6).length;
+              const negative = data.filter(c => c[signal.key] < 0.3).length;
               const total = data.length;
+
+
 
               return (
                 <div key={signal.key} className="ml-dist-row">
@@ -298,10 +458,11 @@ export default function MLInsights() {
 
       {/* METHOD */}
       <section className="ml-method container">
-        <h2 className="ml-section-title">Where does the data come from?</h2>
-        
+        <h2 className="ml-section-title">How were these signals constructed?</h2>
+        <p className="ml-method-description">This pipeline prioritizes interpretability over predictive accuracy in order to support strategic reasoning and intervention design.</p>
+
         <div className="ml-method-grid">
-          <motion.div 
+          <motion.div
             className="ml-method-card glass"
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -311,13 +472,13 @@ export default function MLInsights() {
             <div className="ml-method-number">1</div>
             <h3>Social foundations</h3>
             <p>
-              Ethnographies and systems analysis were used to understand
-              how shipping companies frame sustainability, innovation,
-              and operational risk.
+              Qualitative research, digital ethnography, and systems analysis were used
+              to understand how shipping companies frame sustainability, innovation,
+              economic considerations, and operational risk in relation to new technologies.
             </p>
           </motion.div>
 
-          <motion.div 
+          <motion.div
             className="ml-method-card glass"
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -325,15 +486,16 @@ export default function MLInsights() {
             transition={{ delay: 0.2 }}
           >
             <div className="ml-method-number">2</div>
-            <h3>Translation into tags</h3>
+            <h3>Text processing and signal extraction</h3>
             <p>
-              Social Practice Theory informed the construction of
-              interpretable tags capturing meanings, competences,
-              orientations, and barriers.
+              Publicly available company texts were collected and split into smaller
+              chunks to capture variation within companies and avoid dominance by
+              long documents. Each chunk was analyzed using social-practice-based
+              tags and contextual sentiment analysis to extract interpretable signals.
             </p>
           </motion.div>
 
-          <motion.div 
+          <motion.div
             className="ml-method-card glass"
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -341,24 +503,90 @@ export default function MLInsights() {
             transition={{ delay: 0.3 }}
           >
             <div className="ml-method-number">3</div>
-            <h3>NLP & interpretation</h3>
+            <h3>Aggregation and interpretable modeling</h3>
             <p>
-              Publicly available company texts were analyzed using NLP
-              and sentiment analysis, producing normalized, comparative
-              indicators rather than absolute scores.
+              Chunk-level signals were aggregated to the company level and standardized.
+              An interpretable logistic regression model was then used to identify which
+              combinations of signals are associated with confirmed WAPS adoption.
+              The resulting coefficients were used to construct a continuous,
+              explainable adoption readiness score.
             </p>
           </motion.div>
         </div>
       </section>
+{/* WORKFLOW VISUAL */}
+<section className="ml-workflow container ml-section-block">
+  <h2 className="ml-section-title">
+    From public discourse to adoption readiness
+  </h2>
+
+  <div className="ml-workflow-steps">
+    <div className="ml-workflow-step">
+      <div className="ml-workflow-icon">
+        <FileText size={26} />
+      </div>
+      <h4>Public company texts</h4>
+      <p>
+        Websites, reports, and press releases form the empirical basis
+        of the analysis.
+      </p>
+    </div>
+
+    <div className="ml-workflow-arrow" aria-hidden />
+
+    <div className="ml-workflow-step">
+      <div className="ml-workflow-icon">
+        <ScanSearch size={26} />
+      </div>
+      <h4>Chunking & signal extraction</h4>
+      <p>
+        Texts are split into smaller units and analyzed using
+        social-practice-based tags and contextual sentiment.
+      </p>
+    </div>
+
+    <div className="ml-workflow-arrow" aria-hidden />
+
+    <div className="ml-workflow-step">
+      <div className="ml-workflow-icon">
+        <Scale size={26} />
+      </div>
+      <h4>Interpretable modeling</h4>
+      <p>
+        Signals are aggregated, standardized, and combined using
+        logistic regression to identify adoption-aligned patterns.
+      </p>
+    </div>
+
+    <div className="ml-workflow-arrow" aria-hidden />
+
+    <div className="ml-workflow-step highlight">
+      <div className="ml-workflow-icon">
+        <BarChart3 size={26} />
+      </div>
+      <h4>Adoption readiness indicator</h4>
+      <p>
+        A continuous, explainable indicator used to compare and
+        explore companies.
+      </p>
+    </div>
+  </div>
+</section>
+
+
 
       {/* RANKING */}
       <section className="ml-data container">
         <div className="ml-data-header">
           <h2 className="ml-section-title">
-            Companies most aligned with wind propulsion adoption
+            Exploring adoption readiness across companies
           </h2>
+          <p className="ml-data-subtitle">
+            Scores reflect relative alignment with known adopter discourse patterns,
+            not linear progress toward adoption.
+          </p>
           <div className="ml-view-toggle">
-            <button 
+            <button   
               className={`btn-view ${viewMode === "list" ? "active" : ""}`}
               onClick={() => setViewMode("list")}
             >
@@ -393,8 +621,12 @@ export default function MLInsights() {
                 whileHover={{ x: 4 }}
               >
                 <span className="ml-rank-index">#{i + 1}</span>
-                <span className="ml-rank-name">{company.company_name}</span>
-                <span className="ml-rank-score">{company.total.toFixed(2)}</span>
+                <span className="ml-rank-name">
+                  {company.company_name}
+                  <AdoptionTag adopted={company.waps_adopted === 1} />
+                </span>
+
+                <span className="ml-rank-score">{company.adoption_percentile.toFixed(1)}</span>
               </motion.button>
             ))}
           </div>
@@ -418,47 +650,46 @@ export default function MLInsights() {
                 whileHover={{ y: -4, scale: 1.02 }}
               >
                 <div className="ml-grid-rank">#{i + 1}</div>
-                <div className="ml-grid-name">{company.company_name}</div>
-                <div className="ml-grid-score" style={{ color: getSignalColor(company.total) }}>
-                  {company.total.toFixed(2)}
+                <div className="ml-grid-name">
+                  {company.company_name}
+                  <AdoptionTag adopted={company.waps_adopted === 1} />
                 </div>
+
+                <div className="ml-grid-score-wrapper">
+                  <div
+                    className="ml-grid-score"
+                    style={{ color: getSignalColor((company.adoption_percentile / 100 - 0.5) * 2) }}
+                  >
+                    {company.adoption_percentile.toFixed(1)}
+                  </div>
+
+                  <div className="ml-score-axis">
+                    <span>Low</span>
+                    <span className="neutral">Neutral</span>
+                    <span>High</span>
+                  </div>
+                </div>
+
                 <div className="ml-grid-bars">
-                  <div className="ml-grid-mini-bar">
-                    <div 
-                      className="ml-grid-mini-fill" 
-                      style={{ 
-                        width: `${Math.min(Math.max((company.topic_signal + 1) * 50, 0), 100)}%`,
-                        background: getSignalColor(company.topic_signal)
-                      }}
-                    />
-                  </div>
-                  <div className="ml-grid-mini-bar">
-                    <div 
-                      className="ml-grid-mini-fill" 
-                      style={{ 
-                        width: `${Math.min(Math.max((company.sentiment_signal + 1) * 50, 0), 100)}%`,
-                        background: getSignalColor(company.sentiment_signal)
-                      }}
-                    />
-                  </div>
-                  <div className="ml-grid-mini-bar">
-                    <div 
-                      className="ml-grid-mini-fill" 
-                      style={{ 
-                        width: `${Math.min(Math.max((company.tag_signal + 1) * 50, 0), 100)}%`,
-                        background: getSignalColor(company.tag_signal)
-                      }}
-                    />
-                  </div>
-                  <div className="ml-grid-mini-bar">
-                    <div 
-                      className="ml-grid-mini-fill" 
-                      style={{ 
-                        width: `${Math.min(Math.max((company.technical_fit + 1) * 50, 0), 100)}%`,
-                        background: getSignalColor(company.technical_fit)
-                      }}
-                    />
-                  </div>
+                  <div className="ml-grid-bars">
+                  {[
+                    company.sustainability,
+                    company.innovation,
+                    company.high_engagement,
+                    company.operational_barriers,
+                  ].map((v, idx) => (
+                    <div className="ml-grid-mini-bar centered">
+                      <div
+                        className="ml-grid-mini-fill"
+                        style={{
+                          left: `${50 + (clamp01(v) - 0.5) * 50}%`,
+                          width: `${Math.abs((clamp01(v) - 0.5) * 100)}%`,
+                          background: getSignalColor((clamp01(v) - 0.5) * 2),
+                        }}
+                      />
+                    </div>
+                  ))}
+                </div>
                 </div>
               </motion.button>
             ))}
@@ -488,16 +719,22 @@ export default function MLInsights() {
       {/* BREAKDOWN OR COMPARISON */}
       {selectedCompany && !compareCompany && (
         <section className="ml-breakdown container">
+        <div className="ml-breakdown-header">
           <h2 className="ml-section-title">
             Detailed breakdown: {selectedCompany.company_name}
           </h2>
+          <AdoptionTag adopted={selectedCompany.waps_adopted === 1} />
+        </div>
+
 
           <div className="ml-breakdown-grid">
             {[
-              { label: "Topic signal", value: selectedCompany.topic_signal },
-              { label: "Sentiment signal", value: selectedCompany.sentiment_signal },
-              { label: "Tag signal", value: selectedCompany.tag_signal },
-              { label: "Technical fit", value: selectedCompany.technical_fit },
+              { label: "Sustainability orientation", value: selectedCompany.sustainability, mode: "01" },
+              { label: "Innovation orientation", value: selectedCompany.innovation, mode: "01" },
+              { label: "Economic orientation", value: selectedCompany.economic, mode: "01" },
+              { label: "High engagement", value: selectedCompany.high_engagement, mode: "01" },
+              { label: "Operational barriers", value: selectedCompany.operational_barriers, mode: "01" },
+              { label: "Risk sentiment", value: selectedCompany.sentiment_risk, mode: "pm1" },
             ].map((item, i) => (
               <motion.div
                 key={item.label}
@@ -523,299 +760,86 @@ export default function MLInsights() {
 
           <div className="ml-bars glass">
             <h3>Signal visualization</h3>
-            <SignalBar label="Topic alignment" value={selectedCompany.topic_signal} />
-            <SignalBar label="Sentiment" value={selectedCompany.sentiment_signal} />
-            <SignalBar label="Social-practice tags" value={selectedCompany.tag_signal} />
-            <SignalBar label="Technical fit" value={selectedCompany.technical_fit} />
-          </div>
+            <SignalBar label="Sustainability orientation" value={selectedCompany.sustainability} mode="01" />
+            <SignalBar label="Innovation orientation" value={selectedCompany.innovation} mode="01" />
+            <SignalBar label="Economic orientation" value={selectedCompany.economic} mode="01" />
+            <SignalBar label="Risk sentiment" value={selectedCompany.sentiment_risk} mode="pm1" />
 
-          {/* DISTRIBUTION CHART */}
-          <div className="ml-chart glass">
-            <h3>Signal distribution across all companies</h3>
-            <div className="ml-chart-content">
-              {["topic_signal", "sentiment_signal", "tag_signal", "technical_fit"].map((signal, idx) => {
-                const signalLabel = signal.replace(/_/g, " ").replace(/^\w/, c => c.toUpperCase());
-                const values = data.map(c => c[signal]).filter(v => !isNaN(v));
-                const avg = values.reduce((a, b) => a + b, 0) / values.length;
-                const currentValue = selectedCompany[signal];
-                
-                return (
-                  <div key={signal} className="ml-chart-row">
-                    <div className="ml-chart-label">{signalLabel}</div>
-                    <div className="ml-chart-bar-container">
-                      <div className="ml-chart-bar">
-                        {/* Show distribution range */}
-                        <div className="ml-chart-range" style={{ 
-                          left: "25%", 
-                          width: "50%",
-                          background: "rgba(125,211,252,0.1)"
-                        }} />
-                        {/* Average marker */}
-                        <div 
-                          className="ml-chart-avg" 
-                          style={{ left: `${(avg + 1) * 50}%` }}
-                          title={`Average: ${avg.toFixed(2)}`}
-                        />
-                        {/* Current company marker */}
-                        <div 
-                          className="ml-chart-marker" 
-                          style={{ 
-                            left: `${(currentValue + 1) * 50}%`,
-                            background: getSignalColor(currentValue)
-                          }}
-                        >
-                          <span>{currentValue.toFixed(2)}</span>
-                        </div>
-                      </div>
-                      <div className="ml-chart-axis">
-                        <span>-1.0</span>
-                        <span>0</span>
-                        <span>1.0</span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
           </div>
         </section>
       )}
-
-      {/* SCATTER PLOT - SIGNAL CORRELATION */}
-      {data.length > 0 && (
-        <section className="ml-scatter container">
-          <h2 className="ml-section-title">Signal relationships</h2>
-          <p className="ml-scatter-subtitle">
-            Explore how different signals correlate. Each point represents a company.
-            Click to select or compare.
-          </p>
-          <div className="ml-scatter-grid">
-            <div className="ml-scatter-chart glass">
-              <h3>Technical fit vs. Total score</h3>
-              <div className="ml-scatter-plot">
-                <div className="ml-scatter-axis-y">
-                  <span>2.0</span>
-                  <span>1.0</span>
-                  <span>0</span>
-                  <span>-1.0</span>
-                </div>
-                <div className="ml-scatter-content">
-                  {data.map((company, i) => {
-                    const x = ((company.technical_fit + 1) / 2) * 100;
-                    const y = 100 - ((company.total + 2) / 4) * 100;
-                    const isSelected = selectedCompany?.company_name === company.company_name;
-                    const isCompare = compareCompany?.company_name === company.company_name;
-                    
-                    return (
-                      <div
-                        key={company.company_name}
-                        className={`ml-scatter-point ${isSelected ? "selected" : ""} ${isCompare ? "compare" : ""}`}
-                        style={{ 
-                          left: `${x}%`, 
-                          top: `${y}%`,
-                          background: getSignalColor(company.total),
-                          opacity: isSelected || isCompare ? 1 : 0.6
-                        }}
-                        onClick={() => handleCompanyClick(company)}
-                        title={`${company.company_name}: ${company.total.toFixed(2)}`}
-                      />
-                    );
-                  })}
-                  {/* Grid lines */}
-                  <div className="ml-scatter-grid-line" style={{ left: "50%", height: "100%" }} />
-                  <div className="ml-scatter-grid-line" style={{ top: "50%", width: "100%" }} />
-                </div>
-                <div className="ml-scatter-axis-x">
-                  <span>-1.0</span>
-                  <span>Technical fit</span>
-                  <span>1.0</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="ml-scatter-chart glass">
-              <h3>Sentiment vs. Tag signal</h3>
-              <div className="ml-scatter-plot">
-                <div className="ml-scatter-axis-y">
-                  <span>1.0</span>
-                  <span>0.5</span>
-                  <span>0</span>
-                  <span>-0.5</span>
-                </div>
-                <div className="ml-scatter-content">
-                  {data.map((company, i) => {
-                    const x = ((company.sentiment_signal + 1) / 2) * 100;
-                    const y = 100 - ((company.tag_signal + 1) / 2) * 100;
-                    const isSelected = selectedCompany?.company_name === company.company_name;
-                    const isCompare = compareCompany?.company_name === company.company_name;
-                    
-                    return (
-                      <div
-                        key={company.company_name}
-                        className={`ml-scatter-point ${isSelected ? "selected" : ""} ${isCompare ? "compare" : ""}`}
-                        style={{ 
-                          left: `${x}%`, 
-                          top: `${y}%`,
-                          background: getSignalColor(company.total),
-                          opacity: isSelected || isCompare ? 1 : 0.6
-                        }}
-                        onClick={() => handleCompanyClick(company)}
-                        title={`${company.company_name}: ${company.total.toFixed(2)}`}
-                      />
-                    );
-                  })}
-                  <div className="ml-scatter-grid-line" style={{ left: "50%", height: "100%" }} />
-                  <div className="ml-scatter-grid-line" style={{ top: "50%", width: "100%" }} />
-                </div>
-                <div className="ml-scatter-axis-x">
-                  <span>-1.0</span>
-                  <span>Sentiment</span>
-                  <span>1.0</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-      )}
-
       {selectedCompany && compareCompany && (
-        <section className="ml-compare container">
-          <h2 className="ml-section-title">Side-by-side comparison</h2>
+  <section className="ml-compare container">
+    <div className="ml-compare-header">
+      <h2 className="ml-section-title">
+        Comparing adoption-relevant signals
+      </h2>
 
-          <div className="ml-compare-grid">
-            <div className="ml-compare-col glass">
-              <div className="ml-compare-header">
-                <h3>{selectedCompany.company_name}</h3>
-                <div className="ml-compare-total">
-                  Total: <span style={{ color: getSignalColor(selectedCompany.total) }}>
-                    {selectedCompany.total.toFixed(2)}
-                  </span>
-                </div>
-              </div>
-              <div className="ml-compare-bars">
-                <SignalBar label="Topic" value={selectedCompany.topic_signal} />
-                <SignalBar label="Sentiment" value={selectedCompany.sentiment_signal} />
-                <SignalBar label="Tags" value={selectedCompany.tag_signal} />
-                <SignalBar label="Technical" value={selectedCompany.technical_fit} />
-              </div>
+      <div className="ml-compare-companies">
+        <div className="ml-compare-company">
+          <strong>{selectedCompany.company_name}</strong>
+          <AdoptionTag adopted={selectedCompany.waps_adopted === 1} />
+          <div className="ml-compare-score">
+            Readiness: {selectedCompany.adoption_percentile.toFixed(1)}
+          </div>
+        </div>
+
+        <div className="ml-compare-vs">vs</div>
+
+        <div className="ml-compare-company">
+          <strong>{compareCompany.company_name}</strong>
+          <AdoptionTag adopted={compareCompany.waps_adopted === 1} />
+          <div className="ml-compare-score">
+            Readiness: {compareCompany.adoption_percentile.toFixed(1)}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div className="ml-compare-grid glass">
+      {[
+        { key: "sustainability", label: "Sustainability orientation", mode: "01" },
+        { key: "innovation", label: "Innovation orientation", mode: "01" },
+        { key: "economic", label: "Economic orientation", mode: "01" },
+        { key: "sentiment_risk", label: "Risk sentiment", mode: "pm1" },
+      ].map((signal) => {
+        const a = selectedCompany[signal.key];
+        const b = compareCompany[signal.key];
+        const diff = a - b;
+
+        return (
+          <div key={signal.key} className="ml-compare-row">
+            <div className="ml-compare-label">{signal.label}</div>
+
+            <div className="ml-compare-bars">
+              <SignalBar
+                label={selectedCompany.company_name}
+                value={a}
+                mode={signal.mode}
+              />
+              <SignalBar
+                label={compareCompany.company_name}
+                value={b}
+                mode={signal.mode}
+              />
             </div>
 
-            <div className="ml-compare-col glass">
-              <div className="ml-compare-header">
-                <h3>{compareCompany.company_name}</h3>
-                <div className="ml-compare-total">
-                  Total: <span style={{ color: getSignalColor(compareCompany.total) }}>
-                    {compareCompany.total.toFixed(2)}
-                  </span>
-                </div>
-              </div>
-              <div className="ml-compare-bars">
-                <SignalBar label="Topic" value={compareCompany.topic_signal} />
-                <SignalBar label="Sentiment" value={compareCompany.sentiment_signal} />
-                <SignalBar label="Tags" value={compareCompany.tag_signal} />
-                <SignalBar label="Technical" value={compareCompany.technical_fit} />
-              </div>
+            <div className="ml-compare-diff">
+              Difference:{" "}
+              <span
+                style={{ color: getSignalColor(diff) }}
+              >
+                {diff > 0 ? "+" : ""}
+                {diff.toFixed(2)}
+              </span>
             </div>
           </div>
-        </section>
-      )}
+        );
+      })}
+    </div>
+  </section>
+)}
 
-      {/* SCATTER PLOT - SIGNAL CORRELATION */}
-      {data.length > 0 && (
-        <section className="ml-scatter container">
-          <h2 className="ml-section-title">Signal relationships</h2>
-          <p className="ml-scatter-subtitle">
-            Explore how different signals correlate. Each point represents a company.
-            Click to select or compare.
-          </p>
-          <div className="ml-scatter-grid">
-            <div className="ml-scatter-chart glass">
-              <h3>Technical fit vs. Total score</h3>
-              <div className="ml-scatter-plot">
-                <div className="ml-scatter-axis-y">
-                  <span>2.0</span>
-                  <span>1.0</span>
-                  <span>0</span>
-                  <span>-1.0</span>
-                </div>
-                <div className="ml-scatter-content">
-                  {data.map((company, i) => {
-                    const x = ((company.technical_fit + 1) / 2) * 100;
-                    const y = 100 - ((company.total + 2) / 4) * 100;
-                    const isSelected = selectedCompany?.company_name === company.company_name;
-                    const isCompare = compareCompany?.company_name === company.company_name;
-                    
-                    return (
-                      <div
-                        key={company.company_name}
-                        className={`ml-scatter-point ${isSelected ? "selected" : ""} ${isCompare ? "compare" : ""}`}
-                        style={{ 
-                          left: `${x}%`, 
-                          top: `${y}%`,
-                          background: getSignalColor(company.total),
-                          opacity: isSelected || isCompare ? 1 : 0.6
-                        }}
-                        onClick={() => handleCompanyClick(company)}
-                        title={`${company.company_name}: ${company.total.toFixed(2)}`}
-                      />
-                    );
-                  })}
-                  {/* Grid lines */}
-                  <div className="ml-scatter-grid-line" style={{ left: "50%", height: "100%" }} />
-                  <div className="ml-scatter-grid-line" style={{ top: "50%", width: "100%" }} />
-                </div>
-                <div className="ml-scatter-axis-x">
-                  <span>-1.0</span>
-                  <span>Technical fit</span>
-                  <span>1.0</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="ml-scatter-chart glass">
-              <h3>Sentiment vs. Tag signal</h3>
-              <div className="ml-scatter-plot">
-                <div className="ml-scatter-axis-y">
-                  <span>1.0</span>
-                  <span>0.5</span>
-                  <span>0</span>
-                  <span>-0.5</span>
-                </div>
-                <div className="ml-scatter-content">
-                  {data.map((company, i) => {
-                    const x = ((company.sentiment_signal + 1) / 2) * 100;
-                    const y = 100 - ((company.tag_signal + 1) / 2) * 100;
-                    const isSelected = selectedCompany?.company_name === company.company_name;
-                    const isCompare = compareCompany?.company_name === company.company_name;
-                    
-                    return (
-                      <div
-                        key={company.company_name}
-                        className={`ml-scatter-point ${isSelected ? "selected" : ""} ${isCompare ? "compare" : ""}`}
-                        style={{ 
-                          left: `${x}%`, 
-                          top: `${y}%`,
-                          background: getSignalColor(company.total),
-                          opacity: isSelected || isCompare ? 1 : 0.6
-                        }}
-                        onClick={() => handleCompanyClick(company)}
-                        title={`${company.company_name}: ${company.total.toFixed(2)}`}
-                      />
-                    );
-                  })}
-                  <div className="ml-scatter-grid-line" style={{ left: "50%", height: "100%" }} />
-                  <div className="ml-scatter-grid-line" style={{ top: "50%", width: "100%" }} />
-                </div>
-                <div className="ml-scatter-axis-x">
-                  <span>-1.0</span>
-                  <span>Sentiment</span>
-                  <span>1.0</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-      )}
     </div>
   );
 }

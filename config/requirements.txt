@@ -20,7 +20,7 @@ itsdangerous==2.2.0             # Secure data signing (Flask dependency)
 # Real-time Communication
 # ----------------------------------------------------------------------------
 python-socketio==5.12.0         # Socket.IO server implementation
-python-engineio==4.11.0         # Engine.IO server (Socket.IO dependency)
+python-engineio>=4.11.0,<5       # Engine.IO server (Socket.IO dependency)
 websocket-client==1.8.0         # WebSocket client for AISStream API
 simple-websocket==1.1.0         # WebSocket wrapper (socketio dependency)
 wsproto==1.2.0                  # WebSocket protocol implementation

@@ -2,10 +2,11 @@ import { Routes, Route } from 'react-router-dom'
 import Navbar from './components/Navbar'
 import Hero from './components/Hero'
 import InfoCards from './components/InfoCards' 
-import VesselDatabase from './components/VesselDatabase'  
+import VesselDatabase from './pages/VesselDatabase'  
 import VesselMap from './pages/Map'  // Add this import
 import Intelligence from './pages/Intelligence'
 import MLinsights from './pages/MLinsights'
+import TargetVessels from "./pages/TargetVessels";
 
 function DataPage() {
   return <div style={{ padding: '2rem', color: '#0b2545' }}>Data</div>
@@ -39,6 +40,7 @@ export default function App() {
         <Route path="/about" element={<AboutPage />} />
         <Route path="/intelligence" element={<Intelligence />} />
         <Route path="/ML-insights" element={<MLinsights />} />
+        <Route path="/target-vessels" element={<TargetVessels />} />
       </Routes>
     </div>
   );
