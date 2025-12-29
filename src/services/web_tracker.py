@@ -396,6 +396,17 @@ def serve_frontend(path):
     # Allow API routes to pass through (handled by other routes or return 404)
     if path.startswith('api/'):
         return jsonify({'error': 'API endpoint not found'}), 404
+    
+    # Serve CSV data files from public/data directory
+    if path.startswith('data/'):
+        data_file = project_root / 'frontend' / 'public' / path
+        if data_file.exists():
+            return send_from_directory(str(data_file.parent), path.split('/')[-1])
+        # Also try dist/data as fallback
+        dist_data_file = frontend_dist / path
+        if dist_data_file.exists():
+            return send_from_directory(str(frontend_dist), path)
+        return jsonify({'error': f'Data file not found: {path}'}), 404
         
     # Try to serve static file if it exists in dist
     if (frontend_dist / path).exists():
