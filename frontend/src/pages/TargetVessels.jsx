@@ -79,7 +79,21 @@ useEffect(() => {
           row.Company && row.Company.trim() !== "" ? row.Company.trim() : null;
 
         const company = normalizeCompany(companyRaw);
+        
+        // Debug: Log matching issues
+        if (companyRaw && !companyScoreMap[company]) {
+          console.warn(`No match for company: "${companyRaw}" (normalized: "${company}")`);
+          // Try to find partial matches
+          const possibleMatches = Object.keys(companyScoreMap).filter(k => 
+            k.includes(company) || company.includes(k)
+          );
+          if (possibleMatches.length > 0) {
+            console.warn(`  Possible matches:`, possibleMatches.slice(0, 3));
+          }
+        }
 
+        const scoreData = company && companyScoreMap[company] ? companyScoreMap[company] : null;
+        
         return {
           mmsi: row.MMSI,
           name: row.Name,
@@ -92,16 +106,21 @@ useEffect(() => {
             row["Technical Fit"] !== undefined && row["Technical Fit"] !== ""
               ? Number(row["Technical Fit"])
               : null,
-          company_adoption_score:
-            company && companyScoreMap[company]
-              ? companyScoreMap[company].socialScore
-              : null,
-          waps_adopted:
-            company && companyScoreMap[company]
-              ? companyScoreMap[company].isAdopter
-              : false,
+          company_adoption_score: scoreData ? scoreData.socialScore : null,
+          waps_adopted: scoreData ? scoreData.isAdopter : false,
         };
       });
+      
+      // Debug: Show matching statistics
+      const matched = combinedVessels.filter(v => v.company_adoption_score != null).length;
+      const unmatched = combinedVessels.length - matched;
+      console.log(`Company matching: ${matched} matched, ${unmatched} unmatched out of ${combinedVessels.length} total`);
+      
+      if (matched === 0 && combinedVessels.length > 0) {
+        console.error("⚠️ NO COMPANIES MATCHED! Check company name normalization.");
+        console.log("Sample CSV company names:", mlRows.slice(0, 3).map(r => r.company_name));
+        console.log("Sample tech company names:", techRows.slice(0, 3).map(r => r.Company));
+      }
 
           const mlCoveredVessels = combinedVessels.filter(
       v => v.company_adoption_score != null
