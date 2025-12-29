@@ -119,8 +119,9 @@ useEffect(() => {
 );
 
     } catch (err) {
-      console.error(err);
-      setError("Failed to load vessel data");
+      console.error("Error loading TargetVessels data:", err);
+      console.error("Error details:", err.message, err.stack);
+      setError(`Failed to load vessel data: ${err.message}`);
     } finally {
       setLoading(false);
     }
