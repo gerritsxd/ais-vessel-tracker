@@ -401,11 +401,12 @@ def serve_frontend(path):
     if path.startswith('data/'):
         data_file = project_root / 'frontend' / 'public' / path
         if data_file.exists():
-            return send_from_directory(str(data_file.parent), path.split('/')[-1])
-        # Also try dist/data as fallback
+            # send_from_directory needs directory and filename separately
+            return send_from_directory(str(data_file.parent), data_file.name)
+        # Also try dist/data as fallback (if Vite copied them)
         dist_data_file = frontend_dist / path
         if dist_data_file.exists():
-            return send_from_directory(str(frontend_dist), path)
+            return send_from_directory(str(dist_data_file.parent), dist_data_file.name)
         return jsonify({'error': f'Data file not found: {path}'}), 404
         
     # Try to serve static file if it exists in dist
