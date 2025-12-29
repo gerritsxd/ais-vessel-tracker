@@ -14,10 +14,13 @@ function computeCombinedScore(companyScore, techScore) {
 
 function normalizeCompany(name) {
   if (!name) return null;
+  // More aggressive normalization to handle different formats
   return name
     .toLowerCase()
-    .replace(/[^\w\s]/g, "")
-    .replace(/\b(ltd|inc|ag|sa|nv|bv|plc)\b/g, "")
+    .replace(/[^\w\s]/g, " ")  // Replace punctuation with spaces first
+    .replace(/\s+/g, " ")       // Collapse multiple spaces
+    .replace(/\b(ltd|limited|inc|incorporated|ag|sa|nv|bv|plc|corp|corporation|pte|kabushiki|kaisha|s\.a\.|s\.a|a\.s\.|a\.s)\b/g, "")
+    .replace(/\s+/g, " ")       // Collapse spaces again after removing suffixes
     .trim();
 }
 
