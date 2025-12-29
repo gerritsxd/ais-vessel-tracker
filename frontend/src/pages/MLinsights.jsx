@@ -57,7 +57,7 @@ function percent01(value) {
 
 
   useEffect(() => {
-    loadCSV("/data/companies_with_waps_score.csv")
+    loadCSV(`${import.meta.env.BASE_URL}data/companies_with_waps_score.csv`)
       .then(raw => {
         console.log("Raw CSV data:", raw[0]); // Debug log
         const parsed = raw.map(row => {

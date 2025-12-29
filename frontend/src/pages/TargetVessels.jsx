@@ -37,10 +37,10 @@ useEffect(() => {
       setLoading(true);
 
       // 1. Load technical-fit vessels
-      const techRows = await loadCSV("/data/technical_fit_ships.csv");
+      const techRows = await loadCSV(`${import.meta.env.BASE_URL}data/technical_fit_ships.csv`);
 
       // 2. Load ML company adoption scores
-      const mlRows = await loadCSV("/data/companies_with_waps_score.csv");
+      const mlRows = await loadCSV(`${import.meta.env.BASE_URL}data/companies_with_waps_score.csv`);
       
       console.log("Loaded ML rows:", mlRows.length);
       if (mlRows.length > 0) {
