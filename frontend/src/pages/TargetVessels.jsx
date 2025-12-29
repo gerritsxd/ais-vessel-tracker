@@ -38,23 +38,37 @@ useEffect(() => {
 
       // 2. Load ML company adoption scores
       const mlRows = await loadCSV("/data/companies_with_waps_score.csv");
+      
+      console.log("Loaded ML rows:", mlRows.length);
+      if (mlRows.length > 0) {
+        console.log("Sample ML row:", mlRows[0]);
+        console.log("Sample waps_score_percentile:", mlRows[0].waps_score_percentile);
+      }
 
       // 3. Build company → social score map
       const companyScoreMap = Object.fromEntries(
         mlRows
           .filter(row => row.company_name)
-          .map(row => [
-            normalizeCompany(row.company_name),
-            {
-              socialScore: Number(row.waps_score_percentile),
-              isAdopter:
-                row.waps_adopted === "1" ||
-                row.waps_adopted === 1,
-            },
-          ])
+          .map(row => {
+            const percentile = Number(row.waps_score_percentile);
+            if (isNaN(percentile)) {
+              console.warn(`Invalid percentile for ${row.company_name}:`, row.waps_score_percentile);
+            }
+            return [
+              normalizeCompany(row.company_name),
+              {
+                socialScore: percentile,
+                isAdopter:
+                  row.waps_adopted === "1" ||
+                  row.waps_adopted === 1 ||
+                  row.waps_adopted === true,
+              },
+            ];
+          })
       );
 
       console.log("Company score keys:", Object.keys(companyScoreMap).slice(0, 10));
+      console.log("Sample scores:", Object.entries(companyScoreMap).slice(0, 5).map(([k, v]) => `${k}: ${v.socialScore}`));
 
 
 
