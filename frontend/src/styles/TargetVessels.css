@@ -205,3 +205,181 @@ color: var(--text-secondary);
   color: var(--text-muted);
   opacity: 0.75;
 }
+
+
+.tv-tag {
+  margin-left: 8px;
+  padding: 2px 8px;
+  font-size: 11px;
+  border-radius: 999px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.tv-tag.adopted {
+  background: rgba(80, 200, 120, 0.15);
+  color: #5fe0a0;
+  border: 1px solid rgba(80, 200, 120, 0.3);
+}
+
+.tv-tag.candidate {
+  background: rgba(120, 160, 255, 0.15);
+  color: #8fb1ff;
+  border: 1px solid rgba(120, 160, 255, 0.3);
+}
+.tv-cards {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.tv-card {
+  display: grid;
+  grid-template-columns: 1.4fr 0.6fr;
+  gap: 28px;
+  padding: 24px 28px;
+  min-height: 130px;
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,0.05),
+    0 8px 24px rgba(0,0,0,0.35);
+}
+
+
+.tv-card:hover {
+  background: rgba(255,255,255,0.06);
+  border-color: rgba(255,255,255,0.12);
+  transform: translateY(-1px);
+  transform: translateY(-2px);
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,0.12),
+    0 16px 40px rgba(0,0,0,0.45);
+}
+
+
+.tv-card.top {
+  background: linear-gradient(
+    90deg,
+    rgba(125,211,252,0.10),
+    rgba(255,255,255,0.03)
+  );
+  border-color: rgba(125,211,252,0.25);
+}
+
+.tv-card-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.tv-rank-pill {
+  font-size: 12px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: var(--text-secondary);
+}
+
+.tv-vessel-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.tv-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.tv-meta-item {
+  font-size: 12px;
+  color: var(--text-muted);
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+.tv-card-company {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tv-company-label {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.tv-company-name {
+  font-size: 13px;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.tv-card-right {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding-left: 24px;
+
+  border-left: 1px solid rgba(255,255,255,0.08);
+}
+
+
+.tv-score-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.tv-score-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tv-score-label {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.tv-score-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.tv-score-value.primary {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--accent-primary);
+  letter-spacing: -0.02em;
+}
+
+
+.tv-score-value.muted {
+  color: var(--text-muted);
+  font-weight: 500;
+  font-size: 15px;
+}
+
+/* skeleton cards */
+.tv-skeleton-card {
+  height: 92px;
+  border-radius: 16px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+
+.tv-wide {
+  width: 100%;
+  max-width: none;
+  padding-left: 32px;
+  padding-right: 32px;
+}
