@@ -23,13 +23,13 @@ echo "🧪 Step 2: Testing log rotation..."
 sudo logrotate -f /etc/logrotate.d/ais-tracker
 echo "✅ Log rotation tested"
 
-# 3. Setup daily database cleanup cron job
+# 3. Setup daily database cleanup cron job (30-day retention)
 echo ""
-echo "⏰ Step 3: Setting up daily database cleanup..."
-CRON_JOB="0 3 * * * cd /var/www/apihub && /var/www/apihub/venv/bin/python /var/www/apihub/cleanup_database.py >> /var/log/ais-cleanup.log 2>&1"
+echo "⏰ Step 3: Setting up daily database cleanup (30-day retention)..."
+CRON_JOB="0 3 * * * cd /var/www/apihub && /var/www/apihub/venv/bin/python /var/www/apihub/src/utils/cleanup_database.py >> /var/log/ais-cleanup.log 2>&1"
 
 # Check if cron job already exists
-if crontab -l 2>/dev/null | grep -q "cleanup_database.py"; then
+if crontab -l 2>/dev/null | grep -q "src/utils/cleanup_database.py"; then
     echo "⚠️  Cron job already exists, skipping..."
 else
     (crontab -l 2>/dev/null; echo "$CRON_JOB") | crontab -
@@ -45,9 +45,9 @@ echo "✅ Log file created: /var/log/ais-cleanup.log"
 
 # 5. Run initial cleanup
 echo ""
-echo "🧹 Step 5: Running initial database cleanup..."
+echo "🧹 Step 5: Running initial database cleanup (30-day retention)..."
 cd /var/www/apihub
-/var/www/apihub/venv/bin/python cleanup_database.py
+/var/www/apihub/venv/bin/python src/utils/cleanup_database.py
 
 # 6. Show current disk usage
 echo ""
@@ -57,7 +57,7 @@ df -h / | grep -v Filesystem
 # 7. Show cron jobs
 echo ""
 echo "⏰ Scheduled Cleanup Jobs:"
-crontab -l | grep cleanup_database.py
+crontab -l | grep "cleanup_database.py" || true
 
 echo ""
 echo "========================================================"
@@ -65,12 +65,13 @@ echo "✅ Automatic cleanup setup complete!"
 echo ""
 echo "What happens now:"
 echo "  • Database cleanup runs daily at 3 AM"
-echo "  • Keeps last 7 days of position data"
+echo "  • Keeps last 30 days of position and vessel data"
 echo "  • Logs rotate daily (max 100MB)"
 echo "  • Old logs compressed automatically"
 echo ""
-echo "Manual cleanup:"
-echo "  python cleanup_database.py"
+echo "Manual cleanup (e.g. after git pull):"
+echo "  ./scripts/run_cleanup_30days.sh"
+echo "  or: python src/utils/cleanup_database.py"
 echo ""
 echo "Check cleanup logs:"
 echo "  tail -f /var/log/ais-cleanup.log"

@@ -170,9 +170,19 @@ sudo supervisorctl stop ais-web-tracker
 
 ## Database Management
 
+The database is limited to **the last 30 days** of data. Older rows are removed by the cleanup script, and VACUUM reclaims disk space.
+
+### Trim to 30 days (after git pull or when DB is large)
+```bash
+cd /var/www/apihub
+./scripts/run_cleanup_30days.sh
+# or: python src/utils/cleanup_database.py
+```
+Run this after `git pull` to enforce 30-day retention and shrink the database (e.g. from tens of GB down).
+
 ### Backup Database
 ```bash
-cp vessel_static_data.db vessel_static_data.db.backup.$(date +%Y%m%d)
+cp data/vessel_static_data.db data/vessel_static_data.db.backup.$(date +%Y%m%d)
 ```
 
 ### Check Database Size

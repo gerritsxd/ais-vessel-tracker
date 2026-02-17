@@ -100,6 +100,9 @@ git pull origin master
 cd frontend
 npm run build
 
+# Optional: trim database to last 30 days and reclaim space (run after pull if DB is large)
+./scripts/run_cleanup_30days.sh
+
 # Restart services (if backend changes)
 sudo systemctl restart ais-web-tracker
 sudo systemctl restart ais-collector  # if needed
